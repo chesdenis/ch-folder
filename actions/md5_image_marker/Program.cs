@@ -17,9 +17,9 @@ class Program
         // Iterate over each argument (file path)
         foreach (var arg in args)
         {
-            if (Directory.Exists(arg)) // if it is a directory, iterate over all files in it recursively
+            if (Directory.Exists(arg)) // if it is a directory, iterate over all files in it
             {
-                foreach (var filePath in Directory.EnumerateFiles(arg))
+                foreach (var filePath in Directory.EnumerateFiles(arg, "*", SearchOption.TopDirectoryOnly))
                 {
                     await ProcessSingleFile(filePath);
                 }
