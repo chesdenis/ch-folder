@@ -416,3 +416,11 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# JetBrains IDEs (IntelliJ, Rider, etc.)
+.idea/
+*.iml
+*.ipr
+*.iws
+
+
