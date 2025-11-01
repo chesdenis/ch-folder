@@ -18,7 +18,7 @@ COPY md5_image_marker/ actions/md5_image_marker/
 RUN dotnet publish actions/md5_image_marker/md5_image_marker.csproj -c Release -o /app/publish
 
 # Runtime stage
-FROM mcr.microsoft.com/dotnet/runtime:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/runtime:8.0 AS runtime
 WORKDIR /app
 COPY --from=build /app/publish ./
 
