@@ -1,4 +1,4 @@
-namespace md5_image_hasher.Abstractions;
+namespace shared_csharp.Abstractions;
 
 public interface IFileSystem
 {

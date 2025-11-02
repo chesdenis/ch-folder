@@ -1,6 +1,6 @@
-using md5_image_hasher.Abstractions;
+using shared_csharp.Abstractions;
 
-namespace md5_image_hasher.Infrastructure;
+namespace shared_csharp.Infrastructure;
 
 public class PhysicalFileSystem : IFileSystem
 {

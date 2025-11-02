@@ -1,4 +1,4 @@
-namespace shared_csharp;
+namespace shared_csharp.Extensions;
 
 public static class ImageProcessingGuardExtensions
 {

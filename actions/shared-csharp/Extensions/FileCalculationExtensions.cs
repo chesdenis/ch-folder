@@ -2,7 +2,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace shared_csharp;
+namespace shared_csharp.Extensions;
 
 public static class FileCalculationExtensions
 {

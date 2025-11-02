@@ -2,6 +2,7 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using shared_csharp;
+using shared_csharp.Extensions;
 using Xunit;
 
 namespace shared_csharp_tests

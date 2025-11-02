@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
-using md5_image_hasher.Abstractions;
 using shared_csharp;
+using shared_csharp.Abstractions;
+using shared_csharp.Extensions;
 
 namespace md5_image_hasher.Services;
 

@@ -1,6 +1,6 @@
-using md5_image_hasher.Abstractions;
 using md5_image_hasher.Services;
 using NSubstitute;
+using shared_csharp.Abstractions;
 using Xunit;
 
 namespace md5_image_marker.tests;
