@@ -11,3 +11,8 @@ dotnet test actions/md5_image_marker.tests/md5_image_marker.tests.csproj
 ```bash
 docker build -f md5_image_marker.Dockerfile -t md5_image_marker .
 ```
+
+## to run docker image
+```bash
+docker run --rm -v .:/in:rw md5_image_marker /in
+```
