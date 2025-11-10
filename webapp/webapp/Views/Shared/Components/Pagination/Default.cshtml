@@ -1,0 +1,101 @@
+@using System
+@using System.Linq
+@using System.Collections.Generic
+@model webapp.Components.PaginationModel
+@{
+    var currentPage = Model.CurrentPage;
+    var totalPages = Model.TotalPages;
+    var hasPrevious = currentPage > 1;
+    var hasNext = currentPage < totalPages;
+}
+
+<nav aria-label="Page navigation" class="mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="page-info">
+            <span class="badge bg-secondary">Page @currentPage of @totalPages</span>
+        </div>
+    </div>
+
+    <ul class="pagination justify-content-center">
+        <!-- Previous Button -->
+        <li class="page-item @(!hasPrevious ? "disabled" : "")">
+            <a class="page-link" href="@GetPageUrl(currentPage - 1, Context.Request)"
+               aria-label="Previous"
+               @(!hasPrevious ? "tabindex=-1" : "")>
+                <span aria-hidden="true">&laquo; Back</span>
+            </a>
+        </li>
+
+        <!-- First Page -->
+        @if (currentPage > 3)
+        {
+            <li class="page-item">
+                <a class="page-link" href="@GetPageUrl(1, Context.Request)">1</a>
+            </li>
+            @if (currentPage > 4)
+            {
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+            }
+        }
+
+        <!-- Pages Around Current -->
+        @for (int i = Math.Max(1, currentPage - 2); i <= Math.Min(totalPages, currentPage + 2); i++)
+        {
+            <li class="page-item @(i == currentPage ? "active" : "")">
+                <a class="page-link" href="@GetPageUrl(i, Context.Request)">
+                    @i
+                    @if (i == currentPage)
+                    {
+                        <span class="visually-hidden">(current)</span>
+                    }
+                </a>
+            </li>
+        }
+
+        <!-- Last Page -->
+        @if (currentPage < totalPages - 2)
+        {
+            @if (currentPage < totalPages - 3)
+            {
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+            }
+
+            <li class="page-item">
+                <a class="page-link" href="@GetPageUrl(totalPages, Context.Request)">@totalPages</a>
+            </li>
+        }
+
+        <!-- Next Button -->
+        <li class="page-item @(!hasNext ? "disabled" : "")">
+            <a class="page-link" href="@GetPageUrl(currentPage + 1, Context.Request)"
+               aria-label="Next"
+               @(!hasNext ? "tabindex=-1" : "")>
+                <span aria-hidden="true">Forward &raquo;</span>
+            </a>
+        </li>
+    </ul>
+</nav>
+
+@functions {
+    string GetPageUrl(int page, HttpRequest request)
+    {
+        var queryParams = new Dictionary<string, string>();
+
+        foreach (var key in request.Query.Keys)
+        {
+            if (key != "page")
+            {
+                queryParams[key] = request.Query[key].ToString();
+            }
+        }
+
+        queryParams["page"] = page.ToString();
+
+        var queryString = string.Join("&", queryParams.Select(kvp => $"{kvp.Key}={Uri.EscapeDataString(kvp.Value)}"));
+        return $"?{queryString}";
+    }
+}
