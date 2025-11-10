@@ -1,160 +1,166 @@
 ﻿@{
-    ViewData["Title"] = "Home Page";
-    var viewMode = Context.Request.Query["view"].ToString();
+    ViewData["Title"] = "Ch Photo Gallery";
     var queryText = Context.Request.Query["query"].ToString();
     var selectedTags = Context.Request.Query["tags"].ToArray();
+    var filters = Context.Request.Query["filters"].ToArray();
+    var sorting = Context.Request.Query["sorting"].ToArray();
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
-
-<div class="container mt-4">
-    <form method="get" action="" class="row g-3 justify-content-center">
-        <div class="col-auto">
-            <input type="text" 
-                   class="form-control" 
-                   name="query" 
-                   placeholder="Enter search text" 
-                   value="@queryText" />
+<div class="container-fluid mt-4 px-3">
+    <form method="get" action="" class="row g-3">
+        <div class="col-12 col-md-10 col-lg-11">
+            <textarea class="form-control"
+                      name="query"
+                      placeholder="Enter search text"
+                      rows="3">@queryText</textarea>
         </div>
-        <div class="col-auto">
-            <button type="submit" class="btn btn-primary">Search</button>
+        <div class="col-12 col-md-2 col-lg-1">
+            <button type="submit" class="btn btn-primary w-100">Search</button>
         </div>
-        @if (!string.IsNullOrEmpty(viewMode))
-        {
-            <input type="hidden" name="view" value="@viewMode" />
-        }
-    </form>
-    
-    @if (!string.IsNullOrEmpty(queryText))
-    {
-        <div class="alert alert-info mt-3">
-            Search query: <strong>@queryText</strong>
-        </div>
-    }
-</div>
-
-<div class="container mt-4">
-    <h3>Select Tags</h3>
-    <form method="get" action="">
-        <div class="mb-3">
-            <div class="tag-selector">
-                <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="checkbox" name="tags" value="ASP.NET" id="tag1" 
+        <div class="col-12">
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input" type="checkbox" name="tags" value="ASP.NET" id="tag1"
                            @(selectedTags.Contains("ASP.NET") ? "checked" : "")>
                     <label class="form-check-label badge bg-primary" for="tag1">ASP.NET</label>
                 </div>
-                <div class="form-check form-check-inline">
+                <div class="form-check form-check-inline mb-0">
                     <input class="form-check-input" type="checkbox" name="tags" value="C#" id="tag2"
                            @(selectedTags.Contains("C#") ? "checked" : "")>
                     <label class="form-check-label badge bg-secondary" for="tag2">C#</label>
                 </div>
-                <div class="form-check form-check-inline">
+                <div class="form-check form-check-inline mb-0">
                     <input class="form-check-input" type="checkbox" name="tags" value="JavaScript" id="tag3"
                            @(selectedTags.Contains("JavaScript") ? "checked" : "")>
                     <label class="form-check-label badge bg-success" for="tag3">JavaScript</label>
                 </div>
-                <div class="form-check form-check-inline">
+                <div class="form-check form-check-inline mb-0">
                     <input class="form-check-input" type="checkbox" name="tags" value="CSS" id="tag4"
                            @(selectedTags.Contains("CSS") ? "checked" : "")>
                     <label class="form-check-label badge bg-info" for="tag4">CSS</label>
                 </div>
-                <div class="form-check form-check-inline">
+                <div class="form-check form-check-inline mb-0">
                     <input class="form-check-input" type="checkbox" name="tags" value="HTML" id="tag5"
                            @(selectedTags.Contains("HTML") ? "checked" : "")>
                     <label class="form-check-label badge bg-warning" for="tag5">HTML</label>
                 </div>
             </div>
         </div>
-        <button type="submit" class="btn btn-primary">Apply Filters</button>
-        @if (!string.IsNullOrEmpty(viewMode))
-        {
-            <input type="hidden" name="view" value="@viewMode" />
-        }
     </form>
+    <div class="row">
+        <div class="col-12 col-lg-3 mb-4">
+            <div class="accordion" id="filtersAccordion">
+                <!-- View Options Section -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                data-bs-target="#viewCollapse" aria-expanded="false" aria-controls="viewCollapse">
+                            View Options
+                        </button>
+                    </h2>
+                    <div id="viewCollapse" class="accordion-collapse collapse">
+                        <div class="accordion-body">
+                            <p class="text-muted">No view options available</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filters Section -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                data-bs-target="#filtersCollapse" aria-expanded="false" aria-controls="filtersCollapse">
+                            Filters
+                        </button>
+                    </h2>
+                    <div id="filtersCollapse" class="accordion-collapse collapse">
+                        <div class="accordion-body">
+                            <p class="text-muted">No filters available</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sorting Section -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                data-bs-target="#sortingCollapse" aria-expanded="false" aria-controls="sortingCollapse">
+                            Sorting
+                        </button>
+                    </h2>
+                    <div id="sortingCollapse" class="accordion-collapse collapse">
+                        <div class="accordion-body">
+                            <p class="text-muted">No sorting options available</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-9">
+            <div class="pswp-gallery" id="my-gallery">
+                <a href="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=1600"
+                   data-pswp-width="1600"
+                   data-pswp-height="1067"
+                   target="_blank">
+                    <img src="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=300" alt="Cat 1"
+                         class="img-thumbnail m-2"/>
+                </a>
+                <a href="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=1600"
+                   data-pswp-width="1600"
+                   data-pswp-height="1067"
+                   target="_blank">
+                    <img src="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=300" alt="Cat 1"
+                         class="img-thumbnail m-2"/>
+                </a>
+
+                <a href="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=1600"
+                   data-pswp-width="1600"
+                   data-pswp-height="1067"
+                   target="_blank">
+                    <img src="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=300" alt="Cat 1"
+                         class="img-thumbnail m-2"/>
+                </a>
+
+                <a href="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=1600"
+                   data-pswp-width="1600"
+                   data-pswp-height="1067"
+                   target="_blank">
+                    <img src="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=300" alt="Cat 1"
+                         class="img-thumbnail m-2"/>
+                </a>
+
+                <a href="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=1600"
+                   data-pswp-width="1600"
+                   data-pswp-height="1067"
+                   target="_blank">
+                    <img src="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=300" alt="Cat 1"
+                         class="img-thumbnail m-2"/>
+                </a>
+                <!-- more images -->
+            </div>
+        </div>
+    </div>
 </div>
 
-@if (viewMode == "gallery")
-{
-    <h2 class="text-center mt-5">Image Gallery</h2>
-    <div class="pswp-gallery" id="my-gallery">
-        <a href="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=1600"
-           data-pswp-width="1600"
-           data-pswp-height="1067"
-           target="_blank">
-            <img src="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=300" alt="Cat 1" class="img-thumbnail m-2" />
-        </a>
-        <a href="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=1600"
-           data-pswp-width="1600"
-           data-pswp-height="1067"
-           target="_blank">
-            <img src="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=300" alt="Cat 1" class="img-thumbnail m-2" />
-        </a>
-        
-        <a href="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=1600"
-           data-pswp-width="1600"
-           data-pswp-height="1067"
-           target="_blank">
-            <img src="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=300" alt="Cat 1" class="img-thumbnail m-2" />
-        </a>
-        
-        <a href="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=1600"
-           data-pswp-width="1600"
-           data-pswp-height="1067"
-           target="_blank">
-            <img src="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=300" alt="Cat 1" class="img-thumbnail m-2" />
-        </a>
-        
-        <a href="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=1600"
-           data-pswp-width="1600"
-           data-pswp-height="1067"
-           target="_blank">
-            <img src="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=300" alt="Cat 1" class="img-thumbnail m-2" />
-        </a>
-        <!-- more images -->
-    </div>
-}
-else if (viewMode == "list")
-{
-    <h2 class="text-center mt-5">List View</h2>
-    <ul class="list-group">
-        <li class="list-group-item">Image 1</li>
-        <li class="list-group-item">Image 2</li>
-        <li class="list-group-item">Image 3</li>
-    </ul>
-}
-else
-{
-    <p class="text-center mt-5">
-        <a href="?view=gallery" class="btn btn-primary">View Gallery</a>
-        <a href="?view=list" class="btn btn-secondary">View List</a>
-    </p>
-}
+
 
 @section Styles {
-    @if (viewMode == "gallery")
-    {
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe.css">
-    }
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe.css">
 }
 
 @section Scripts {
-    @if (viewMode == "gallery")
-    {
-        <script type="module">
-            import PhotoSwipeLightbox from 'https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe-lightbox.esm.js';
-            
-            const lightbox = new PhotoSwipeLightbox({
-                gallery: '#my-gallery',
-                children: 'a',
-                pswpModule: () => import('https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe.esm.js')
-            });
-            
-            lightbox.init();
-        </script>
-    }
+    <script type="module">
+        import PhotoSwipeLightbox
+            from 'https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe-lightbox.esm.js';
+
+        const lightbox = new PhotoSwipeLightbox({
+            gallery: '#my-gallery',
+            children: 'a',
+            pswpModule: () => import('https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe.esm.js')
+        });
+
+        lightbox.init();
+    </script>
 }
 
 <!-- Pagination Navigator -->
@@ -171,12 +177,12 @@ else
             <span class="badge bg-secondary">Page @currentPage of @totalPages</span>
         </div>
     </div>
-    
+
     <ul class="pagination justify-content-center">
         <!-- Previous Button -->
         <li class="page-item @(!hasPrevious ? "disabled" : "")">
-            <a class="page-link" href="@GetPageUrl(currentPage - 1, Context.Request)" 
-               aria-label="Previous" 
+            <a class="page-link" href="@GetPageUrl(currentPage - 1, Context.Request)"
+               aria-label="Previous"
                @(!hasPrevious ? "tabindex=-1" : "")>
                 <span aria-hidden="true">&laquo; Back</span>
             </a>
@@ -219,6 +225,7 @@ else
                     <span class="page-link">...</span>
                 </li>
             }
+
             <li class="page-item">
                 <a class="page-link" href="@GetPageUrl(totalPages, Context.Request)">@totalPages</a>
             </li>
@@ -226,7 +233,7 @@ else
 
         <!-- Next Button -->
         <li class="page-item @(!hasNext ? "disabled" : "")">
-            <a class="page-link" href="@GetPageUrl(currentPage + 1, Context.Request)" 
+            <a class="page-link" href="@GetPageUrl(currentPage + 1, Context.Request)"
                aria-label="Next"
                @(!hasNext ? "tabindex=-1" : "")>
                 <span aria-hidden="true">Forward &raquo;</span>
@@ -236,10 +243,11 @@ else
 </nav>
 
 @functions {
+
     string GetPageUrl(int page, HttpRequest request)
     {
         var queryParams = new Dictionary<string, string>();
-        
+
         foreach (var key in request.Query.Keys)
         {
             if (key != "page")
@@ -247,10 +255,11 @@ else
                 queryParams[key] = request.Query[key].ToString();
             }
         }
-        
+
         queryParams["page"] = page.ToString();
-        
+
         var queryString = string.Join("&", queryParams.Select(kvp => $"{kvp.Key}={Uri.EscapeDataString(kvp.Value)}"));
         return $"?{queryString}";
     }
+
 }
