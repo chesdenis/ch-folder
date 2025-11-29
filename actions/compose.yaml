@@ -3,5 +3,5 @@
     image: webapp
     build:
       context: .
-      dockerfile: ../webapp/webapp/Dockerfile
+      dockerfile: ../webapp/Dockerfile
 

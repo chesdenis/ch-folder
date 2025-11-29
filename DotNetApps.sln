@@ -1,22 +1,22 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "shared-csharp", "shared-csharp\shared-csharp.csproj", "{32265104-E9BC-47A8-AF6B-E4977ACAFAA3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "shared-csharp", "actions\shared-csharp\shared-csharp.csproj", "{32265104-E9BC-47A8-AF6B-E4977ACAFAA3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "md5_image_marker", "md5_image_marker\md5_image_marker.csproj", "{2CECBE7A-44EE-47F1-B996-7CFF49439FA6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "md5_image_marker", "actions\md5_image_marker\md5_image_marker.csproj", "{2CECBE7A-44EE-47F1-B996-7CFF49439FA6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ai_content_query_builder", "ai_content_query_builder\ai_content_query_builder.csproj", "{7F8C2038-81C4-4783-849A-363A0BB8DF4D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ai_content_query_builder", "actions\ai_content_query_builder\ai_content_query_builder.csproj", "{7F8C2038-81C4-4783-849A-363A0BB8DF4D}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{68B14173-6FCA-4D2D-9F5C-6C2B56887904}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "md5_image_marker.tests", "..\tests\unit\actions\md5_image_marker.tests\md5_image_marker.tests.csproj", "{E94BF234-9583-4054-9356-B0AAD9C36194}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "md5_image_marker.tests", "tests\unit\actions\md5_image_marker.tests\md5_image_marker.tests.csproj", "{E94BF234-9583-4054-9356-B0AAD9C36194}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "shared-csharp.tests", "..\tests\unit\actions\shared-csharp.tests\shared-csharp.tests.csproj", "{FA484FF9-26DB-4FCC-ADA8-FB3BF3801D8E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "shared-csharp.tests", "tests\unit\actions\shared-csharp.tests\shared-csharp.tests.csproj", "{FA484FF9-26DB-4FCC-ADA8-FB3BF3801D8E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "webapp", "..\webapp\webapp\webapp.csproj", "{EE539E23-5C5D-4116-B471-D91762855B0A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "webapp", "webapp\webapp.csproj", "{EE539E23-5C5D-4116-B471-D91762855B0A}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{9CAA0A14-0708-4301-8EA8-646EFE7F14F4}"
 	ProjectSection(SolutionItems) = preProject
-		compose.yaml = compose.yaml
+		compose.yaml = actions\compose.yaml
 	EndProjectSection
 EndProject
 Global
