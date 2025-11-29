@@ -4,9 +4,33 @@
     var selectedTags = Context.Request.Query["tags"].ToArray();
     var filters = Context.Request.Query["filters"].ToArray();
     var sorting = Context.Request.Query["sorting"].ToArray();
-    
+
+    // Paging and view options from query
     var currentPage = int.TryParse(Context.Request.Query["page"], out var p) ? p : 1;
-    var totalPages = 10; // Set this from your data/controller
+    var pageSize = int.TryParse(Context.Request.Query["pageSize"], out var ps) ? ps : 12;
+    var thumbSize = int.TryParse(Context.Request.Query["size"], out var sz) ? sz : 256;
+
+    // Clamp allowed thumbnail sizes to specific values
+    int[] allowedSizes = new[] { 16, 32, 64, 128, 256, 512, 2000 };
+    if (Array.IndexOf(allowedSizes, thumbSize) < 0)
+    {
+        var minDiff = int.MaxValue;
+        var closest = allowedSizes[0];
+        foreach (var s in allowedSizes)
+        {
+            var d = Math.Abs(s - thumbSize);
+            if (d < minDiff)
+            {
+                minDiff = d;
+                closest = s;
+            }
+        }
+        thumbSize = closest;
+    }
+
+    // For demo purpose, totalItems equals the sample set size in GalleryViewComponent
+    var totalItems = 15; // keep in sync with GalleryViewComponent.SampleUrls length
+    var totalPages = (int)Math.Ceiling(totalItems / (double)Math.Max(1, pageSize));
 }
 
 <div class="container-fluid mt-4 px-3">
@@ -63,7 +87,35 @@
                     </h2>
                     <div id="viewCollapse" class="accordion-collapse collapse">
                         <div class="accordion-body">
-                            <p class="text-muted">No view options available</p>
+                            <div class="mb-3">
+                                <label for="thumbSize" class="form-label">Thumbnail size: <span id="thumbSizeValue" class="badge bg-info">@thumbSize px</span></label>
+                                <input type="range" class="form-range" id="thumbSize" min="16" max="2000" step="1" value="@thumbSize" list="sizeTicks">
+                                <datalist id="sizeTicks">
+                                    <option value="16" label="16"></option>
+                                    <option value="32" label="32"></option>
+                                    <option value="64" label="64"></option>
+                                    <option value="128" label="128"></option>
+                                    <option value="256" label="256"></option>
+                                    <option value="512" label="512"></option>
+                                    <option value="2000" label="2000"></option>
+                                </datalist>
+                                <div class="form-text">Drag the slider. Values snap to 16, 32, 64, 128, 256, 512, or 2000 px.</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="pageSizeSelect" class="form-label">Images per page</label>
+                                <select id="pageSizeSelect" class="form-select">
+                                    @if (pageSize == 6) {<option value="6" selected>6</option>} else {<option value="6">6</option>}
+                                    @if (pageSize == 12) {<option value="12" selected>12</option>} else {<option value="12">12</option>}
+                                    @if (pageSize == 24) {<option value="24" selected>24</option>} else {<option value="24">24</option>}
+                                    @if (pageSize == 48) {<option value="48" selected>48</option>} else {<option value="48">48</option>}
+                                </select>
+                            </div>
+
+                            <div class="d-flex gap-2">
+                                <button type="button" id="applyViewOptions" class="btn btn-primary">Apply</button>
+                                <button type="button" id="resetViewOptions" class="btn btn-outline-secondary">Reset</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -101,47 +153,7 @@
         </div>
         <div class="col-12 col-lg-9">
             @await Component.InvokeAsync("Pagination", new { currentPage, totalPages })
-            <div class="pswp-gallery" id="my-gallery">
-                <a href="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=1600"
-                   data-pswp-width="1600"
-                   data-pswp-height="1067"
-                   target="_blank">
-                    <img src="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=300" alt="Cat 1"
-                         class="img-thumbnail m-2"/>
-                </a>
-                <a href="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=1600"
-                   data-pswp-width="1600"
-                   data-pswp-height="1067"
-                   target="_blank">
-                    <img src="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=300" alt="Cat 1"
-                         class="img-thumbnail m-2"/>
-                </a>
-
-                <a href="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=1600"
-                   data-pswp-width="1600"
-                   data-pswp-height="1067"
-                   target="_blank">
-                    <img src="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=300" alt="Cat 1"
-                         class="img-thumbnail m-2"/>
-                </a>
-
-                <a href="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=1600"
-                   data-pswp-width="1600"
-                   data-pswp-height="1067"
-                   target="_blank">
-                    <img src="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=300" alt="Cat 1"
-                         class="img-thumbnail m-2"/>
-                </a>
-
-                <a href="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=1600"
-                   data-pswp-width="1600"
-                   data-pswp-height="1067"
-                   target="_blank">
-                    <img src="https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=300" alt="Cat 1"
-                         class="img-thumbnail m-2"/>
-                </a>
-                <!-- more images -->
-            </div>
+            @await Component.InvokeAsync("Gallery", new { page = currentPage, pageSize = pageSize, thumbSize = thumbSize })
             @await Component.InvokeAsync("Pagination", new { currentPage, totalPages })
         </div>
     </div>
@@ -157,6 +169,57 @@
     <script type="module">
         import PhotoSwipeLightbox
             from 'https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe-lightbox.esm.js';
+
+        // Helpers to manage query string
+        function setQueryParam(url, key, value) {
+            const u = new URL(url, window.location.origin);
+            if (value === null || value === undefined || value === '') {
+                u.searchParams.delete(key);
+            } else {
+                u.searchParams.set(key, value);
+            }
+            return u.toString();
+        }
+        function applyViewOptions() {
+            const sizeSlider = document.getElementById('thumbSize');
+            const pageSizeSelect = document.getElementById('pageSizeSelect');
+            const allowed = [16, 32, 64, 128, 256, 512, 2000];
+            const value = parseInt(sizeSlider.value, 10);
+            const snapped = allowed.reduce((prev, curr) => Math.abs(curr - value) < Math.abs(prev - value) ? curr : prev, allowed[0]);
+
+            let url = window.location.href;
+            url = setQueryParam(url, 'size', String(snapped));
+            url = setQueryParam(url, 'pageSize', pageSizeSelect.value);
+            url = setQueryParam(url, 'page', '1'); // reset to first page when view options change
+            window.location.href = url;
+        }
+        function resetViewOptions() {
+            let url = window.location.href;
+            url = setQueryParam(url, 'size', '256');
+            url = setQueryParam(url, 'pageSize', '12');
+            url = setQueryParam(url, 'page', '1');
+            window.location.href = url;
+        }
+        function wireViewOptions() {
+            const sizeSlider = document.getElementById('thumbSize');
+            const sizeLabel = document.getElementById('thumbSizeValue');
+            const pageSizeSelect = document.getElementById('pageSizeSelect');
+            const applyBtn = document.getElementById('applyViewOptions');
+            const resetBtn = document.getElementById('resetViewOptions');
+
+            if (sizeSlider && sizeLabel) {
+                sizeSlider.addEventListener('input', () => {
+                    sizeLabel.textContent = `${sizeSlider.value} px`;
+                });
+            }
+            if (applyBtn) applyBtn.addEventListener('click', applyViewOptions);
+            if (resetBtn) resetBtn.addEventListener('click', resetViewOptions);
+
+            // Optional: submit on change without clicking Apply
+            if (pageSizeSelect) pageSizeSelect.addEventListener('change', applyViewOptions);
+        }
+
+        document.addEventListener('DOMContentLoaded', wireViewOptions);
 
         const lightbox = new PhotoSwipeLightbox({
             gallery: '#my-gallery',

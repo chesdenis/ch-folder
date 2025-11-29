@@ -1,0 +1,17 @@
+@model webapp.Components.GalleryModel
+@{
+    var size = Model.ThumbSize;
+}
+
+<div class="pswp-gallery" id="my-gallery">
+@foreach (var item in Model.Items)
+{
+    <a href="@item.FullUrl?w=2000"
+       data-pswp-width="@item.FullWidth"
+       data-pswp-height="@item.FullHeight"
+       target="_blank"
+       class="d-inline-block">
+        <img src="@item.GetThumbUrl(size)" alt="@item.Alt" class="img-thumbnail m-2" />
+    </a>
+}
+</div>
