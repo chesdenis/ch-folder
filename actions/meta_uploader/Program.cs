@@ -7,9 +7,9 @@ var services = new ServiceCollection();
 
 services.AddSingleton<IFileSystem, PhysicalFileSystem>();
 services.AddSingleton<IFileHasher, FileHasher>();
-services.AddSingleton<MetaUploaderProcessor>();
+services.AddSingleton<MetaUploader>();
 
 var provider = services.BuildServiceProvider();
 
-var processor = provider.GetRequiredService<MetaUploaderProcessor>();
+var processor = provider.GetRequiredService<MetaUploader>();
 await processor.RunAsync(args);

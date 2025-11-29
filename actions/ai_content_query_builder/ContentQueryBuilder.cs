@@ -15,29 +15,8 @@ public class ContentQueryBuilder
     
     public async Task RunAsync(string[] args)
     {
-        if (args.Length == 0)
-        {
-            Console.WriteLine("Please provide file paths as arguments.");
-            var path = Console.ReadLine() ?? throw new Exception("Invalid file path.");
-            path = path.Trim('\'', '\"');
-            args = args.Append(path).ToArray();
-        }
-        
-        foreach (var arg in args)
-        {
-            if (_fileSystem.DirectoryExists(arg)) // if it is a directory, iterate over all files in it
-            {
-                foreach (var filePath in _fileSystem.EnumerateFiles(arg, "*", SearchOption.TopDirectoryOnly))
-                {
-                    await ProcessSingleFile(filePath);
-                }
-            }
-            else
-            {
-                var filePath = arg;
-                await ProcessSingleFile(filePath);
-            }
-        }
+        args = args.ValidateArgs();
+        await _fileSystem.WalkThrough(args, ProcessSingleFile);
     }
     
     private static async Task ProcessSingleFile(string filePath)

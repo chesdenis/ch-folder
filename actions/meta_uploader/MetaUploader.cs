@@ -5,7 +5,24 @@ using shared_csharp.Extensions;
 
 namespace meta_uploader.Services;
 
-public class MetaUploaderProcessor
+
+public class EmbeddingUploader
+{
+    private readonly IFileSystem _fileSystem;
+    private readonly string _connectionString;
+
+    public EmbeddingUploader(IFileSystem fileSystem)
+    {
+        _fileSystem = fileSystem;
+        _connectionString = Environment.GetEnvironmentVariable("QDRANT_CS")
+                            ?? throw new ArgumentNullException("QDRANT_CS");
+    }
+    
+    
+    
+}
+
+public class MetaUploader
 {
     private readonly IFileSystem _fileSystem;
     private readonly IFileHasher _fileHasher;
@@ -13,7 +30,7 @@ public class MetaUploaderProcessor
     private const int BatchSize = 200;
     private readonly List<PhotoRecord> _buffer = new();
 
-    public MetaUploaderProcessor(IFileSystem fileSystem, IFileHasher fileHasher)
+    public MetaUploader(IFileSystem fileSystem, IFileHasher fileHasher)
     {
         _fileSystem = fileSystem;
         _fileHasher = fileHasher;
@@ -23,29 +40,8 @@ public class MetaUploaderProcessor
     
     public async Task RunAsync(string[] args)
     {
-        if (args.Length == 0)
-        {
-            Console.WriteLine("Please provide file paths as arguments.");
-            var path = Console.ReadLine() ?? throw new Exception("Invalid file path.");
-            path = path.Trim('\'', '\"');
-            args = args.Append(path).ToArray();
-        }
-
-        foreach (var arg in args)
-        {
-            if (_fileSystem.DirectoryExists(arg))
-            {
-                foreach (var filePath in _fileSystem.EnumerateFiles(arg, "*", SearchOption.TopDirectoryOnly))
-                {
-                    await ProcessSingleFile(filePath);
-                }
-            }
-            else
-            {
-                var filePath = arg;
-                await ProcessSingleFile(filePath);
-            }
-        }
+        args = args.ValidateArgs();
+        await _fileSystem.WalkThrough(args, ProcessSingleFile);
 
         // flush remaining buffer
         if (_buffer.Count > 0)
