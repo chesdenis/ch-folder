@@ -22,7 +22,7 @@
                       placeholder="Enter search text"
                       rows="3">@queryText</textarea>
         </div>
-        <!-- Fluent-style top toolbar: page size, size controls, and search -->
+        <!-- Fluent-style top toolbar: page size, tag selector, size controls, and search -->
         <div class="col-12">
             <div class="fluent-toolbar">
                 <div class="toolbar-group" role="group" aria-label="Images per page">
@@ -33,6 +33,14 @@
                         <button type="button" class="seg-btn page-size-btn @(pageSize==24?"active":"")" data-pagesize="24">24</button>
                         <button type="button" class="seg-btn page-size-btn @(pageSize==48?"active":"")" data-pagesize="48">48</button>
                     </div>
+                </div>
+                <!-- Tags selector placed inline in the toolbar -->
+                <div class="toolbar-group" role="group" aria-label="Tags selector">
+                    <span class="toolbar-label">Tags</span>
+                    @await Component.InvokeAsync("TagsSelector", new {
+                        availableTags = new [] { "ASP.NET", "C#", "JavaScript", "CSS", "HTML" },
+                        selectedTags = ViewBag.SelectedTags as IEnumerable<string>
+                    })
                 </div>
                 <div class="toolbar-group" role="group" aria-label="Thumbnail size">
                     <span class="toolbar-label">Thumb size</span>
@@ -46,12 +54,6 @@
                 <input type="hidden" name="size" value="@thumbSize" />
                 <button type="submit" class="btn btn-primary btn-lg touch">Search</button>
             </div>
-        </div>
-        <div class="col-12">
-            @await Component.InvokeAsync("TagsSelector", new {
-                availableTags = new [] { "ASP.NET", "C#", "JavaScript", "CSS", "HTML" },
-                selectedTags = ViewBag.SelectedTags as IEnumerable<string>
-            })
         </div>
     </form>
     <div class="row">
@@ -96,9 +98,37 @@
         .seg-btn.active { background: rgba(0, 90, 255, .12); color: rgb(0, 82, 204); font-weight: 600; }
         .toolbar-spacer { flex: 1; }
         .btn.touch, .seg-btn { border-radius: 10px; }
+
+        /* Tags selector chips styling to match fluent toolbar */
+        .tags-selector { display: inline-flex; flex-wrap: wrap; gap: .5rem; }
+        .tags-selector .tag-checkbox { position: absolute; opacity: 0; width: 0; height: 0; }
+        .tags-selector .tag-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: .5rem .75rem;
+            border: 1px solid rgba(0,0,0,.1);
+            border-radius: 9999px;
+            background: transparent;
+            font-size: .95rem;
+            line-height: 1;
+            cursor: pointer;
+            user-select: none;
+        }
+        .tags-selector .tag-chip:hover { background: rgba(0,0,0,.04); }
+        .tags-selector .tag-checkbox:checked + .tag-chip {
+            background: rgba(0, 90, 255, .12);
+            color: rgb(0, 82, 204);
+            border-color: rgba(0, 90, 255, .3);
+            font-weight: 600;
+        }
+        .tags-selector .tag-checkbox:focus-visible + .tag-chip {
+            outline: 2px solid rgba(0, 90, 255, .35);
+            outline-offset: 2px;
+        }
         @@media (pointer: coarse) {
             .seg-btn { padding: .8rem 1.1rem; font-size: 1.05rem; }
             .btn.touch { padding: .9rem 1.25rem; font-size: 1.05rem; }
+            .tags-selector .tag-chip { padding: .65rem .9rem; }
         }
     </style>
 }
