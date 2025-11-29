@@ -9,27 +9,8 @@
     var currentPage = int.TryParse(Context.Request.Query["page"], out var p) ? p : 1;
     var pageSize = int.TryParse(Context.Request.Query["pageSize"], out var ps) ? ps : 12;
     var thumbSize = int.TryParse(Context.Request.Query["size"], out var sz) ? sz : 256;
+    var totalItems = int.TryParse(Context.Request.Query["total"], out var ti) ? ti : 15;
 
-    // Clamp allowed thumbnail sizes to specific values
-    int[] allowedSizes = new[] { 16, 32, 64, 128, 256, 512, 2000 };
-    if (Array.IndexOf(allowedSizes, thumbSize) < 0)
-    {
-        var minDiff = int.MaxValue;
-        var closest = allowedSizes[0];
-        foreach (var s in allowedSizes)
-        {
-            var d = Math.Abs(s - thumbSize);
-            if (d < minDiff)
-            {
-                minDiff = d;
-                closest = s;
-            }
-        }
-        thumbSize = closest;
-    }
-
-    // For demo purpose, totalItems equals the sample set size in GalleryViewComponent
-    var totalItems = 15; // keep in sync with GalleryViewComponent.SampleUrls length
     var totalPages = (int)Math.Ceiling(totalItems / (double)Math.Max(1, pageSize));
 }
 
