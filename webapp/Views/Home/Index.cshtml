@@ -22,26 +22,30 @@
                       placeholder="Enter search text"
                       rows="3">@queryText</textarea>
         </div>
-        <!-- Top toolbar: Images per page + Search button -->
+        <!-- Fluent-style top toolbar: page size, size controls, and search -->
         <div class="col-12">
-            <div class="d-flex align-items-center gap-2 flex-wrap">
-                <label for="pageSizeSelect" class="form-label mb-0">Images per page</label>
-                <select id="pageSizeSelect" name="pageSize" class="form-select w-auto">
-                    @if (pageSize == 6) {<option value="6" selected>6</option>} else {<option value="6">6</option>}
-                    @if (pageSize == 12) {<option value="12" selected>12</option>} else {<option value="12">12</option>}
-                    @if (pageSize == 24) {<option value="24" selected>24</option>} else {<option value="24">24</option>}
-                    @if (pageSize == 48) {<option value="48" selected>48</option>} else {<option value="48">48</option>}
-                </select>
+            <div class="fluent-toolbar">
+                <div class="toolbar-group" role="group" aria-label="Images per page">
+                    <span class="toolbar-label">Images/page</span>
+                    <div class="segmented">
+                        <button type="button" class="seg-btn page-size-btn @(pageSize==6?"active":"")" data-pagesize="6">6</button>
+                        <button type="button" class="seg-btn page-size-btn @(pageSize==12?"active":"")" data-pagesize="12">12</button>
+                        <button type="button" class="seg-btn page-size-btn @(pageSize==24?"active":"")" data-pagesize="24">24</button>
+                        <button type="button" class="seg-btn page-size-btn @(pageSize==48?"active":"")" data-pagesize="48">48</button>
+                    </div>
+                </div>
+                <div class="toolbar-group" role="group" aria-label="Thumbnail size">
+                    <span class="toolbar-label">Thumb size</span>
+                    <div class="segmented">
+                        <button type="button" id="sizeDownBtn" class="seg-btn" aria-label="Make smaller">Smaller</button>
+                        <button type="button" id="sizeUpBtn" class="seg-btn" aria-label="Make larger">Larger</button>
+                    </div>
+                </div>
+                <div class="toolbar-spacer"></div>
                 <!-- Preserve current thumb size on submit -->
                 <input type="hidden" name="size" value="@thumbSize" />
-                <!-- Optional: keep current page size on submit through the select itself -->
-                <button type="submit" class="btn btn-primary">Search</button>
+                <button type="submit" class="btn btn-primary btn-lg touch">Search</button>
             </div>
-        </div>
-        <!-- Size controls: placed under search area, outside of accordion -->
-        <div class="col-12 d-flex gap-2">
-            <button type="button" id="sizeDownBtn" class="btn btn-outline-secondary flex-fill btn-lg" aria-label="Make smaller">Make small</button>
-            <button type="button" id="sizeUpBtn" class="btn btn-outline-secondary flex-fill btn-lg" aria-label="Make larger">Make large</button>
         </div>
         <div class="col-12">
             @await Component.InvokeAsync("TagsSelector", new {
@@ -51,42 +55,7 @@
         </div>
     </form>
     <div class="row">
-        <div class="col-12 col-lg-3 mb-4">
-            <div class="accordion" id="filtersAccordion">
-                <!-- View Options moved to top toolbar -->
-
-                <!-- Filters Section -->
-                <div class="accordion-item">
-                    <h2 class="accordion-header">
-                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                data-bs-target="#filtersCollapse" aria-expanded="false" aria-controls="filtersCollapse">
-                            Filters
-                        </button>
-                    </h2>
-                    <div id="filtersCollapse" class="accordion-collapse collapse">
-                        <div class="accordion-body">
-                            <p class="text-muted">No filters available</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Sorting Section -->
-                <div class="accordion-item">
-                    <h2 class="accordion-header">
-                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                data-bs-target="#sortingCollapse" aria-expanded="false" aria-controls="sortingCollapse">
-                            Sorting
-                        </button>
-                    </h2>
-                    <div id="sortingCollapse" class="accordion-collapse collapse">
-                        <div class="accordion-body">
-                            <p class="text-muted">No sorting options available</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-lg-9">
+        <div class="col-12">
             @await Component.InvokeAsync("Pagination", new { currentPage, totalPages })
             @await Component.InvokeAsync("Gallery", new { page = currentPage, pageSize = pageSize, thumbSize = thumbSize })
             @await Component.InvokeAsync("Pagination", new { currentPage, totalPages })
@@ -98,6 +67,40 @@
 
 @section Styles {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe.css">
+    <style>
+        .fluent-toolbar {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            flex-wrap: wrap;
+            background: var(--bs-body-bg);
+            border: 1px solid rgba(0,0,0,.08);
+            border-radius: 12px;
+            padding: .75rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 2px 8px rgba(0,0,0,.04);
+        }
+        .toolbar-group { display: flex; align-items: center; gap: .5rem; }
+        .toolbar-label { font-size: .95rem; color: #6c757d; }
+        .segmented { display: inline-flex; border: 1px solid rgba(0,0,0,.1); border-radius: 10px; overflow: hidden; }
+        .seg-btn {
+            background: transparent;
+            border: 0;
+            padding: .6rem .9rem;
+            min-width: 3.25rem;
+            font-size: 1rem;
+            touch-action: manipulation;
+        }
+        .seg-btn:focus { outline: none; }
+        .segmented .seg-btn + .seg-btn { border-left: 1px solid rgba(0,0,0,.1); }
+        .seg-btn:hover { background: rgba(0,0,0,.04); }
+        .seg-btn.active { background: rgba(0, 90, 255, .12); color: rgb(0, 82, 204); font-weight: 600; }
+        .toolbar-spacer { flex: 1; }
+        .btn.touch, .seg-btn { border-radius: 10px; }
+        @@media (pointer: coarse) {
+            .seg-btn { padding: .8rem 1.1rem; font-size: 1.05rem; }
+            .btn.touch { padding: .9rem 1.25rem; font-size: 1.05rem; }
+        }
+    </style>
 }
 
 @section Scripts {
@@ -115,47 +118,17 @@
             }
             return u.toString();
         }
-        function applyViewOptions() {
-            const sizeSlider = document.getElementById('thumbSize');
-            const pageSizeSelect = document.getElementById('pageSizeSelect');
-            const allowed = [16, 32, 64, 128, 256, 512, 2000];
-
-            let url = window.location.href;
-            if (sizeSlider) {
-                const value = parseInt(sizeSlider.value, 10);
-                const snapped = allowed.reduce((prev, curr) => Math.abs(curr - value) < Math.abs(prev - value) ? curr : prev, allowed[0]);
-                url = setQueryParam(url, 'size', String(snapped));
-            }
-            if (pageSizeSelect) {
-                url = setQueryParam(url, 'pageSize', pageSizeSelect.value);
-            }
-            url = setQueryParam(url, 'page', '1'); // reset to first page when view options change
-            window.location.href = url;
-        }
-        function resetViewOptions() {
-            let url = window.location.href;
-            url = setQueryParam(url, 'size', '256');
-            url = setQueryParam(url, 'pageSize', '12');
-            url = setQueryParam(url, 'page', '1');
-            window.location.href = url;
-        }
-        function wireViewOptions() {
-            const sizeSlider = document.getElementById('thumbSize');
-            const sizeLabel = document.getElementById('thumbSizeValue');
-            const pageSizeSelect = document.getElementById('pageSizeSelect');
-            const applyBtn = document.getElementById('applyViewOptions');
-            const resetBtn = document.getElementById('resetViewOptions');
-
-            if (sizeSlider && sizeLabel) {
-                sizeSlider.addEventListener('input', () => {
-                    sizeLabel.textContent = `${sizeSlider.value} px`;
+        function wirePageSizeButtons() {
+            const buttons = document.querySelectorAll('.page-size-btn');
+            buttons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const size = btn.getAttribute('data-pagesize');
+                    let url = window.location.href;
+                    url = setQueryParam(url, 'pageSize', size);
+                    url = setQueryParam(url, 'page', '1');
+                    window.location.href = url;
                 });
-            }
-            if (applyBtn) applyBtn.addEventListener('click', applyViewOptions);
-            if (resetBtn) resetBtn.addEventListener('click', resetViewOptions);
-
-            // Optional: submit on change without clicking Apply
-            if (pageSizeSelect) pageSizeSelect.addEventListener('change', applyViewOptions);
+            });
         }
 
         // Two-button size control via URL param manipulation (no server action)
@@ -187,7 +160,7 @@
             if (down) down.addEventListener('click', () => adjustSize('down'));
         }
 
-        document.addEventListener('DOMContentLoaded', () => { wireViewOptions(); wireSizeButtons(); });
+        document.addEventListener('DOMContentLoaded', () => { wirePageSizeButtons(); wireSizeButtons(); });
 
         const lightbox = new PhotoSwipeLightbox({
             gallery: '#my-gallery',
