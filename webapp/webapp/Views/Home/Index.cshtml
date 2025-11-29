@@ -26,33 +26,10 @@
             <button type="submit" class="btn btn-primary w-100">Search</button>
         </div>
         <div class="col-12">
-            <div class="d-flex flex-wrap gap-2 align-items-center">
-                <div class="form-check form-check-inline mb-0">
-                    <input class="form-check-input" type="checkbox" name="tags" value="ASP.NET" id="tag1"
-                           @(selectedTags.Contains("ASP.NET") ? "checked" : "")>
-                    <label class="form-check-label badge bg-primary" for="tag1">ASP.NET</label>
-                </div>
-                <div class="form-check form-check-inline mb-0">
-                    <input class="form-check-input" type="checkbox" name="tags" value="C#" id="tag2"
-                           @(selectedTags.Contains("C#") ? "checked" : "")>
-                    <label class="form-check-label badge bg-secondary" for="tag2">C#</label>
-                </div>
-                <div class="form-check form-check-inline mb-0">
-                    <input class="form-check-input" type="checkbox" name="tags" value="JavaScript" id="tag3"
-                           @(selectedTags.Contains("JavaScript") ? "checked" : "")>
-                    <label class="form-check-label badge bg-success" for="tag3">JavaScript</label>
-                </div>
-                <div class="form-check form-check-inline mb-0">
-                    <input class="form-check-input" type="checkbox" name="tags" value="CSS" id="tag4"
-                           @(selectedTags.Contains("CSS") ? "checked" : "")>
-                    <label class="form-check-label badge bg-info" for="tag4">CSS</label>
-                </div>
-                <div class="form-check form-check-inline mb-0">
-                    <input class="form-check-input" type="checkbox" name="tags" value="HTML" id="tag5"
-                           @(selectedTags.Contains("HTML") ? "checked" : "")>
-                    <label class="form-check-label badge bg-warning" for="tag5">HTML</label>
-                </div>
-            </div>
+            @await Component.InvokeAsync("TagsSelector", new {
+                availableTags = new [] { "ASP.NET", "C#", "JavaScript", "CSS", "HTML" },
+                selectedTags = ViewBag.SelectedTags as IEnumerable<string>
+            })
         </div>
     </form>
     <div class="row">

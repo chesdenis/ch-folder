@@ -4,22 +4,12 @@ using webapp.Models;
 
 namespace webapp.Controllers;
 
-public class HomeController : Controller
+public class HomeController(ILogger<HomeController> logger) : Controller
 {
-    private readonly ILogger<HomeController> _logger;
-
-    public HomeController(ILogger<HomeController> logger)
+    public IActionResult Index([FromQuery] string[]? tags)
     {
-        _logger = logger;
-    }
-
-    public IActionResult Index()
-    {
-        return View();
-    }
-
-    public IActionResult Privacy()
-    {
+        // expose selected tags (from model binding) to the view
+        ViewBag.SelectedTags = tags ?? Array.Empty<string>();
         return View();
     }
 
