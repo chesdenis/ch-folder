@@ -3,24 +3,7 @@ using NpgsqlTypes;
 using shared_csharp.Abstractions;
 using shared_csharp.Extensions;
 
-namespace meta_uploader.Services;
-
-
-public class EmbeddingUploader
-{
-    private readonly IFileSystem _fileSystem;
-    private readonly string _connectionString;
-
-    public EmbeddingUploader(IFileSystem fileSystem)
-    {
-        _fileSystem = fileSystem;
-        _connectionString = Environment.GetEnvironmentVariable("QDRANT_CS")
-                            ?? throw new ArgumentNullException("QDRANT_CS");
-    }
-    
-    
-    
-}
+namespace meta_uploader;
 
 public class MetaUploader
 {
