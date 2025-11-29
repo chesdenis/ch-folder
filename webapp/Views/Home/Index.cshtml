@@ -16,14 +16,27 @@
 
 <div class="container-fluid mt-4 px-3">
     <form method="get" action="" class="row g-3">
-        <div class="col-12 col-md-10 col-lg-11">
+        <div class="col-12">
             <textarea class="form-control"
                       name="query"
                       placeholder="Enter search text"
                       rows="3">@queryText</textarea>
         </div>
-        <div class="col-12 col-md-2 col-lg-1">
-            <button type="submit" class="btn btn-primary w-100">Search</button>
+        <!-- Top toolbar: Images per page + Search button -->
+        <div class="col-12">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <label for="pageSizeSelect" class="form-label mb-0">Images per page</label>
+                <select id="pageSizeSelect" name="pageSize" class="form-select w-auto">
+                    @if (pageSize == 6) {<option value="6" selected>6</option>} else {<option value="6">6</option>}
+                    @if (pageSize == 12) {<option value="12" selected>12</option>} else {<option value="12">12</option>}
+                    @if (pageSize == 24) {<option value="24" selected>24</option>} else {<option value="24">24</option>}
+                    @if (pageSize == 48) {<option value="48" selected>48</option>} else {<option value="48">48</option>}
+                </select>
+                <!-- Preserve current thumb size on submit -->
+                <input type="hidden" name="size" value="@thumbSize" />
+                <!-- Optional: keep current page size on submit through the select itself -->
+                <button type="submit" class="btn btn-primary">Search</button>
+            </div>
         </div>
         <!-- Size controls: placed under search area, outside of accordion -->
         <div class="col-12 d-flex gap-2">
@@ -40,33 +53,7 @@
     <div class="row">
         <div class="col-12 col-lg-3 mb-4">
             <div class="accordion" id="filtersAccordion">
-                <!-- View Options Section -->
-                <div class="accordion-item">
-                    <h2 class="accordion-header">
-                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                data-bs-target="#viewCollapse" aria-expanded="false" aria-controls="viewCollapse">
-                            View Options
-                        </button>
-                    </h2>
-                    <div id="viewCollapse" class="accordion-collapse collapse">
-                        <div class="accordion-body">
-                            <div class="mb-3">
-                                <label for="pageSizeSelect" class="form-label">Images per page</label>
-                                <select id="pageSizeSelect" class="form-select">
-                                    @if (pageSize == 6) {<option value="6" selected>6</option>} else {<option value="6">6</option>}
-                                    @if (pageSize == 12) {<option value="12" selected>12</option>} else {<option value="12">12</option>}
-                                    @if (pageSize == 24) {<option value="24" selected>24</option>} else {<option value="24">24</option>}
-                                    @if (pageSize == 48) {<option value="48" selected>48</option>} else {<option value="48">48</option>}
-                                </select>
-                            </div>
-
-                            <div class="d-flex gap-2">
-                                <button type="button" id="applyViewOptions" class="btn btn-primary">Apply</button>
-                                <button type="button" id="resetViewOptions" class="btn btn-outline-secondary">Reset</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <!-- View Options moved to top toolbar -->
 
                 <!-- Filters Section -->
                 <div class="accordion-item">
