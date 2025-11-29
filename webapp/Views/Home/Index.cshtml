@@ -25,6 +25,11 @@
         <div class="col-12 col-md-2 col-lg-1">
             <button type="submit" class="btn btn-primary w-100">Search</button>
         </div>
+        <!-- Size controls: placed under search area, outside of accordion -->
+        <div class="col-12 d-flex gap-2">
+            <button type="button" id="sizeDownBtn" class="btn btn-outline-secondary flex-fill btn-lg" aria-label="Make smaller">Make small</button>
+            <button type="button" id="sizeUpBtn" class="btn btn-outline-secondary flex-fill btn-lg" aria-label="Make larger">Make large</button>
+        </div>
         <div class="col-12">
             @await Component.InvokeAsync("TagsSelector", new {
                 availableTags = new [] { "ASP.NET", "C#", "JavaScript", "CSS", "HTML" },
@@ -45,21 +50,6 @@
                     </h2>
                     <div id="viewCollapse" class="accordion-collapse collapse">
                         <div class="accordion-body">
-                            <div class="mb-3">
-                                <label for="thumbSize" class="form-label">Thumbnail size: <span id="thumbSizeValue" class="badge bg-info">@thumbSize px</span></label>
-                                <input type="range" class="form-range" id="thumbSize" min="16" max="2000" step="1" value="@thumbSize" list="sizeTicks">
-                                <datalist id="sizeTicks">
-                                    <option value="16" label="16"></option>
-                                    <option value="32" label="32"></option>
-                                    <option value="64" label="64"></option>
-                                    <option value="128" label="128"></option>
-                                    <option value="256" label="256"></option>
-                                    <option value="512" label="512"></option>
-                                    <option value="2000" label="2000"></option>
-                                </datalist>
-                                <div class="form-text">Drag the slider. Values snap to 16, 32, 64, 128, 256, 512, or 2000 px.</div>
-                            </div>
-
                             <div class="mb-3">
                                 <label for="pageSizeSelect" class="form-label">Images per page</label>
                                 <select id="pageSizeSelect" class="form-select">
@@ -142,12 +132,16 @@
             const sizeSlider = document.getElementById('thumbSize');
             const pageSizeSelect = document.getElementById('pageSizeSelect');
             const allowed = [16, 32, 64, 128, 256, 512, 2000];
-            const value = parseInt(sizeSlider.value, 10);
-            const snapped = allowed.reduce((prev, curr) => Math.abs(curr - value) < Math.abs(prev - value) ? curr : prev, allowed[0]);
 
             let url = window.location.href;
-            url = setQueryParam(url, 'size', String(snapped));
-            url = setQueryParam(url, 'pageSize', pageSizeSelect.value);
+            if (sizeSlider) {
+                const value = parseInt(sizeSlider.value, 10);
+                const snapped = allowed.reduce((prev, curr) => Math.abs(curr - value) < Math.abs(prev - value) ? curr : prev, allowed[0]);
+                url = setQueryParam(url, 'size', String(snapped));
+            }
+            if (pageSizeSelect) {
+                url = setQueryParam(url, 'pageSize', pageSizeSelect.value);
+            }
             url = setQueryParam(url, 'page', '1'); // reset to first page when view options change
             window.location.href = url;
         }
@@ -177,7 +171,36 @@
             if (pageSizeSelect) pageSizeSelect.addEventListener('change', applyViewOptions);
         }
 
-        document.addEventListener('DOMContentLoaded', wireViewOptions);
+        // Two-button size control via URL param manipulation (no server action)
+        function getCurrentSize() {
+            const allowed = [16, 32, 64, 128, 256, 512, 2000];
+            const params = new URL(window.location.href).searchParams;
+            const sizeParam = parseInt(params.get('size') || '@thumbSize', 10);
+            if (allowed.includes(sizeParam)) return sizeParam;
+            // snap to nearest if arbitrary
+            return allowed.reduce((prev, curr) => Math.abs(curr - sizeParam) < Math.abs(prev - sizeParam) ? curr : prev, allowed[0]);
+        }
+        function adjustSize(direction) {
+            const allowed = [16, 32, 64, 128, 256, 512, 2000];
+            const current = getCurrentSize();
+            const idx = allowed.indexOf(current);
+            let newIdx = idx;
+            if (direction === 'up') newIdx = Math.min(allowed.length - 1, idx + 1);
+            if (direction === 'down') newIdx = Math.max(0, idx - 1);
+            const nextSize = allowed[newIdx];
+            let url = window.location.href;
+            url = setQueryParam(url, 'size', String(nextSize));
+            url = setQueryParam(url, 'page', '1');
+            window.location.href = url;
+        }
+        function wireSizeButtons() {
+            const up = document.getElementById('sizeUpBtn');
+            const down = document.getElementById('sizeDownBtn');
+            if (up) up.addEventListener('click', () => adjustSize('up'));
+            if (down) down.addEventListener('click', () => adjustSize('down'));
+        }
+
+        document.addEventListener('DOMContentLoaded', () => { wireViewOptions(); wireSizeButtons(); });
 
         const lightbox = new PhotoSwipeLightbox({
             gallery: '#my-gallery',
