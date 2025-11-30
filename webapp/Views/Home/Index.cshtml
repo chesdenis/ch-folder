@@ -15,7 +15,7 @@
 }
 
 <div class="container-fluid mt-4 px-3">
-    <form method="get" action="" class="row g-3">
+    <form method="get" action="@Url.Action("Search", "Home")" class="row g-3">
         <div class="col-12">
             <textarea class="form-control"
                       name="query"
@@ -50,8 +50,18 @@
                     </div>
                 </div>
                 <div class="toolbar-spacer"></div>
-                <!-- Preserve current thumb size on submit -->
+                <!-- Preserve current state on submit -->
                 <input type="hidden" name="size" value="@thumbSize" />
+                <input type="hidden" name="pageSize" value="@pageSize" />
+                @* Preserve any existing filters/sorting from the current query *@
+                @foreach (var f in filters)
+                {
+                    <input type="hidden" name="filters" value="@f" />
+                }
+                @foreach (var s in sorting)
+                {
+                    <input type="hidden" name="sorting" value="@s" />
+                }
                 <button type="submit" class="btn btn-primary btn-lg touch">Search</button>
             </div>
         </div>
