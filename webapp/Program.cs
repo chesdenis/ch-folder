@@ -2,6 +2,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+builder.Services.AddSignalR();
+
+// app services
+builder.Services.AddSingleton<webapp.Services.IJobRunner, webapp.Services.JobRunner>();
 
 var app = builder.Build();
 
@@ -23,5 +27,8 @@ app.UseAuthorization();
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
+
+// SignalR hubs
+app.MapHub<webapp.Hubs.JobStatusHub>("/hubs/jobstatus");
 
 app.Run();

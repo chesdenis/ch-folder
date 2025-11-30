@@ -1,0 +1,28 @@
+﻿@{
+    ViewData["Title"] = "About";
+}
+
+<div class="row">
+    <div class="col-md-10 col-lg-8">
+        <h1 class="mb-3">About</h1>
+        <p>
+            This application helps explore and search a local media/archive hive. It provides a simple UI to filter,
+            browse, and visualize content. The <strong>Status</strong> page demonstrates real‑time progress reporting
+            using SignalR for background jobs that may take a while to complete.
+        </p>
+        <hr/>
+        <h5>Tech stack</h5>
+        <ul>
+            <li>ASP.NET Core MVC (.NET 8)</li>
+            <li>Razor Views + Bootstrap 5</li>
+            <li>SignalR for real‑time updates</li>
+        </ul>
+        <h5>Background jobs demo</h5>
+        <p>
+            The demo job simulates walking through a folder in the storage hive and reports progress as items are
+            processed. You can start it from the <a asp-controller="Home" asp-action="Status">Status</a> page and
+            watch the progress bar update live.
+        </p>
+    </div>
+    
+</div>

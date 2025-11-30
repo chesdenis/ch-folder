@@ -2,11 +2,13 @@ using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using webapp.Models;
+using webapp.Services;
 
 namespace webapp.Controllers;
 
-public class HomeController(ILogger<HomeController> logger) : Controller
+public class HomeController(ILogger<HomeController> logger, IJobRunner jobRunner) : Controller
 {
+    private readonly IJobRunner _jobRunner = jobRunner;
     public IActionResult Index([FromQuery] string[]? tags)
     {
         // expose selected tags (from model binding) to the view
@@ -133,11 +135,18 @@ public class HomeController(ILogger<HomeController> logger) : Controller
 
     public IActionResult Status()
     {
-        throw new NotImplementedException();
+        return View();
     }
 
     public IActionResult About()
     {
-        throw new NotImplementedException();
+        return View();
+    }
+
+    [HttpPost]
+    public IActionResult StartJob([FromForm] string? folder)
+    {
+        var jobId = _jobRunner.StartJob(folder);
+        return Ok(new { jobId });
     }
 }

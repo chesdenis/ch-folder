@@ -1,0 +1,140 @@
+﻿@{
+    ViewData["Title"] = "Status";
+}
+
+<div class="row">
+    <div class="col-md-10 col-lg-8">
+        <h1 class="mb-3">Status</h1>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row g-2 align-items-end">
+                    <div class="col-sm-8">
+                        <label for="folder" class="form-label">Folder (in storage hive)</label>
+                        <input id="folder" class="form-control" placeholder="hive:/photos/2024"/>
+                    </div>
+                    <div class="col-sm-4">
+                        <button id="startBtn" class="btn btn-primary w-100">Start Demo Job</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <div>
+                        <strong>Progress:</strong>
+                        <span id="progressText">0%</span>
+                    </div>
+                    <div>
+                        <span class="badge bg-secondary" id="jobIdBadge" style="display:none"></span>
+                    </div>
+                </div>
+                <div class="progress" role="progressbar" aria-label="Job progress" aria-valuemin="0" aria-valuemax="100">
+                    <div id="progressBar" class="progress-bar progress-bar-striped" style="width: 0%">0%</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">Live log</div>
+            <div class="card-body">
+                <pre id="log" class="mb-0" style="white-space: pre-wrap; max-height: 300px; overflow: auto"></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <!-- Local SignalR browser client (installed under wwwroot/lib via LibMan) -->
+    <script src="~/lib/signalr/dist/browser/signalr.min.js"></script>
+    <script>
+        // Defensive check: if the client library failed to load, show a helpful message.
+        if (typeof window.signalR === 'undefined') {
+            console.error('SignalR client script failed to load from local path. Ensure lib files exist under wwwroot/lib/signalr.');
+        }
+    </script>
+    <script>
+        (function () {
+            const startBtn = document.getElementById('startBtn');
+            const folderInput = document.getElementById('folder');
+            const bar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            const log = document.getElementById('log');
+            const jobIdBadge = document.getElementById('jobIdBadge');
+
+            function setProgress(p) {
+                p = Math.max(0, Math.min(100, p|0));
+                bar.style.width = p + '%';
+                bar.textContent = p + '%';
+                progressText.textContent = p + '%';
+            }
+
+            function addLog(msg) {
+                const time = new Date().toLocaleTimeString();
+                log.textContent += `[${time}] ${msg}\n`;
+                log.scrollTop = log.scrollHeight;
+            }
+
+            async function startJob() {
+                setProgress(0);
+                addLog('Starting job...');
+                startBtn.disabled = true;
+
+                const folder = folderInput.value || '';
+
+                const resp = await fetch('@Url.Action("StartJob", "Home")', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ folder })
+                });
+                if (!resp.ok) {
+                    addLog('Failed to start job: ' + resp.status);
+                    startBtn.disabled = false;
+                    return;
+                }
+                const { jobId } = await resp.json();
+                jobIdBadge.textContent = jobId;
+                jobIdBadge.style.display = '';
+                addLog('Job started: ' + jobId);
+
+                const connection = new signalR.HubConnectionBuilder()
+                    .withUrl('/hubs/jobstatus')
+                    .withAutomaticReconnect()
+                    .build();
+
+                connection.on('ReceiveProgress', payload => {
+                    if (!payload || payload.jobId !== jobId) return;
+                    setProgress(payload.percent || 0);
+                    if (payload.message) addLog(payload.message);
+                });
+
+                connection.on('ReceiveCompleted', payload => {
+                    if (!payload || payload.jobId !== jobId) return;
+                    setProgress(100);
+                    addLog(payload.message || 'Completed');
+                    startBtn.disabled = false;
+                });
+
+                connection.on('ReceiveError', payload => {
+                    if (!payload || payload.jobId !== jobId) return;
+                    addLog('Error: ' + (payload.message || 'Unknown error'));
+                    startBtn.disabled = false;
+                });
+
+                await connection.start();
+                await connection.invoke('JoinJobGroup', jobId);
+                addLog('Connected to hub and joined job group.');
+            }
+
+            startBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                startJob().catch(err => {
+                    addLog('Failed: ' + err);
+                    startBtn.disabled = false;
+                });
+            });
+        })();
+    </script>
+}
