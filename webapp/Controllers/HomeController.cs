@@ -2,13 +2,15 @@ using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using webapp.Models;
+using Microsoft.Extensions.Options;
 using webapp.Services;
 
 namespace webapp.Controllers;
 
-public class HomeController(ILogger<HomeController> logger, IJobRunner jobRunner) : Controller
+public class HomeController(ILogger<HomeController> logger, IJobRunner jobRunner, IOptions<StorageOptions> storageOptions) : Controller
 {
     private readonly IJobRunner _jobRunner = jobRunner;
+    private readonly StorageOptions _storage = storageOptions.Value;
     public IActionResult Index([FromQuery] string[]? tags)
     {
         // expose selected tags (from model binding) to the view
@@ -135,6 +137,7 @@ public class HomeController(ILogger<HomeController> logger, IJobRunner jobRunner
 
     public IActionResult Status()
     {
+        ViewBag.StoragePath = _storage.RootPath ?? string.Empty;
         return View();
     }
 

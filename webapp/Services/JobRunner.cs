@@ -1,6 +1,9 @@
 ﻿using System.Collections.Concurrent;
 using Microsoft.AspNetCore.SignalR;
 using webapp.Hubs;
+using webapp.Models;
+using Microsoft.Extensions.Options;
+using shared_csharp.Extensions;
 
 namespace webapp.Services;
 
@@ -13,11 +16,13 @@ public class JobRunner : IJobRunner
 {
     private readonly IHubContext<JobStatusHub> _hub;
     private readonly ILogger<JobRunner> _logger;
+    private readonly StorageOptions _storage;
 
-    public JobRunner(IHubContext<JobStatusHub> hub, ILogger<JobRunner> logger)
+    public JobRunner(IHubContext<JobStatusHub> hub, ILogger<JobRunner> logger, IOptions<StorageOptions> storage)
     {
         _hub = hub;
         _logger = logger;
+        _storage = storage.Value;
     }
 
     public string StartJob(string? folder)
@@ -30,36 +35,55 @@ public class JobRunner : IJobRunner
         {
             try
             {
-                var steps = SimulateEnumerableWalk(folder).ToArray();
-                var total = steps.Length;
+                var root = _storage.RootPath ?? throw new InvalidOperationException("Storage root not specified in settings");
+                await _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
+                {
+                    jobId,
+                    percent = 0,
+                    message = $"Rebuild started. Root: '{root}'"
+                });
+
+                if (!Directory.Exists(root))
+                {
+                    throw new DirectoryNotFoundException($"Storage root '{root}' does not exist");
+                }
+                
+                var storageFolders = PathExtensions.CollectStorageFolders(_storage.RootPath);
+                var total = storageFolders.Length;
                 var completed = 0;
 
                 await _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
                 {
                     jobId,
                     percent = 0,
-                    message = $"Job started for '{folder ?? "(no folder)"}'",
+                    message = $"Discovered {total} image folders(s). Starting processing..."
                 });
 
-                foreach (var step in steps)
+                foreach (var pathContainer in PathExtensions.GetFilesInFolder(root, storageFolders,
+                             s =>
+                             {
+                                 completed++;
+                                 
+                                 _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
+                                 {
+                                     jobId,
+                                     percent = completed * 100 / total,
+                                     message = $"Processed {completed} of {total} image folders(s)..."
+                                 }).GetAwaiter().GetResult();
+                             }))
                 {
-                    // simulate long work per item
-                    await Task.Delay(step.delayMs);
-                    completed++;
-                    var percent = (int)Math.Round(completed * 100.0 / Math.Max(1, total));
-                    await _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
+                    var filePath = pathContainer[0] as string;
+                    if (filePath != null)
                     {
-                        jobId,
-                        percent,
-                        message = step.message
-                    });
+                        var _ = new FileInfo(filePath).Length;
+                    }
                 }
-
+  
                 await _hub.Clients.Group(group).SendAsync("ReceiveCompleted", new
                 {
                     jobId,
                     percent = 100,
-                    message = "Job completed"
+                    message = $"Rebuild completed. Processed {total} file(s)."
                 });
             }
             catch (Exception ex)
@@ -74,18 +98,5 @@ public class JobRunner : IJobRunner
         });
 
         return jobId;
-    }
-
-    private static IEnumerable<(string message, int delayMs)> SimulateEnumerableWalk(string? folder)
-    {
-        var rand = new Random();
-        var root = folder ?? "hive:/";
-        // Simulate 25 items of work
-        for (var i = 1; i <= 25; i++)
-        {
-            var path = $"{root.TrimEnd('/')}/item-{i:000}";
-            var delay = rand.Next(100, 500);
-            yield return ($"Processed {path}", delay);
-        }
     }
 }

@@ -13,15 +13,9 @@ public class ValidationTests
     // Define the regex for MD5 prefix (32 characters of hexadecimal)
     private readonly Regex _md5PrefixRegex = new Regex(@"^[a-fA-F0-9]{32}$", RegexOptions.Compiled);
     private static readonly string ContextPath = "C:\\PhotoHive";
-    
-    private static readonly object[][] TestFilePaths =
-        File.ReadAllLines(Path.Combine(ContextPath, "spec.info"))
-            .Select(line => line
-                .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
-                .Select(s => (object)s.Trim())
-                .ToArray())
-            .Where(arr => arr.Length > 0)
-            .ToArray();
+
+    private static readonly object[][] TestFilePaths = PathExtensions.CollectStorageFolders(ContextPath);
+      
     private static string[] GetPreviewKinds()
     {
         return new[] { "16", "32", "64", "128", "512", "2000" };
@@ -40,7 +34,7 @@ public class ValidationTests
     }
 
     [Theory]
-    [MemberData(nameof(GetFilesInFolder))]
+    [MemberData(nameof(GetTestingFiles))]
     public async Task ValidateEmbeddingsResult(string filePath)
     {
         var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
@@ -72,7 +66,7 @@ public class ValidationTests
     }
 
     [Theory]
-    [MemberData(nameof(GetFilesInFolder))]
+    [MemberData(nameof(GetTestingFiles))]
     public void ValidateDescriptionQueries(string filePath)
     {
         var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
@@ -89,7 +83,7 @@ public class ValidationTests
     }
 
     [Theory]
-    [MemberData(nameof(GetFilesInFolder))]
+    [MemberData(nameof(GetTestingFiles))]
     public void ValidateEnglish10WordsQueries(string filePath)
     {
         var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
@@ -106,7 +100,7 @@ public class ValidationTests
     }
 
     [Theory]
-    [MemberData(nameof(GetFilesInFolder))]
+    [MemberData(nameof(GetTestingFiles))]
     public void ValidateTagsQueries(string filePath)
     {
         var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
@@ -123,7 +117,7 @@ public class ValidationTests
     }
 
     [Theory]
-    [MemberData(nameof(GetFilesInFolder))]
+    [MemberData(nameof(GetTestingFiles))]
     public void ValidateCommerceMarkQueries(string filePath)
     {
         var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
@@ -140,7 +134,7 @@ public class ValidationTests
     }
 
     [Theory]
-    [MemberData(nameof(GetFilesInFolder))]
+    [MemberData(nameof(GetTestingFiles))]
     public void ValidateDescriptionAnswers(string filePath)
     {
         var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
@@ -159,7 +153,7 @@ public class ValidationTests
     }
 
     [Theory]
-    [MemberData(nameof(GetFilesInFolder))]
+    [MemberData(nameof(GetTestingFiles))]
     public void ValidateEnglish10WordsAnswers(string filePath)
     {
         var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
@@ -178,7 +172,7 @@ public class ValidationTests
     }
 
     [Theory]
-    [MemberData(nameof(GetFilesInFolder))]
+    [MemberData(nameof(GetTestingFiles))]
     public void ValidateTagsAnswers(string filePath)
     {
         var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
@@ -197,7 +191,7 @@ public class ValidationTests
     }
 
     [Theory]
-    [MemberData(nameof(GetFilesInFolder))]
+    [MemberData(nameof(GetTestingFiles))]
     public void ValidateCommerceAnswers(string filePath)
     {
         var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
@@ -216,7 +210,7 @@ public class ValidationTests
     }
 
     [Theory]
-    [MemberData(nameof(GetFilesInFolder))]
+    [MemberData(nameof(GetTestingFiles))]
     public async Task CheckCommerceJsonInAnswers(string filePath)
     {
         var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
@@ -255,7 +249,7 @@ public class ValidationTests
     );
 
     [Theory]
-    [MemberData(nameof(GetFilesInFolder))]
+    [MemberData(nameof(GetTestingFiles))]
     public async Task CheckThatEachAnswerMustHaveMultipleSentences(string filePath)
     {
         var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
@@ -278,7 +272,7 @@ public class ValidationTests
     }
 
     [Theory]
-    [MemberData(nameof(GetFilesInFolder))]
+    [MemberData(nameof(GetTestingFiles))]
     public void ValidateEmbeddings(string filePath)
     {
         var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
@@ -308,7 +302,7 @@ public class ValidationTests
     }
 
     [Theory]
-    [MemberData(nameof(GetFilesInFolder))]
+    [MemberData(nameof(GetTestingFiles))]
     public void ValidateFileNamesConvention(string filePath)
     {
         var fileIdParts = Path.GetFileNameWithoutExtension(filePath).Split("_");
@@ -333,7 +327,7 @@ public class ValidationTests
     }
 
     [Theory]
-    [MemberData(nameof(GetFilesInFolder))]
+    [MemberData(nameof(GetTestingFiles))]
     public void ValidateFileNameHasMd5Prefix(string filePath)
     {
         // Assert that the file has an MD5 hash prefix
@@ -367,7 +361,7 @@ public class ValidationTests
     }
 
     [Theory]
-    [MemberData(nameof(GetFilesInFolder))]
+    [MemberData(nameof(GetTestingFiles))]
     public async Task ValidateFileHasCorrectMd5Prefix(string filePath)
     {
         // Assert that the file has an MD5 hash prefix
@@ -401,44 +395,18 @@ public class ValidationTests
 
     public static IEnumerable<object[]> GetFileAndPreviewCombinations()
     {
-        var allFilesInFolder = GetFilesInFolder().ToArray();
+        var allFilesInFolder = GetTestingFiles().ToArray();
         foreach (var fileData in allFilesInFolder)
         {
             foreach (var kind in GetPreviewKinds())
             {
-                yield return new object[] { fileData[0], kind };
+                yield return [fileData[0], kind];
             }
         }
     }
 
-    public static IEnumerable<object[]> GetFilesInFolder()
-    {
-        foreach (var inputArgs in TestFilePaths)
-        foreach (string arg in inputArgs)
-        {
-            var folderPath = Path.Combine(ContextPath, arg);
-            // Ensure the folder exists
-            if (!Directory.Exists(folderPath))
-                yield break;
+    public static IEnumerable<object[]> GetTestingFiles() 
+        => PathExtensions.GetFilesInFolder(ContextPath, TestFilePaths);
 
-            // Get all files in the folder and add their names to the data
-            // use top directory only because other folders are system, preview, etc.
-            var files = Directory.GetFiles(folderPath, "*", SearchOption.TopDirectoryOnly).Select(s => new
-            {
-                fileName = Path.GetFileName(s),
-                filePath = s
-            }).ToArray();
-            // excluding preview and system files and unsupported file types
-            files = files.Where(f => !f.fileName.EndsWith(".DS_Store")).ToArray();
-            files = files.Where(f => !f.fileName.EndsWith(".mov")).ToArray();
-            files = files.Where(f => !f.fileName.EndsWith(".MOV")).ToArray();
-            files = files.Where(f => !f.fileName.EndsWith(".mp4")).ToArray();
-            files = files.Where(f => !f.fileName.EndsWith(".MP4")).ToArray();
-            files = files.Where(f => !f.fileName.StartsWith("._")).ToArray();
-            foreach (var file in files)
-            {
-                yield return new object[] { file.filePath };
-            }
-        }
-    }
+    
 }

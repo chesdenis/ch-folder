@@ -8,13 +8,13 @@
 
         <div class="card mb-3">
             <div class="card-body">
-                <div class="row g-2 align-items-end">
+                <div class="row g-2 align-items-center">
                     <div class="col-sm-8">
-                        <label for="folder" class="form-label">Folder (in storage hive)</label>
-                        <input id="folder" class="form-control" placeholder="hive:/photos/2024"/>
+                        <label class="form-label">Storage path</label>
+                        <div class="form-control-plaintext" id="storagePath">@ViewBag.StoragePath</div>
                     </div>
                     <div class="col-sm-4">
-                        <button id="startBtn" class="btn btn-primary w-100">Start Demo Job</button>
+                        <button id="startBtn" class="btn btn-primary w-100">Rebuild</button>
                     </div>
                 </div>
             </div>
@@ -58,7 +58,6 @@
     <script>
         (function () {
             const startBtn = document.getElementById('startBtn');
-            const folderInput = document.getElementById('folder');
             const bar = document.getElementById('progressBar');
             const progressText = document.getElementById('progressText');
             const log = document.getElementById('log');
@@ -82,12 +81,9 @@
                 addLog('Starting job...');
                 startBtn.disabled = true;
 
-                const folder = folderInput.value || '';
-
                 const resp = await fetch('@Url.Action("StartJob", "Home")', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({ folder })
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
                 });
                 if (!resp.ok) {
                     addLog('Failed to start job: ' + resp.status);

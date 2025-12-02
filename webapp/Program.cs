@@ -5,6 +5,7 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddSignalR();
 
 // app services
+builder.Services.Configure<webapp.Models.StorageOptions>(builder.Configuration.GetSection("Storage"));
 builder.Services.AddSingleton<webapp.Services.IJobRunner, webapp.Services.JobRunner>();
 
 var app = builder.Build();
