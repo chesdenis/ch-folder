@@ -9,7 +9,6 @@ namespace webapp.Controllers;
 
 public class HomeController(ILogger<HomeController> logger, IJobRunner jobRunner, IOptions<StorageOptions> storageOptions) : Controller
 {
-    private readonly IJobRunner _jobRunner = jobRunner;
     private readonly StorageOptions _storage = storageOptions.Value;
     public IActionResult Index([FromQuery] string[]? tags)
     {
@@ -150,7 +149,7 @@ public class HomeController(ILogger<HomeController> logger, IJobRunner jobRunner
     public IActionResult StartJob([FromForm] string? folder, [FromForm] string jobId)
     {
         if (string.IsNullOrWhiteSpace(jobId)) return BadRequest("jobId is required");
-        var id = _jobRunner.StartJob(folder, jobId);
+        var id = jobRunner.StartJob(folder, jobId);
         return Ok(new { jobId = id });
     }
 }
