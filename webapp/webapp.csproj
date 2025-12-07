@@ -5,6 +5,9 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+        <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+        <!-- Prevent Razor SDK from generating RazorAssemblyInfo (which can duplicate ProvideApplicationPartFactoryAttribute in .NET 8) -->
+        <GenerateRazorAssemblyInfo>false</GenerateRazorAssemblyInfo>
     </PropertyGroup>
 
     <ItemGroup>
