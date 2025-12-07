@@ -14,24 +14,16 @@ public class ValidationTests
     private readonly Regex _md5PrefixRegex = new Regex(@"^[a-fA-F0-9]{32}$", RegexOptions.Compiled);
     private static readonly string ContextPath = "C:\\PhotoHive";
 
-    private static readonly object[][] TestFilePaths = PathExtensions.CollectStorageFolders(ContextPath);
+    public static readonly object[][] TestFilePaths = PathExtensions.CollectStorageFolders(ContextPath);
       
     private static string[] GetPreviewKinds()
     {
         return new[] { "16", "32", "64", "128", "512", "2000" };
     }
 
-    [Fact]
-    public async Task ValidateFolder()
-    {
-        Assert.NotEmpty(TestFilePaths);
-
-        foreach (var p in TestFilePaths)
-        {
-            Assert.NotEmpty(p);
-        }
-        
-    }
+    [Theory]
+    [MemberData(nameof(TestFilePaths))]
+    public void ValidateFolder(string folderPath) => Assert.NotEmpty(folderPath);
 
     [Theory]
     [MemberData(nameof(GetTestingFiles))]

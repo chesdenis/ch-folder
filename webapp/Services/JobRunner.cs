@@ -9,7 +9,7 @@ namespace webapp.Services;
 
 public interface IJobRunner
 {
-    string StartJob(string? folder);
+    string StartJob(string? folder, string jobId);
 }
 
 public class JobRunner : IJobRunner
@@ -25,10 +25,10 @@ public class JobRunner : IJobRunner
         _storage = storage.Value;
     }
 
-    public string StartJob(string? folder)
+    public string StartJob(string? folder, string jobId)
     {
-        var jobId = Guid.NewGuid().ToString("N");
-        var group = JobStatusHub.GroupName(jobId);
+        var id = string.IsNullOrWhiteSpace(jobId) ? Guid.NewGuid().ToString("N") : jobId;
+        var group = JobStatusHub.GroupName(id);
 
         // Fire-and-forget background task
         _ = Task.Run(async () =>
@@ -38,7 +38,7 @@ public class JobRunner : IJobRunner
                 var root = _storage.RootPath ?? throw new InvalidOperationException("Storage root not specified in settings");
                 await _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
                 {
-                    jobId,
+                    jobId = id,
                     percent = 0,
                     message = $"Rebuild started. Root: '{root}'"
                 });
@@ -54,7 +54,7 @@ public class JobRunner : IJobRunner
 
                 await _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
                 {
-                    jobId,
+                    jobId = id,
                     percent = 0,
                     message = $"Discovered {total} image folders(s). Starting processing..."
                 });
@@ -66,9 +66,9 @@ public class JobRunner : IJobRunner
                                  
                                  _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
                                  {
-                                     jobId,
+                                     jobId = id,
                                      percent = completed * 100 / total,
-                                     message = $"Processed {completed} of {total} image folders(s)..."
+                                     message = $"Processed {completed}/{total} -> {Path.GetRelativePath(root, s)}"
                                  }).GetAwaiter().GetResult();
                              }))
                 {
@@ -81,22 +81,22 @@ public class JobRunner : IJobRunner
   
                 await _hub.Clients.Group(group).SendAsync("ReceiveCompleted", new
                 {
-                    jobId,
+                    jobId = id,
                     percent = 100,
                     message = $"Rebuild completed. Processed {total} file(s)."
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during job {JobId}", jobId);
+                _logger.LogError(ex, "Error during job {JobId}", id);
                 await _hub.Clients.Group(group).SendAsync("ReceiveError", new
                 {
-                    jobId,
+                    jobId = id,
                     message = ex.Message
                 });
             }
         });
 
-        return jobId;
+        return id;
     }
 }

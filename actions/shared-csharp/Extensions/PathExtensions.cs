@@ -13,14 +13,39 @@ public static class PathExtensions
         return groupName;
     }
     
-    public static object[][] CollectStorageFolders (string contextPath) =>
-        File.ReadAllLines(Path.Combine(contextPath, "spec.info"))
-            .Select(line => line
-                .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
-                .Select(s => (object)s.Trim())
-                .ToArray())
-            .Where(arr => arr.Length > 0)
-            .ToArray();
+    public static object[][] CollectStorageFolders (string contextPath)
+    {
+        if (!Directory.Exists(contextPath))
+            return Array.Empty<object[]>();
+
+        var result = new List<object[]>();
+
+        // Level 1: immediate subfolders of contextPath
+        var firstLevelDirs = Directory.GetDirectories(contextPath, "*", SearchOption.TopDirectoryOnly);
+        foreach (var dr in firstLevelDirs)
+        {
+            var directoryName = Path.GetFileName(dr);
+            if (string.IsNullOrWhiteSpace(directoryName) || directoryName.StartsWith("."))
+                continue;
+
+            // include the level-1 folder itself
+            result.Add([directoryName]);
+
+            // Level 2: subfolders of each level-1 folder
+            var level2Dirs = Directory.GetDirectories(dr, "*", SearchOption.TopDirectoryOnly);
+            foreach (var dir2 in level2Dirs)
+            {
+                var name2 = Path.GetFileName(dir2);
+                if (string.IsNullOrWhiteSpace(name2) || name2.StartsWith("."))
+                    continue;
+
+                var relative = Path.Combine(directoryName, name2);
+                result.Add([relative]);
+            }
+        }
+
+        return result.ToArray();
+    }
     
     public static IEnumerable<object[]> GetFilesInFolder(string contextPath, object[][] storageFolders, Action<string> onFolderProcessed = null)
     {

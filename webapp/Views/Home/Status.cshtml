@@ -62,6 +62,13 @@
             const progressText = document.getElementById('progressText');
             const log = document.getElementById('log');
             const jobIdBadge = document.getElementById('jobIdBadge');
+            
+            // Prepare SignalR connection as early as possible to avoid missing events
+            let currentJobId = null;
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl('/hubs/jobstatus')
+                .withAutomaticReconnect()
+                .build();
 
             function setProgress(p) {
                 p = Math.max(0, Math.min(100, p|0));
@@ -75,53 +82,115 @@
                 log.textContent += `[${time}] ${msg}\n`;
                 log.scrollTop = log.scrollHeight;
             }
+            
+            function clearLogs() {
+                log.textContent = "";
+            }
+
+            // Register handlers once; they filter by currentJobId
+            connection.on('ReceiveProgress', payload => {
+                if (!payload || !currentJobId || payload.jobId !== currentJobId) return;
+                setProgress(payload.percent || 0);
+                if (payload.message) addLog(payload.message);
+            });
+
+            connection.on('ReceiveCompleted', payload => {
+                if (!payload || !currentJobId || payload.jobId !== currentJobId) return;
+                setProgress(100);
+                addLog(payload.message || 'Completed');
+                startBtn.disabled = false;
+            });
+
+            connection.on('ReceiveError', payload => {
+                // Show even if jobId not set to catch early hub errors
+                addLog('Error: ' + (payload?.message || 'Unknown error'));
+                startBtn.disabled = false;
+            });
+
+            // Start connection on page load
+            (async () => {
+                try {
+                    await connection.start();
+                    addLog('Connected to hub.');
+
+                    // Ensure connection is started (in case initial start failed)
+                    if (connection.state !== signalR.HubConnectionState.Connected) {
+                        try {
+                            await connection.start();
+                            addLog('Connected to hub.');
+                        } catch (err) {
+                            addLog('Hub connection failed: ' + err);
+                            startBtn.disabled = false;
+                            return;
+                        }
+                    }
+
+                } catch (err) {
+                    addLog('Hub connection failed: ' + err);
+                }
+            })();
+
+            // If reconnected, rejoin the job group if we have one
+            connection.onreconnected(async () => {
+                if (currentJobId) {
+                    try {
+                        await connection.invoke('JoinJobGroup', currentJobId);
+                        addLog('Reconnected and rejoined job group.');
+                    } catch (e) {
+                        addLog('Failed to rejoin group: ' + e);
+                    }
+                } else {
+                    addLog('Reconnected.');
+                }
+            });
 
             async function startJob() {
                 setProgress(0);
+                clearLogs();
                 addLog('Starting job...');
                 startBtn.disabled = true;
 
+                // 1) Generate jobId on client
+                const newJobId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID().replace(/-/g,'') : (Date.now().toString(36) + Math.random().toString(36).slice(2));
+                currentJobId = newJobId;
+                jobIdBadge.textContent = currentJobId;
+                jobIdBadge.style.display = '';
+
+                // 2) Ensure hub connection is established
+                if (connection.state !== signalR.HubConnectionState.Connected) {
+                    try {
+                        await connection.start();
+                        addLog('Connected to hub.');
+                    } catch (err) {
+                        addLog('Hub connection failed: ' + err);
+                        startBtn.disabled = false;
+                        return;
+                    }
+                }
+
+                // 3) Join group BEFORE starting the job
+                try {
+                    await connection.invoke('JoinJobGroup', currentJobId);
+                    addLog('Joined job group.');
+                } catch (e) {
+                    addLog('Failed to join group: ' + e);
+                    startBtn.disabled = false;
+                    return;
+                }
+
+                // 4) Start the job passing the jobId
+                const body = new URLSearchParams({ jobId: currentJobId });
                 const resp = await fetch('@Url.Action("StartJob", "Home")', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body
                 });
                 if (!resp.ok) {
                     addLog('Failed to start job: ' + resp.status);
                     startBtn.disabled = false;
                     return;
                 }
-                const { jobId } = await resp.json();
-                jobIdBadge.textContent = jobId;
-                jobIdBadge.style.display = '';
-                addLog('Job started: ' + jobId);
-
-                const connection = new signalR.HubConnectionBuilder()
-                    .withUrl('/hubs/jobstatus')
-                    .withAutomaticReconnect()
-                    .build();
-
-                connection.on('ReceiveProgress', payload => {
-                    if (!payload || payload.jobId !== jobId) return;
-                    setProgress(payload.percent || 0);
-                    if (payload.message) addLog(payload.message);
-                });
-
-                connection.on('ReceiveCompleted', payload => {
-                    if (!payload || payload.jobId !== jobId) return;
-                    setProgress(100);
-                    addLog(payload.message || 'Completed');
-                    startBtn.disabled = false;
-                });
-
-                connection.on('ReceiveError', payload => {
-                    if (!payload || payload.jobId !== jobId) return;
-                    addLog('Error: ' + (payload.message || 'Unknown error'));
-                    startBtn.disabled = false;
-                });
-
-                await connection.start();
-                await connection.invoke('JoinJobGroup', jobId);
-                addLog('Connected to hub and joined job group.');
+                addLog('Job started: ' + currentJobId);
             }
 
             startBtn.addEventListener('click', (e) => {
