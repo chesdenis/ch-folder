@@ -10,6 +10,13 @@ public static class FileCalculationExtensions
 
     public static async Task<string> CalculateMd5Async(this string filePath)
     {
+        // check if file already has the md5 prefix,
+        // this is because we want to avoid re-computing it
+        if (filePath.IsMd5InFileName())
+        {
+            return filePath.GetMd5FromFileName();
+        }
+        
         using var md5 = MD5.Create();
 
         // Read the file in a memory-efficient asynchronous manner

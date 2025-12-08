@@ -57,7 +57,7 @@ public class FileNameMd5Processor
 
     private async Task<string> UpsertPrefixIntoFileName(string filePath)
     {
-        if (IsMd5InFileName(Path.GetFileNameWithoutExtension(filePath)))
+        if (Path.GetFileNameWithoutExtension(filePath).IsMd5InFileName())
         {
             // do nothing, the file name already has the md5 hash
             return filePath;
@@ -67,20 +67,6 @@ public class FileNameMd5Processor
         var fileNameWithMd5 = await CalculateFileNameWithMd5Mark(filePath);
         return Path.Combine(Path.GetDirectoryName(filePath) ?? string.Empty,
             $"{fileNameWithMd5}{Path.GetExtension(filePath)}");
-    }
-
-    private static bool IsMd5InFileName(string fileName)
-    {
-        // Get the file name without the extension
-        string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
-
-        // Split by underscores
-        var parts = fileNameWithoutExtension.Split('_');
-
-        // Check if the last part is a valid MD5 hash (32 hexadecimal characters)
-        var md5Regex = new Regex("^[a-fA-F0-9]{32}$", RegexOptions.Compiled);
-
-        return parts.Length > 0 && md5Regex.IsMatch(parts[^1]); // Check the last part
     }
 
     private async Task<string> CalculateFileNameWithMd5Mark(string existingFilePath)

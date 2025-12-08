@@ -1,7 +1,10 @@
-﻿namespace shared_csharp.Extensions;
+﻿using System.Text.RegularExpressions;
+
+namespace shared_csharp.Extensions;
 
 public static class PathExtensions
 {
+    private static readonly Regex Md5Regex = new Regex("^[a-fA-F0-9]{32}$", RegexOptions.Compiled);
     public static string GetGroupName(this string filePath)
     {
         var groupName = Path.GetFileNameWithoutExtension(filePath).Split("_")[0];
@@ -78,5 +81,26 @@ public static class PathExtensions
             
             onFolderProcessed?.Invoke(folderPath);
         }
+    }
+    
+    public static bool IsMd5InFileName(this string fileName)
+    {
+        // Get the file name without the extension
+        string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+
+        // Split by underscores
+        var parts = fileNameWithoutExtension.Split('_');
+
+        // Check if the last part is a valid MD5 hash (32 hexadecimal characters)
+        return parts.Length > 0 && Md5Regex.IsMatch(parts[^1]); // Check the last part
+    }
+
+    public static string GetMd5FromFileName(this string fileName)
+    {
+        // Get the file name without the extension and split by underscores
+        string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+        var parts = fileNameWithoutExtension.Split('_');
+        
+        return parts[^1];
     }
 }

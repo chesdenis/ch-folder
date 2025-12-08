@@ -21,6 +21,20 @@ public class ValidationTests
         return new[] { "16", "32", "64", "128", "512", "2000" };
     }
 
+    [Fact]
+    public async Task AllFilesAreUnique()
+    {
+        var ht = new HashSet<string>();
+        foreach (var filePath in GetTestingFiles())
+        {
+            var md5 = await (filePath[0] as string).CalculateMd5Async();
+            if (ht.Contains(md5))
+                Assert.Fail($"Duplicate file found: {filePath[0]}");
+            
+            ht.Add(md5);
+        }
+    }
+
     [Theory]
     [MemberData(nameof(TestFilePaths))]
     public void ValidateFolder(string folderPath) => Assert.NotEmpty(folderPath);

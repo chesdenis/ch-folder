@@ -12,6 +12,7 @@ public class MetaUploader
     private readonly string _connectionString;
     private const int BatchSize = 200;
     private readonly List<PhotoRecord> _buffer = new();
+    private readonly HashSet<string> _existingMd5 = new(StringComparer.OrdinalIgnoreCase);
 
     public MetaUploader(IFileSystem fileSystem, IFileHasher fileHasher)
     {
@@ -24,6 +25,7 @@ public class MetaUploader
     public async Task RunAsync(string[] args)
     {
         args = args.ValidateArgs();
+        await LoadExistingMd5Async();
         await _fileSystem.WalkThrough(args, ProcessSingleFile);
 
         // flush remaining buffer
@@ -51,6 +53,12 @@ public class MetaUploader
 
             // compute md5 from file content
             var md5 = await _fileHasher.ComputeMd5Async(filePath);
+
+            // skip if already in DB
+            if (_existingMd5.Contains(md5))
+            {
+                return;
+            }
 
             var record = new PhotoRecord(
                 md5_hash: md5,
@@ -80,8 +88,22 @@ public class MetaUploader
         }
     }
 
+    private async Task LoadExistingMd5Async()
+    {
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync();
+        await using var cmd = new NpgsqlCommand("SELECT md5_hash FROM photo", conn);
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            var hash = reader.GetString(0);
+            _existingMd5.Add(hash);
+        }
+    }
+
     private async Task UpsertBatchAsync(List<PhotoRecord> batch)
     {
+        Console.WriteLine($"Upserting {batch.Count} records...");
         if (batch.Count == 0) return;
 
         await using var conn = new NpgsqlConnection(_connectionString);
