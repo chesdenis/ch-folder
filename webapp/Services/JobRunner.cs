@@ -105,7 +105,7 @@ public class JobRunner : IJobRunner
                                 }).GetAwaiter().GetResult();
                             }
                             catch { }
-                        }
+                        }, envFilePath: 
                     );
 
                     completed++;
