@@ -37,17 +37,19 @@ public class JobRunner : IJobRunner
         {
             try
             {
-                var root = _storage.RootPath ?? throw new InvalidOperationException("Storage root not specified in settings");
+                var rootPath = _storage.RootPath ?? throw new InvalidOperationException("Storage root not specified in settings");
+                var actionsPath =_storage.ActionsPath ?? throw new InvalidOperationException("Actions root not specified in settings");
+                    
                 await _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
                 {
                     jobId = id,
                     percent = 0,
-                    message = $"Rebuild started. Root: '{root}'"
+                    message = $"Rebuild started. Root: '{rootPath}'"
                 });
 
-                if (!Directory.Exists(root))
+                if (!Directory.Exists(rootPath))
                 {
-                    throw new DirectoryNotFoundException($"Storage root '{root}' does not exist");
+                    throw new DirectoryNotFoundException($"Storage root '{rootPath}' does not exist");
                 }
                 
                 var storageFolders = PathExtensions.CollectStorageFolders(_storage.RootPath);
@@ -67,7 +69,7 @@ public class JobRunner : IJobRunner
                     if (string.IsNullOrWhiteSpace(rel))
                         continue;
 
-                    var folderAbs = Path.GetFullPath(Path.Combine(root, rel));
+                    var folderAbs = Path.GetFullPath(Path.Combine(rootPath, rel));
                     if (!Directory.Exists(folderAbs))
                         continue;
 
@@ -75,10 +77,11 @@ public class JobRunner : IJobRunner
                     {
                         jobId = id,
                         percent = completed * 100 / Math.Max(1, total),
-                        message = $"Starting: {Path.GetRelativePath(root, folderAbs)}"
+                        message = $"Starting: {Path.GetRelativePath(rootPath, folderAbs)}"
                     });
 
                     var exit = await _docker.RunMetaUploaderAsync(
+                        actionsPath,
                         folderAbs,
                         onStdout: line =>
                         {
@@ -105,8 +108,7 @@ public class JobRunner : IJobRunner
                                 }).GetAwaiter().GetResult();
                             }
                             catch { }
-                        }, envFilePath: 
-                    );
+                        });
 
                     completed++;
 
@@ -119,7 +121,7 @@ public class JobRunner : IJobRunner
                     {
                         jobId = id,
                         percent = completed * 100 / Math.Max(1, total),
-                        message = $"Processed {completed}/{total} -> {Path.GetRelativePath(root, folderAbs)}"
+                        message = $"Processed {completed}/{total} -> {Path.GetRelativePath(rootPath, folderAbs)}"
                     });
                 }
   
@@ -127,7 +129,7 @@ public class JobRunner : IJobRunner
                 {
                     jobId = id,
                     percent = 100,
-                    message = $"Rebuild completed. Processed {total} file(s)."
+                    message = $"Rebuild completed. Processed {total} folders."
                 });
             }
             catch (Exception ex)

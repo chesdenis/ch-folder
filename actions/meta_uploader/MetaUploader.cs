@@ -18,8 +18,18 @@ public class MetaUploader
     {
         _fileSystem = fileSystem;
         _fileHasher = fileHasher;
-        _connectionString = Environment.GetEnvironmentVariable("METASTORE_CS")
-                             ?? throw new ArgumentNullException("METASTORE_CS");
+        _connectionString =
+            string.Join(";",
+                $"Host={Environment.GetEnvironmentVariable("Host")}",
+                $"Port={Environment.GetEnvironmentVariable("Port")}",
+                $"Database={Environment.GetEnvironmentVariable("Database")}",
+                $"Username={Environment.GetEnvironmentVariable("Username")}",
+                $"Password={Environment.GetEnvironmentVariable("Password")}",
+                "Ssl Mode=Disable",
+                "Trust Server Certificate=true",
+                "Include Error Detail=true"
+            );
+        _connectionString = _connectionString ?? throw new ArgumentNullException(nameof(_connectionString));
     }
     
     public async Task RunAsync(string[] args)
