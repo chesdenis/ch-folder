@@ -62,6 +62,7 @@ public class MetaUploader
                 size_bytes: sizeBytes,
                 tags: Array.Empty<string>(),
                 short_details: Path.GetFileNameWithoutExtension(fileName),
+                // TODO: populate color and average hashes
                 color_hash: "na",
                 average_hash: "na"
             );
