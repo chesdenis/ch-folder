@@ -17,12 +17,14 @@ public class JobRunner : IJobRunner
     private readonly IHubContext<JobStatusHub> _hub;
     private readonly ILogger<JobRunner> _logger;
     private readonly StorageOptions _storage;
+    private readonly IDockerRunner _docker;
 
-    public JobRunner(IHubContext<JobStatusHub> hub, ILogger<JobRunner> logger, IOptions<StorageOptions> storage)
+    public JobRunner(IHubContext<JobStatusHub> hub, ILogger<JobRunner> logger, IOptions<StorageOptions> storage, IDockerRunner docker)
     {
         _hub = hub;
         _logger = logger;
         _storage = storage.Value;
+        _docker = docker;
     }
 
     public string StartJob(string? folder, string jobId)
@@ -59,24 +61,66 @@ public class JobRunner : IJobRunner
                     message = $"Discovered {total} image folders(s). Starting processing..."
                 });
 
-                foreach (var pathContainer in PathExtensions.GetFilesInFolder(root, storageFolders,
-                             s =>
-                             {
-                                 completed++;
-                                 
-                                 _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
-                                 {
-                                     jobId = id,
-                                     percent = completed * 100 / total,
-                                     message = $"Processed {completed}/{total} -> {Path.GetRelativePath(root, s)}"
-                                 }).GetAwaiter().GetResult();
-                             }))
+                foreach (var row in storageFolders)
                 {
-                    var filePath = pathContainer[0] as string;
-                    if (filePath != null)
+                    var rel = row.Length > 0 ? row[0] as string : null;
+                    if (string.IsNullOrWhiteSpace(rel))
+                        continue;
+
+                    var folderAbs = Path.GetFullPath(Path.Combine(root, rel));
+                    if (!Directory.Exists(folderAbs))
+                        continue;
+
+                    await _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
                     {
-                        var _ = new FileInfo(filePath).Length;
+                        jobId = id,
+                        percent = completed * 100 / Math.Max(1, total),
+                        message = $"Starting: {Path.GetRelativePath(root, folderAbs)}"
+                    });
+
+                    var exit = await _docker.RunMetaUploaderAsync(
+                        folderAbs,
+                        onStdout: line =>
+                        {
+                            try
+                            {
+                                _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
+                                {
+                                    jobId = id,
+                                    percent = completed * 100 / Math.Max(1, total),
+                                    message = line
+                                }).GetAwaiter().GetResult();
+                            }
+                            catch { /* ignore hub send errors per-line */ }
+                        },
+                        onStderr: line =>
+                        {
+                            try
+                            {
+                                _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
+                                {
+                                    jobId = id,
+                                    percent = completed * 100 / Math.Max(1, total),
+                                    message = $"[stderr] {line}"
+                                }).GetAwaiter().GetResult();
+                            }
+                            catch { }
+                        }
+                    );
+
+                    completed++;
+
+                    if (exit != 0)
+                    {
+                        throw new Exception($"meta_uploader failed for '{rel}' with exit code {exit}");
                     }
+
+                    await _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
+                    {
+                        jobId = id,
+                        percent = completed * 100 / Math.Max(1, total),
+                        message = $"Processed {completed}/{total} -> {Path.GetRelativePath(root, folderAbs)}"
+                    });
                 }
   
                 await _hub.Clients.Group(group).SendAsync("ReceiveCompleted", new

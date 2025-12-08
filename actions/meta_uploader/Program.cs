@@ -13,4 +13,5 @@ services.AddSingleton<EmbeddingUploader>();
 var provider = services.BuildServiceProvider();
 
 await provider.GetRequiredService<MetaUploader>().RunAsync(args);
-await provider.GetRequiredService<EmbeddingUploader>().RunAsync(args);
+// TODO refactor to support batch uploading/indexing for this
+// await provider.GetRequiredService<EmbeddingUploader>().RunAsync(args);
