@@ -6,15 +6,16 @@ public interface IDockerRunner
 {
     Task<int> RunMetaUploaderAsync(
         string hostFolderAbs,
+        string? envFilePath = null,
         Action<string>? onStdout = null,
         Action<string>? onStderr = null,
         CancellationToken ct = default);
 
     // Placeholders for future use on a different page
-    Task<int> RunAiContentQueryBuilderAsync(string hostFolderAbs, Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
-    Task<int> RunMd5ImageMarkerAsync(string hostFolderAbs, Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
-    Task<int> RunFaceHashBuilderAsync(string hostFolderAbs, Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
-    Task<int> RunAverageImageMarkerAsync(string hostFolderAbs, Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
+    Task<int> RunAiContentQueryBuilderAsync(string hostFolderAbs, string? envFilePath = null, Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
+    Task<int> RunMd5ImageMarkerAsync(string hostFolderAbs, string? envFilePath = null, Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
+    Task<int> RunFaceHashBuilderAsync(string hostFolderAbs, string? envFilePath = null, Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
+    Task<int> RunAverageImageMarkerAsync(string hostFolderAbs, string? envFilePath = null, Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
 }
 
 public class DockerRunner : IDockerRunner
@@ -88,18 +89,33 @@ public class DockerRunner : IDockerRunner
         return tcs.Task;
     }
 
-    public Task<int> RunMetaUploaderAsync(string hostFolderAbs, Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
-        => RunDockerAsync("meta_uploader", hostFolderAbs, "/in", null, onStdout, onStderr, ct);
+    public Task<int> RunMetaUploaderAsync(string hostFolderAbs, string? envFilePath = null, Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
+        => RunDockerAsync(
+            "meta_uploader",
+            hostFolderAbs,
+            "/in",
+            BuildEnvArgs(envFilePath),
+            onStdout,
+            onStderr,
+            ct);
 
-    public Task<int> RunAiContentQueryBuilderAsync(string hostFolderAbs, Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
-        => RunDockerAsync("ai_content_query_builder", hostFolderAbs, "/in", null, onStdout, onStderr, ct);
+    public Task<int> RunAiContentQueryBuilderAsync(string hostFolderAbs, string? envFilePath = null, Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
+        => RunDockerAsync("ai_content_query_builder", hostFolderAbs, "/in", BuildEnvArgs(envFilePath), onStdout, onStderr, ct);
 
-    public Task<int> RunMd5ImageMarkerAsync(string hostFolderAbs, Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
-        => RunDockerAsync("md5_image_marker", hostFolderAbs, "/in", null, onStdout, onStderr, ct);
+    public Task<int> RunMd5ImageMarkerAsync(string hostFolderAbs, string? envFilePath = null, Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
+        => RunDockerAsync("md5_image_marker", hostFolderAbs, "/in", BuildEnvArgs(envFilePath), onStdout, onStderr, ct);
 
-    public Task<int> RunFaceHashBuilderAsync(string hostFolderAbs, Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
-        => RunDockerAsync("face_hash_builder", hostFolderAbs, "/in", null, onStdout, onStderr, ct);
+    public Task<int> RunFaceHashBuilderAsync(string hostFolderAbs, string? envFilePath = null, Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
+        => RunDockerAsync("face_hash_builder", hostFolderAbs, "/in", BuildEnvArgs(envFilePath), onStdout, onStderr, ct);
 
-    public Task<int> RunAverageImageMarkerAsync(string hostFolderAbs, Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
-        => RunDockerAsync("average_image_marker", hostFolderAbs, "/in", null, onStdout, onStderr, ct);
+    public Task<int> RunAverageImageMarkerAsync(string hostFolderAbs, string? envFilePath = null, Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
+        => RunDockerAsync("average_image_marker", hostFolderAbs, "/in", BuildEnvArgs(envFilePath), onStdout, onStderr, ct);
+
+    private static IEnumerable<string>? BuildEnvArgs(string? envFilePath)
+    {
+        if (string.IsNullOrWhiteSpace(envFilePath)) return null;
+        var abs = Path.GetFullPath(envFilePath);
+        // Quote the path to handle spaces
+        return [$"--env-file \"{abs}\""];
+    }
 }
