@@ -1,10 +1,10 @@
 ﻿@{
-    ViewData["Title"] = "Status";
+    ViewData["Title"] = "Meta";
 }
 
 <div class="row">
     <div class="col-md-10 col-lg-8">
-        <h1 class="mb-3">Status</h1>
+        <h1 class="mb-3">Rebuild meta information and store into vector and relational storages</h1>
 
         <div class="card mb-3">
             <div class="card-body">
@@ -17,15 +17,11 @@
                         <label for="jobType" class="form-label">Job</label>
                         <select id="jobType" class="form-select">
                             <option value="MetaUploader">Meta Uploader</option>
-                            <option value="AiContentQueryBuilder">AI Content Query</option>
-                            <option value="Md5ImageMarker">MD5 Image Marker</option>
-                            <option value="FaceHashBuilder">Face Hash Builder</option>
-                            <option value="AverageImageMarker">Average Image Marker</option>
                         </select>
                     </div>
                     <div class="col-6 col-md-2">
                         <label for="dop" class="form-label">DOP</label>
-                        <input id="dop" class="form-control" type="number" min="1" max="32" value="4" />
+                        <input id="dop" class="form-control" type="number" min="1" max="32" value="12" />
                     </div>
                     <div class="col-12 col-md-2">
                         <label class="form-label">&nbsp;</label>

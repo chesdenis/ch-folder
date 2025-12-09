@@ -134,7 +134,7 @@ public class HomeController(ILogger<HomeController> logger, IJobRunner jobRunner
         return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
     }
 
-    public IActionResult Status()
+    public IActionResult Meta()
     {
         ViewBag.StoragePath = _storage.RootPath ?? string.Empty;
         return View();
