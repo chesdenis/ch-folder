@@ -14,6 +14,8 @@ public class EmbeddingUploader
     private readonly string _connectionString;
     private const string Collection = "photos";
     private const int VectorSize = 1536;
+    private const int BatchSize = 200;
+    private readonly List<PointStruct> _buffer = new();
 
     public EmbeddingUploader(IFileSystem fileSystem, IFileHasher fileHasher)
     {
@@ -29,6 +31,13 @@ public class EmbeddingUploader
         
         args = args.ValidateArgs();
         await _fileSystem.WalkThrough(args, (p)=> ProcessSingleFile(p, http));
+
+        // flush remaining buffer
+        if (_buffer.Count > 0)
+        {
+            await UpsertBatchAsync(http, _buffer);
+            _buffer.Clear();
+        }
     }
 
     private async Task ProcessSingleFile(string filePath, HttpClient http)
@@ -68,25 +77,14 @@ public class EmbeddingUploader
             ["path"] = md5,
             ["text"] = descriptionContent,
         };
-        
-        var req = new UpsertPointsRequest([
-            new(md5, item.data[0].embedding.ToArray(), payload)
-        ]);
-        
-        var json = JsonSerializer.Serialize(req);
-        var resp = await http.PutAsync($"/collections/{Collection}/points?wait=true",
-            new StringContent(json, Encoding.UTF8, "application/json"));
-        if (!resp.IsSuccessStatusCode)
-        {
-            var body = await resp.Content.ReadAsStringAsync();
-            Console.WriteLine($"Upsert error [{resp.Content}]: {body}");
-        }
-        else
-        {
-            Console.WriteLine($"Upserted for {filePath}");
-        }
 
-        Console.WriteLine($"File {filePath} processed successfully.");
+        // add to buffer for batch upsert
+        _buffer.Add(new PointStruct(md5, item.data[0].embedding.ToArray(), payload));
+        if (_buffer.Count >= BatchSize)
+        {
+            await UpsertBatchAsync(http, _buffer);
+            _buffer.Clear();
+        }
     }
     
     static async Task EnsureCollection(HttpClient http, string collection, int dim)
@@ -108,6 +106,21 @@ public class EmbeddingUploader
         }
 
         Console.WriteLine($"Created collection '{collection}'");
+    }
+    
+    private static async Task UpsertBatchAsync(HttpClient http, List<PointStruct> batch)
+    {
+        if (batch.Count == 0) return;
+        Console.WriteLine($"Upserting {batch.Count} vectors to Qdrant...");
+        var req = new UpsertPointsRequest(batch.ToArray());
+        var json = JsonSerializer.Serialize(req);
+        var resp = await http.PutAsync($"/collections/{Collection}/points?wait=true",
+            new StringContent(json, Encoding.UTF8, "application/json"));
+        if (!resp.IsSuccessStatusCode)
+        {
+            var body = await resp.Content.ReadAsStringAsync();
+            Console.WriteLine($"Upsert error: {resp.StatusCode} {body}");
+        }
     }
     
     record UpsertPointsRequest(PointStruct[] points);

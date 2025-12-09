@@ -68,12 +68,9 @@ public static class PathExtensions
                 filePath = s
             }).ToArray();
             // excluding preview and system files and unsupported file types
-            files = files.Where(f => !f.fileName.EndsWith(".DS_Store")).ToArray();
-            files = files.Where(f => !f.fileName.EndsWith(".mov")).ToArray();
-            files = files.Where(f => !f.fileName.EndsWith(".MOV")).ToArray();
-            files = files.Where(f => !f.fileName.EndsWith(".mp4")).ToArray();
-            files = files.Where(f => !f.fileName.EndsWith(".MP4")).ToArray();
-            files = files.Where(f => !f.fileName.StartsWith("._")).ToArray();
+            files = files.Where(f => 
+                !ImageProcessingGuardExtensions.IgnoredExtensions
+                    .Contains(Path.GetExtension(f.fileName))).ToArray();
             foreach (var file in files)
             {
                 yield return [file.filePath];
