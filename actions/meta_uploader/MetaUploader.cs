@@ -20,11 +20,11 @@ public class MetaUploader
         _fileHasher = fileHasher;
         _connectionString =
             string.Join(";",
-                $"Host={Environment.GetEnvironmentVariable("Host")}",
-                $"Port={Environment.GetEnvironmentVariable("Port")}",
-                $"Database={Environment.GetEnvironmentVariable("Database")}",
-                $"Username={Environment.GetEnvironmentVariable("Username")}",
-                $"Password={Environment.GetEnvironmentVariable("Password")}",
+                $"Host={Environment.GetEnvironmentVariable("PG_HOST")}",
+                $"Port={Environment.GetEnvironmentVariable("PG_PORT")}",
+                $"Database={Environment.GetEnvironmentVariable("PG_DATABASE")}",
+                $"Username={Environment.GetEnvironmentVariable("PG_USERNAME")}",
+                $"Password={Environment.GetEnvironmentVariable("PG_PASSWORD")}",
                 "Ssl Mode=Disable",
                 "Trust Server Certificate=true",
                 "Include Error Detail=true"

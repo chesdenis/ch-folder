@@ -19,8 +19,7 @@ public class EmbeddingUploader
     {
         _fileSystem = fileSystem;
         _fileHasher = fileHasher;
-        _connectionString = Environment.GetEnvironmentVariable("QDRANT_CS")
-                            ?? throw new ArgumentNullException("QDRANT_CS");
+        _connectionString = $"http://{Environment.GetEnvironmentVariable("QD_HOST")}:{Environment.GetEnvironmentVariable("QD_PORT")}";
     }
 
     public async Task RunAsync(string[] args)
