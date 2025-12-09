@@ -146,10 +146,10 @@ public class HomeController(ILogger<HomeController> logger, IJobRunner jobRunner
     }
 
     [HttpPost]
-    public IActionResult StartJob([FromForm] string? folder, [FromForm] string jobId)
+    public IActionResult IndexJob([FromForm] string jobId, [FromForm] JobType type, [FromForm] int? dop)
     {
         if (string.IsNullOrWhiteSpace(jobId)) return BadRequest("jobId is required");
-        var id = jobRunner.StartJob(folder, jobId);
+        var id = jobRunner.StartJob(jobId, type, dop);
         return Ok(new { jobId = id });
     }
 }

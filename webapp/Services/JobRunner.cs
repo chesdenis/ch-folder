@@ -7,9 +7,18 @@ using shared_csharp.Extensions;
 
 namespace webapp.Services;
 
+public enum JobType
+{
+    MetaUploader,
+    AiContentQueryBuilder,
+    Md5ImageMarker,
+    FaceHashBuilder,
+    AverageImageMarker
+}
+
 public interface IJobRunner
 {
-    string StartJob(string? folder, string jobId);
+    string StartJob(string jobId, JobType jobType, int? degreeOfParallelism = null);
 }
 
 public class JobRunner : IJobRunner
@@ -27,13 +36,13 @@ public class JobRunner : IJobRunner
         _docker = docker;
     }
 
-    public string StartJob(string? folder, string jobId)
+    public string StartJob(string jobId, JobType jobType, int? degreeOfParallelism = null)
     {
         var id = string.IsNullOrWhiteSpace(jobId) ? Guid.NewGuid().ToString("N") : jobId;
         var group = JobStatusHub.GroupName(id);
 
         // Fire-and-forget background task
-        _ = Task.Run(async () =>
+        _ = Task.Run((Func<Task>)(async () =>
         {
             try
             {
@@ -44,7 +53,7 @@ public class JobRunner : IJobRunner
                 {
                     jobId = id,
                     percent = 0,
-                    message = $"Rebuild started. Root: '{rootPath}'"
+                    message = $"Job '{jobType}' started. Root: '{rootPath}'"
                 });
 
                 if (!Directory.Exists(rootPath))
@@ -55,81 +64,104 @@ public class JobRunner : IJobRunner
                 var storageFolders = PathExtensions.CollectStorageFolders(_storage.RootPath);
                 var total = storageFolders.Length;
                 var completed = 0;
+                var dop = Math.Max(1, degreeOfParallelism ?? Math.Min(Environment.ProcessorCount, 4));
 
                 await _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
                 {
                     jobId = id,
-                    percent = 0,
-                    message = $"Discovered {total} image folders(s). Starting processing..."
+                    percent = ComputeCompleted(total, ref completed),
+                    message = $"Discovered {total} folder(s). Starting '{jobType}' with DOP={dop}..."
                 });
 
-                foreach (var row in storageFolders)
+                // Map job to appropriate docker runner function (unify signatures via wrappers)
+                var jobFunc = BuildJobFunc(jobType);
+
+                var errors = new ConcurrentBag<string>();
+
+                await Parallel.ForEachAsync(storageFolders, new ParallelOptions { MaxDegreeOfParallelism = dop }, async (row, ct) =>
                 {
-                    var rel = row.Length > 0 ? row[0] as string : null;
-                    if (string.IsNullOrWhiteSpace(rel))
-                        continue;
-
-                    var folderAbs = Path.GetFullPath(Path.Combine(rootPath, rel));
-                    if (!Directory.Exists(folderAbs))
-                        continue;
-
-                    await _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
+                    try
                     {
-                        jobId = id,
-                        percent = completed * 100 / Math.Max(1, total),
-                        message = $"Starting: {Path.GetRelativePath(rootPath, folderAbs)}"
-                    });
+                        var rel = row.Length > 0 ? row[0] as string : null;
+                        if (string.IsNullOrWhiteSpace(rel)) return;
 
-                    var exit = await _docker.RunMetaUploaderAsync(
-                        actionsPath,
-                        folderAbs,
-                        onStdout: line =>
+                        var folderAbs = Path.GetFullPath(Path.Combine(rootPath, rel));
+                        if (!Directory.Exists(folderAbs)) return;
+
+                        await _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
                         {
-                            try
+                            jobId = id,
+                            percent = ComputeCompleted(total, ref completed),
+                            message = $"Starting: {Path.GetRelativePath(rootPath, folderAbs)}"
+                        }, cancellationToken: ct);
+
+                        var exit = await jobFunc(
+                            actionsPath,
+                            folderAbs,
+                            line =>
                             {
-                                _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
+                                try
                                 {
-                                    jobId = id,
-                                    percent = completed * 100 / Math.Max(1, total),
-                                    message = line
-                                }).GetAwaiter().GetResult();
-                            }
-                            catch { /* ignore hub send errors per-line */ }
-                        },
-                        onStderr: line =>
+                                    _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
+                                    {
+                                        jobId = id,
+                                        percent = ComputeCompleted(total, ref completed),
+                                        message = line
+                                    }, cancellationToken: ct).GetAwaiter().GetResult();
+                                }
+                                catch { /* ignore hub send errors per-line */ }
+                            },
+                            line =>
+                            {
+                                try
+                                {
+                                    _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
+                                    {
+                                        jobId = id,
+                                        percent = ComputeCompleted(total, ref completed),
+                                        message = $"[stderr] {line}"
+                                    }, cancellationToken: ct).GetAwaiter().GetResult();
+                                }
+                                catch { }
+                            },
+                            ct);
+
+                        Interlocked.Increment(ref completed);
+                        if (exit != 0)
                         {
-                            try
-                            {
-                                _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
-                                {
-                                    jobId = id,
-                                    percent = completed * 100 / Math.Max(1, total),
-                                    message = $"[stderr] {line}"
-                                }).GetAwaiter().GetResult();
-                            }
-                            catch { }
-                        });
+                            errors.Add($"{jobType} failed for '{rel}' with exit code {exit}");
+                        }
 
-                    completed++;
-
-                    if (exit != 0)
-                    {
-                        throw new Exception($"meta_uploader failed for '{rel}' with exit code {exit}");
+                        await _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
+                        {
+                            jobId = id,
+                            percent = ComputeCompleted(total, ref completed),
+                            message = $"Processed {completed}/{total} -> {Path.GetRelativePath(rootPath, folderAbs)}"
+                        }, cancellationToken: ct);
                     }
-
-                    await _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
+                    catch (Exception e)
                     {
-                        jobId = id,
-                        percent = completed * 100 / Math.Max(1, total),
-                        message = $"Processed {completed}/{total} -> {Path.GetRelativePath(rootPath, folderAbs)}"
-                    });
+                        errors.Add(e.Message);
+                        Interlocked.Increment(ref completed);
+                        await _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
+                        {
+                            jobId = id,
+                            percent = ComputeCompleted(total, ref completed),
+                            message = $"Error: {e.Message}"
+                        }, cancellationToken: ct);
+                    }
+                });
+
+                if (!errors.IsEmpty)
+                {
+                    throw new AggregateException(errors.Select(e => new Exception(e)));
                 }
   
                 await _hub.Clients.Group(group).SendAsync("ReceiveCompleted", new
                 {
                     jobId = id,
-                    percent = 100,
-                    message = $"Rebuild completed. Processed {total} folders."
+                    percent = ComputeCompleted(total, ref completed),
+                    message = $"Job '{jobType}' completed. Processed {total} folders."
                 });
             }
             catch (Exception ex)
@@ -141,8 +173,27 @@ public class JobRunner : IJobRunner
                     message = ex.Message
                 });
             }
-        });
+        }));
 
         return id;
+    }
+
+    private static int ComputeCompleted(int total, ref int completed)
+    {
+        return Volatile.Read(ref completed) * 100 / Math.Max(1, total);
+    }
+
+    private Func<string, string, Action<string>?, Action<string>?, CancellationToken, Task<int>> BuildJobFunc(JobType jobType)
+    {
+        Func<string, string, Action<string>?, Action<string>?, CancellationToken, Task<int>> jobFunc = jobType switch
+        {
+            JobType.MetaUploader => (ap, hf, o, e, ct) => _docker.RunMetaUploaderAsync(ap, hf, o, e, ct),
+            JobType.AiContentQueryBuilder => (ap, hf, o, e, ct) => _docker.RunAiContentQueryBuilderAsync(ap, hf, null, o, e, ct),
+            JobType.Md5ImageMarker => (ap, hf, o, e, ct) => _docker.RunMd5ImageMarkerAsync(ap, hf, null, o, e, ct),
+            JobType.FaceHashBuilder => (ap, hf, o, e, ct) => _docker.RunFaceHashBuilderAsync(ap, hf, null, o, e, ct),
+            JobType.AverageImageMarker => (ap, hf, o, e, ct) => _docker.RunAverageImageMarkerAsync(ap, hf, null, o, e, ct),
+            _ => (ap, hf, o, e, ct) => _docker.RunMetaUploaderAsync(ap, hf, o, e, ct)
+        };
+        return jobFunc;
     }
 }
