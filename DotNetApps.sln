@@ -25,6 +25,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "embedding_downloader", "act
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "check-content", "tests\unit\content\check-content.csproj", "{59CD0118-E320-4D9A-8BB0-B493A4FBB41B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "image_searcher", "actions\image_searcher\image_searcher.csproj", "{B9589733-611E-41B0-BFFA-ECA2D9A48D85}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -67,6 +69,10 @@ Global
 		{59CD0118-E320-4D9A-8BB0-B493A4FBB41B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{59CD0118-E320-4D9A-8BB0-B493A4FBB41B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{59CD0118-E320-4D9A-8BB0-B493A4FBB41B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B9589733-611E-41B0-BFFA-ECA2D9A48D85}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B9589733-611E-41B0-BFFA-ECA2D9A48D85}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B9589733-611E-41B0-BFFA-ECA2D9A48D85}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B9589733-611E-41B0-BFFA-ECA2D9A48D85}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{E94BF234-9583-4054-9356-B0AAD9C36194} = {68B14173-6FCA-4D2D-9F5C-6C2B56887904}
