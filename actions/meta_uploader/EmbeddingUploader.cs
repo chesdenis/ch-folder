@@ -50,14 +50,30 @@ public class EmbeddingUploader
         var groupName = filePath.GetGroupName();
         var md5 = await _fileHasher.ComputeMd5Async(filePath);
         
-        var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
-        var descriptionFolder = Path.Combine(directoryName, "dq");
+        var fileParentFolder = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
+        var descriptionFolder = Path.Combine(fileParentFolder, "dq");
         var embeddingPath = Path.Combine(descriptionFolder, $"{groupName}.dq.emb.json");
         var descriptionPath = Path.Combine(descriptionFolder, $"{groupName}.dq.md.answer.md");
+        
+        var commerceFolder = Path.Combine(fileParentFolder, "commerceMark");
+        var eng30TagsFolder = Path.Combine(fileParentFolder, "eng30tags");
+        
+       
+        //'/commerceMark/*.commerceMark.md.answer.md' - to get commerce mark with this format {rate, rate-explanation}
+        //'/eng30tags/*.eng30tags.md.answer.md' - to get tags with this format tag1, tag2, tag3, ..
+        // file location - first 2 folders, ... 
 
         var embeddingContent = await File.ReadAllTextAsync(embeddingPath);
         var descriptionContent = await File.ReadAllTextAsync(descriptionPath);
         
+        var commerceRawContent = await File.ReadAllTextAsync(Path.Combine(commerceFolder, $"{groupName}.commerceMark.md.answer.md"));
+        var eng30TagsRawContent = await File.ReadAllTextAsync(Path.Combine(eng30TagsFolder, $"{groupName}.eng30tags.md.answer.md"));
+        var commerceData = JsonSerializer.Deserialize<RateExplanation>(commerceRawContent);
+        var eng30TagsData = eng30TagsRawContent.Split(",");
+        
+        var eventName = Path.GetFileName(fileParentFolder);
+        var yearName = Path.GetFileName(Directory.GetParent(fileParentFolder)?.FullName);
+
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         var item = JsonSerializer.Deserialize<EmbeddingFile>(embeddingContent, options);
         if (item?.data == null || item.data.Count == 0)
@@ -130,5 +146,10 @@ public class EmbeddingUploader
         [property: JsonPropertyName("vector")] float[] Vector,
         [property: JsonPropertyName("payload")]
         Dictionary<string, object> Payload
+    );
+
+    record RateExplanation(
+        [property: JsonPropertyName("rate")] int rate,
+        [property: JsonPropertyName("rate-explanation")] string rateExplanation
     );
 }
