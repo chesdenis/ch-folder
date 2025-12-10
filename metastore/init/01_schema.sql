@@ -33,3 +33,41 @@ CREATE INDEX IF NOT EXISTS ix_photo_dir_path ON photo (dir_path);
 CREATE INDEX IF NOT EXISTS ix_photo_created_at ON photo (created_at);
 CREATE INDEX IF NOT EXISTS ix_photo_tags_gin ON photo USING GIN (tags);
 CREATE INDEX IF NOT EXISTS ix_photo_extension ON photo (extension);
+
+-- =============================================================
+-- Search sessions storage to persist vector search results
+-- so MVC app can reuse them without re-running embeddings/search
+-- =============================================================
+
+CREATE TABLE IF NOT EXISTS search_session (
+    id uuid PRIMARY KEY,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    query_text text NOT NULL,
+    embedding_model text NOT NULL,
+    embedding_dim integer NOT NULL CHECK (embedding_dim > 0),
+    embedding_hash text NULL,
+    filter_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+    collection_name text NOT NULL,
+    limit_requested integer NOT NULL CHECK (limit_requested > 0),
+    score_threshold real NULL,
+    result_count integer NOT NULL DEFAULT 0 CHECK (result_count >= 0),
+    expires_at timestamptz NULL
+);
+
+CREATE INDEX IF NOT EXISTS ix_search_session_created_at ON search_session (created_at);
+CREATE INDEX IF NOT EXISTS ix_search_session_expires_at ON search_session (expires_at);
+CREATE INDEX IF NOT EXISTS ix_search_session_filter_gin ON search_session USING GIN (filter_json);
+
+CREATE TABLE IF NOT EXISTS search_session_result (
+    session_id uuid NOT NULL,
+    rank integer NOT NULL CHECK (rank >= 0),
+    point_id text NOT NULL,
+    score real NOT NULL,
+    path_md5 text NULL,
+    payload_snapshot jsonb NULL,
+    PRIMARY KEY (session_id, rank),
+    FOREIGN KEY (session_id) REFERENCES search_session(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS ix_search_session_result_session ON search_session_result (session_id);
+CREATE INDEX IF NOT EXISTS ix_search_session_result_point ON search_session_result (point_id);

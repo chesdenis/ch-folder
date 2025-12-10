@@ -1,6 +1,8 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Npgsql;
+using NpgsqlTypes;
 using shared_csharp;
 using shared_csharp.Abstractions;
 
@@ -14,6 +16,7 @@ public class ImageSearcher
     private readonly IFileHasher _fileHasher;
     
     private readonly string _qdrantConnectionString;
+    private readonly string _pgConnectionString;
     private readonly string _openAiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY") 
                                       ?? throw new ArgumentNullException(nameof(_openAiKey));
 
@@ -26,6 +29,16 @@ public class ImageSearcher
         _fileHasher = fileHasher;
         
         _qdrantConnectionString = $"http://{Environment.GetEnvironmentVariable("QD_HOST")}:{Environment.GetEnvironmentVariable("QD_PORT")}";
+        _pgConnectionString = string.Join(";",
+            $"Host={Environment.GetEnvironmentVariable("PG_HOST")}",
+            $"Port={Environment.GetEnvironmentVariable("PG_PORT")}",
+            $"Database={Environment.GetEnvironmentVariable("PG_DATABASE")}",
+            $"Username={Environment.GetEnvironmentVariable("PG_USERNAME")}",
+            $"Password={Environment.GetEnvironmentVariable("PG_PASSWORD")}",
+            "Ssl Mode=Disable",
+            "Trust Server Certificate=true",
+            "Include Error Detail=true"
+        );
     }
 
     public async Task RunAsync(string[] args)
@@ -72,18 +85,29 @@ public class ImageSearcher
             Console.WriteLine("No matches.");
             return;
         }
-        
-        foreach (var r in result.Result)
+
+        // Persist search session and results to metastore (Postgres)
+        var sessionId = await PersistSearchSessionAsync(
+            queryText: queryText,
+            vectorModel: Model,
+            vectorDim: queryVector.Length,
+            collectionName: Collection,
+            limitRequested: req.Limit,
+            scoreThreshold: req.ScoreThreshold,
+            filter: filter,
+            qdrantResults: result.Result
+        );
+
+        // Output the session id for reuse in MVC app
+        Console.WriteLine($"SESSION_ID: {sessionId}");
+
+        // Also print brief top results for immediate visibility
+        foreach (var r in result.Result.Take(10))
         {
-            var path = r.Payload != null && r.Payload.TryGetValue("path", out var pEl) &&
-                       pEl.ValueKind == JsonValueKind.String
+            var path = r.Payload != null && r.Payload.TryGetValue("path", out var pEl) && pEl.ValueKind == JsonValueKind.String
                 ? pEl.GetString()
                 : "(no path)";
-
-            if (r.Payload != null)
-            {
-                Console.WriteLine($"{r.Score:F4}  {path}, {string.Join("-->", r.Payload.Values.ToArray())}");
-            }
+            Console.WriteLine($"{r.Score:F4}  {path}");
         }
     }
     
@@ -174,6 +198,130 @@ public class ImageSearcher
 
         var errorResponse = await response.Content.ReadAsStringAsync();
         throw new Exception($"Error: {response.StatusCode}, Response: {errorResponse}");
+    }
+
+    private async Task<Guid> PersistSearchSessionAsync(
+        string queryText,
+        string vectorModel,
+        int vectorDim,
+        string collectionName,
+        int limitRequested,
+        float? scoreThreshold,
+        Filter? filter,
+        SearchResultItem[] qdrantResults)
+    {
+        var sessionId = Guid.NewGuid();
+
+        // Serialize filter to JSON (or empty object)
+        string filterJson = JsonSerializer.Serialize(filter ?? new Filter(null, null, null));
+
+        await using var conn = new NpgsqlConnection(_pgConnectionString);
+        await conn.OpenAsync();
+        await using var tx = await conn.BeginTransactionAsync();
+
+        // Insert session row
+        var insertSession = new NpgsqlCommand(@"INSERT INTO search_session
+            (id, query_text, embedding_model, embedding_dim, embedding_hash, filter_json, collection_name, limit_requested, score_threshold, result_count)
+            VALUES (@id, @query_text, @embedding_model, @embedding_dim, @embedding_hash, @filter_json, @collection_name, @limit_requested, @score_threshold, @result_count)", conn, tx);
+        insertSession.Parameters.AddWithValue("@id", NpgsqlDbType.Uuid, sessionId);
+        insertSession.Parameters.AddWithValue("@query_text", NpgsqlDbType.Text, queryText);
+        insertSession.Parameters.AddWithValue("@embedding_model", NpgsqlDbType.Text, vectorModel);
+        insertSession.Parameters.AddWithValue("@embedding_dim", NpgsqlDbType.Integer, vectorDim);
+        insertSession.Parameters.AddWithValue("@embedding_hash", NpgsqlDbType.Text, (object?)DBNull.Value);
+        insertSession.Parameters.AddWithValue("@filter_json", NpgsqlDbType.Jsonb, filterJson);
+        insertSession.Parameters.AddWithValue("@collection_name", NpgsqlDbType.Text, collectionName);
+        insertSession.Parameters.AddWithValue("@limit_requested", NpgsqlDbType.Integer, limitRequested);
+        if (scoreThreshold.HasValue)
+            insertSession.Parameters.AddWithValue("@score_threshold", NpgsqlDbType.Real, scoreThreshold.Value);
+        else
+            insertSession.Parameters.AddWithValue("@score_threshold", NpgsqlDbType.Real, (object)DBNull.Value);
+        insertSession.Parameters.AddWithValue("@result_count", NpgsqlDbType.Integer, qdrantResults.Length);
+        await insertSession.ExecuteNonQueryAsync();
+
+        // Batch insert results
+        if (qdrantResults.Length > 0)
+        {
+            var sb = new StringBuilder();
+            sb.Append("INSERT INTO search_session_result (session_id, rank, point_id, score, path_md5, payload_snapshot) VALUES ");
+            var cmd = new NpgsqlCommand { Connection = conn, Transaction = tx };
+
+            for (int i = 0; i < qdrantResults.Length; i++)
+            {
+                var r = qdrantResults[i];
+                if (i > 0) sb.Append(",");
+
+                string pointIdStr = r.Id.ValueKind switch
+                {
+                    JsonValueKind.String => r.Id.GetString()!,
+                    JsonValueKind.Number => r.Id.GetRawText(),
+                    _ => r.Id.GetRawText()
+                };
+
+                string? pathMd5 = null;
+                if (r.Payload != null && r.Payload.TryGetValue("path", out var p) && p.ValueKind == JsonValueKind.String)
+                    pathMd5 = p.GetString();
+
+                // Build a compact payload snapshot with selected fields (safe for paging/render)
+                Dictionary<string, object?>? snapshot = null;
+                if (r.Payload != null)
+                {
+                    snapshot = new Dictionary<string, object?>();
+                    if (pathMd5 != null) snapshot["path"] = pathMd5;
+                    AddIfExists(r.Payload, snapshot, "eventName");
+                    AddIfExists(r.Payload, snapshot, "yearName");
+                    AddIfExists(r.Payload, snapshot, "commerceRate");
+                    if (r.Payload.TryGetValue("eng30TagsData", out var tagsEl))
+                        snapshot["eng30TagsData"] = tagsEl.ValueKind == JsonValueKind.Array ? JsonSerializer.Deserialize<object>(tagsEl.GetRawText()) : null;
+                }
+
+                var payloadJson = snapshot != null ? JsonSerializer.Serialize(snapshot) : null;
+
+                sb.Append($"(@sid, @rank_{i}, @pid_{i}, @score_{i}, @path_{i}, @ps_{i})");
+
+                cmd.Parameters.AddWithValue("@rank_" + i, NpgsqlDbType.Integer, i);
+                cmd.Parameters.AddWithValue("@pid_" + i, NpgsqlDbType.Text, pointIdStr);
+                cmd.Parameters.AddWithValue("@score_" + i, NpgsqlDbType.Real, r.Score);
+                if (pathMd5 != null)
+                    cmd.Parameters.AddWithValue("@path_" + i, NpgsqlDbType.Text, pathMd5);
+                else
+                    cmd.Parameters.AddWithValue("@path_" + i, NpgsqlDbType.Text, (object)DBNull.Value);
+
+                if (payloadJson != null)
+                    cmd.Parameters.AddWithValue("@ps_" + i, NpgsqlDbType.Jsonb, payloadJson);
+                else
+                    cmd.Parameters.AddWithValue("@ps_" + i, NpgsqlDbType.Jsonb, (object)DBNull.Value);
+            }
+
+            cmd.Parameters.AddWithValue("@sid", NpgsqlDbType.Uuid, sessionId);
+            cmd.CommandText = sb.ToString();
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        await tx.CommitAsync();
+        return sessionId;
+    }
+
+    private static void AddIfExists(Dictionary<string, JsonElement> payload, Dictionary<string, object?> snapshot, string key)
+    {
+        if (payload.TryGetValue(key, out var el))
+        {
+            switch (el.ValueKind)
+            {
+                case JsonValueKind.String:
+                    snapshot[key] = el.GetString();
+                    break;
+                case JsonValueKind.Number:
+                    if (el.TryGetInt64(out var l)) snapshot[key] = l; else if (el.TryGetDouble(out var d)) snapshot[key] = d; else snapshot[key] = JsonSerializer.Deserialize<object>(el.GetRawText());
+                    break;
+                case JsonValueKind.True:
+                case JsonValueKind.False:
+                    snapshot[key] = el.GetBoolean();
+                    break;
+                default:
+                    snapshot[key] = JsonSerializer.Deserialize<object>(el.GetRawText());
+                    break;
+            }
+        }
     }
 }
 
