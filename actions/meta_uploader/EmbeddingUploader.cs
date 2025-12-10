@@ -69,7 +69,9 @@ public class EmbeddingUploader
         var commerceRawContent = await File.ReadAllTextAsync(Path.Combine(commerceFolder, $"{groupName}.commerceMark.md.answer.md"));
         var eng30TagsRawContent = await File.ReadAllTextAsync(Path.Combine(eng30TagsFolder, $"{groupName}.eng30tags.md.answer.md"));
         var commerceData = JsonSerializer.Deserialize<RateExplanation>(commerceRawContent);
-        var eng30TagsData = eng30TagsRawContent.Split(",");
+        var eng30TagsData = eng30TagsRawContent
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToArray();
         
         var eventName = Path.GetFileName(fileParentFolder);
         var yearName = Path.GetFileName(Directory.GetParent(fileParentFolder)?.FullName);
@@ -92,6 +94,17 @@ public class EmbeddingUploader
         {
             ["path"] = md5,
             ["text"] = descriptionContent,
+            // New filterable fields
+            ["commerceData"] = new Dictionary<string, object>
+            {
+                ["rate"] = commerceData?.rate ?? 0,
+                ["rate-explanation"] = commerceData?.rateExplanation ?? string.Empty
+            },
+            ["commerceRate"] = commerceData?.rate ?? 0,
+            ["commerceRateExplanation"] = commerceData?.rateExplanation ?? string.Empty,
+            ["eng30TagsData"] = eng30TagsData,
+            ["eventName"] = eventName ?? string.Empty,
+            ["yearName"] = yearName ?? string.Empty
         };
 
         // add to buffer for batch upsert
