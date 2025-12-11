@@ -4,17 +4,13 @@ using System.Text.Json.Serialization;
 using Npgsql;
 using NpgsqlTypes;
 using shared_csharp;
-using shared_csharp.Abstractions;
 
 namespace image_searcher;
 
 public class ImageSearcher
 {
     private const string Collection = "photos";
-    
-    private readonly IFileSystem _fileSystem;
-    private readonly IFileHasher _fileHasher;
-    
+
     private readonly string _qdrantConnectionString;
     private readonly string _pgConnectionString;
     private readonly string _openAiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY") 
@@ -23,11 +19,8 @@ public class ImageSearcher
     private const string Url = "https://api.openai.com/v1/embeddings";
     private const string Model = "text-embedding-ada-002";
 
-    public ImageSearcher(IFileSystem fileSystem, IFileHasher fileHasher)
+    public ImageSearcher()
     {
-        _fileSystem = fileSystem;
-        _fileHasher = fileHasher;
-        
         _qdrantConnectionString = $"http://{Environment.GetEnvironmentVariable("QD_HOST")}:{Environment.GetEnvironmentVariable("QD_PORT")}";
         _pgConnectionString = string.Join(";",
             $"Host={Environment.GetEnvironmentVariable("PG_HOST")}",
