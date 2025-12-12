@@ -27,7 +27,6 @@ public class EmbeddingUploader
     public async Task RunAsync(string[] args)
     {
         using var http = new HttpClient { BaseAddress = new Uri(_connectionString) };
-        await EnsureCollection(http, Collection, VectorSize);
         
         args = args.ValidateArgs();
         await _fileSystem.WalkThrough(args, (p)=> ProcessSingleFile(p, http));
@@ -102,7 +101,7 @@ public class EmbeddingUploader
             },
             ["commerceRate"] = commerceData?.rate ?? 0,
             ["commerceRateExplanation"] = commerceData?.rateExplanation ?? string.Empty,
-            ["eng30TagsData"] = eng30TagsData,
+            ["tags"] = eng30TagsData,
             ["eventName"] = eventName ?? string.Empty,
             ["yearName"] = yearName ?? string.Empty
         };
@@ -114,27 +113,6 @@ public class EmbeddingUploader
             await UpsertBatchAsync(http, _buffer);
             _buffer.Clear();
         }
-    }
-    
-    static async Task EnsureCollection(HttpClient http, string collection, int dim)
-    {
-        var get = await http.GetAsync($"/collections/{collection}");
-        if (get.IsSuccessStatusCode) return;
-
-        var create = new
-        {
-            vectors = new { size = dim, distance = "Cosine" }
-        };
-        var json = JsonSerializer.Serialize(create);
-        var resp = await http.PutAsync($"/collections/{collection}",
-            new StringContent(json, Encoding.UTF8, "application/json"));
-        if (!resp.IsSuccessStatusCode)
-        {
-            var body = await resp.Content.ReadAsStringAsync();
-            throw new Exception($"Create collection failed: {resp.StatusCode} {body}");
-        }
-
-        Console.WriteLine($"Created collection '{collection}'");
     }
     
     private static async Task UpsertBatchAsync(HttpClient http, List<PointStruct> batch)

@@ -1,7 +1,7 @@
 version: "3.9"
 
 services:
-  db:
+  ph-meta-db:
     image: postgres:16
     container_name: ph-meta-db
     restart: unless-stopped
@@ -11,9 +11,11 @@ services:
       - "5432:5432"
     volumes:
       - ~/ph-meta-db:/var/lib/postgresql/data
-      - ./init:/docker-entrypoint-initdb.d:ro
-  qdrant:
-    image: qdrant/qdrant:latest
+      - ./init/postgres:/docker-entrypoint-initdb.d:ro
+  ph-qdrant-db:
+    build:
+      context: .
+      dockerfile: qdrant.Dockerfile
     container_name: ph-qdrant-db
     restart: unless-stopped
     ports:

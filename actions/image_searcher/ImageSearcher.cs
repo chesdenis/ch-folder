@@ -125,14 +125,6 @@ public class ImageSearcher
         if (!string.IsNullOrWhiteSpace(yearName))
             must.Add(new Condition("yearName", new Match(Value: yearName, Any: null, Text: null), null));
 
-        var eng30TagsParam = GetArg("eng30TagsData");
-        if (!string.IsNullOrWhiteSpace(eng30TagsParam))
-        {
-            var tags = eng30TagsParam.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            if (tags.Length > 0)
-                must.Add(new Condition("eng30TagsData", new Match(Value: null, Any: tags.Cast<object>().ToArray(), Text: null), null));
-        }
-
         // Commerce rate (flattened from commerceData.rate)
         var commerceRateEq = GetArg("commerceRate");
         if (!string.IsNullOrWhiteSpace(commerceRateEq) && int.TryParse(commerceRateEq, out var crEq))
@@ -154,8 +146,6 @@ public class ImageSearcher
             if (tags.Length > 0)
                 must.Add(new Condition("tags", new Match(Value: null, Any: tags.Cast<object>().ToArray(), Text: null), null));
         }
-
-        // Date range args (date_from/date_to) were intentionally removed — year-based filtering via yearName is sufficient
 
         // Full-text filter on "text" field (requires text index in Qdrant)
         var textQuery = GetArg("text");
