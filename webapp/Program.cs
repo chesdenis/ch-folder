@@ -7,7 +7,7 @@ builder.Services.AddSignalR();
 // app services
 builder.Services.Configure<webapp.Models.StorageOptions>(builder.Configuration.GetSection("Storage"));
 builder.Services.AddSingleton<webapp.Services.IJobRunner, webapp.Services.JobRunner>();
-builder.Services.AddSingleton<webapp.Services.IDockerRunner, webapp.Services.DockerRunner>();
+builder.Services.AddSingleton<webapp.Services.IDockerFolderRunner, webapp.Services.DockerFolderRunner>();
 
 var app = builder.Build();
 

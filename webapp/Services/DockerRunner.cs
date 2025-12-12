@@ -2,7 +2,7 @@ using System.Diagnostics;
 
 namespace webapp.Services;
 
-public interface IDockerRunner
+public interface IDockerFolderRunner
 {
     Task<int> RunMetaUploaderAsync(string actionsPath, string hostFolderAbs, Action<string>? onStdout = null,
         Action<string>? onStderr = null, CancellationToken ct = default);
@@ -20,7 +20,7 @@ public interface IDockerRunner
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
 }
 
-public class DockerRunner : IDockerRunner
+public class DockerFolderRunner : IDockerFolderRunner
 {
     public Task<int> RunMetaUploaderAsync(string actionsPath,string hostFolderAbs, Action<string>? onStdout = null,
         Action<string>? onStderr = null, CancellationToken ct = default)
