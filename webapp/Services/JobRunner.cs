@@ -27,13 +27,16 @@ public class JobRunner : IJobRunner
     private readonly ILogger<JobRunner> _logger;
     private readonly StorageOptions _storage;
     private readonly IDockerFolderRunner _dockerFolder;
+    private readonly IPhotoLocator _photoLocator;
 
-    public JobRunner(IHubContext<JobStatusHub> hub, ILogger<JobRunner> logger, IOptions<StorageOptions> storage, IDockerFolderRunner dockerFolder)
+    public JobRunner(
+        IHubContext<JobStatusHub> hub, ILogger<JobRunner> logger, IOptions<StorageOptions> storage, IDockerFolderRunner dockerFolder, IPhotoLocator photoLocator)
     {
         _hub = hub;
         _logger = logger;
         _storage = storage.Value;
         _dockerFolder = dockerFolder;
+        _photoLocator = photoLocator;
     }
 
     public string StartJob(string jobId, JobType jobType, int? degreeOfParallelism = null)

@@ -7,9 +7,16 @@ using webapp.Services;
 
 namespace webapp.Controllers;
 
-public class HomeController(ILogger<HomeController> logger, IJobRunner jobRunner, IOptions<StorageOptions> storageOptions) : Controller
+public class HomeController(
+    ILogger<HomeController> logger,
+    IJobRunner jobRunner,
+    IOptions<StorageOptions> storageOptions,
+    IDockerSearchRunner dockerSearchRunner,
+    ISearchResultsRepository searchResultsRepo) : Controller
 {
     private readonly StorageOptions _storage = storageOptions.Value;
+    private readonly IDockerSearchRunner _dockerSearchRunner = dockerSearchRunner;
+    private readonly ISearchResultsRepository _searchResultsRepo = searchResultsRepo;
     public IActionResult Index([FromQuery] string[]? tags)
     {
         // expose selected tags (from model binding) to the view
@@ -30,7 +37,7 @@ public class HomeController(ILogger<HomeController> logger, IJobRunner jobRunner
     }
 
     [HttpGet]
-    public IActionResult Search()
+    public async Task<IActionResult> Search()
     {
         // Log invocation to verify this endpoint is being triggered
         logger.LogInformation(
@@ -73,7 +80,48 @@ public class HomeController(ILogger<HomeController> logger, IJobRunner jobRunner
             "[Search] normalized state -> pageSize: {PageSize}, size: {Size}, page reset to 1",
             normalizedPageSize, normalizedSize);
 
-        return RedirectToAction("Index", route);
+        // Execute ImageSearcher container and wait for completion
+        var queryText = Request.Query["query"].ToString();
+        if (string.IsNullOrWhiteSpace(queryText))
+        {
+            // No query provided, just redirect with normalized route
+            return RedirectToAction("Index", route);
+        }
+
+        var actionsPath = _storage.ActionsPath ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(actionsPath))
+        {
+            logger.LogWarning("[Search] Storage.ActionsPath is not configured. Falling back to redirect.");
+            return RedirectToAction("Index", route);
+        }
+
+        int exitCode = await _dockerSearchRunner.RunImageSearcherAsync(actionsPath, queryText,
+            onStdout: s => logger.LogInformation("[image_searcher][stdout] {Line}", s),
+            onStderr: s => logger.LogWarning("[image_searcher][stderr] {Line}", s));
+
+        if (exitCode != 0)
+        {
+            logger.LogError("[Search] image_searcher exited with code {Code}", exitCode);
+            TempData["SearchError"] = $"Search failed with code {exitCode}";
+            return RedirectToAction("Index", route);
+        }
+
+        // Read the latest results from metastore
+        var latest = await _searchResultsRepo.GetLatestResultsAsync(HttpContext.RequestAborted);
+        if (latest is null || latest.Results.Count == 0)
+        {
+            TempData["SearchInfo"] = "No results found";
+            return RedirectToAction("Index", route);
+        }
+
+        // Pass results to the Index view directly for immediate display
+        ViewBag.SelectedTags = route.TryGetValue("tags", out var t) ? t : Array.Empty<string>();
+        ViewBag.SearchResults = latest.Results;
+        ViewBag.Total = latest.Results.Count;
+        ViewBag.PageSize = route["pageSize"]; // preserve page size for the view
+        ViewBag.Size = route["size"];
+        ViewBag.Query = queryText;
+        return View("Index");
     }
 
     [HttpGet]

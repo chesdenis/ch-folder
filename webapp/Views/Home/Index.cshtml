@@ -68,9 +68,32 @@
     </form>
     <div class="row">
         <div class="col-12">
-            @await Component.InvokeAsync("Pagination", new { currentPage, totalPages })
-            @await Component.InvokeAsync("Gallery", new { page = currentPage, pageSize = pageSize, thumbSize = thumbSize })
-            @await Component.InvokeAsync("Pagination", new { currentPage, totalPages })
+            @if (ViewBag.SearchResults != null)
+            {
+                var results = (IReadOnlyList<webapp.Services.SearchResultRow>)ViewBag.SearchResults;
+                <div class="search-summary mb-2 text-muted">
+                    Found @results.Count images for "@queryText"
+                </div>
+                <div class="row g-2">
+                    @foreach (var r in results.Take(pageSize))
+                    {
+                        if (!string.IsNullOrWhiteSpace(r.Md5))
+                        {
+                            <div class="col-6 col-sm-4 col-md-3 col-lg-2">
+                                <a href="@Url.Action("ByMd5","Images", new { md5 = r.Md5 })" target="_blank">
+                                    <img class="img-fluid rounded" alt="@r.Md5" src="@Url.Action("ByMd5","Images", new { md5 = r.Md5 })" style="width:100%;height:auto;" />
+                                </a>
+                            </div>
+                        }
+                    }
+                </div>
+            }
+            else
+            {
+                @await Component.InvokeAsync("Pagination", new { currentPage, totalPages })
+                @await Component.InvokeAsync("Gallery", new { page = currentPage, pageSize = pageSize, thumbSize = thumbSize })
+                @await Component.InvokeAsync("Pagination", new { currentPage, totalPages })
+            }
         </div>
     </div>
 </div>

@@ -1,3 +1,7 @@
+using webapp.Hubs;
+using webapp.Models;
+using webapp.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -5,11 +9,17 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddSignalR();
 
 // app services
-builder.Services.Configure<webapp.Models.StorageOptions>(builder.Configuration.GetSection("Storage"));
-builder.Services.AddSingleton<webapp.Services.IJobRunner, webapp.Services.JobRunner>();
-builder.Services.AddSingleton<webapp.Services.IDockerFolderRunner, webapp.Services.DockerFolderRunner>();
+builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection("Storage"));
+builder.Services.AddSingleton<IJobRunner, JobRunner>();
+builder.Services.AddSingleton<IDockerFolderRunner, DockerFolderRunner>();
+builder.Services.AddSingleton<IDockerSearchRunner, DockerSearchRunner>();
+builder.Services.AddSingleton<ISearchResultsRepository, SearchResultsRepository>();
+builder.Services.AddSingleton<IPhotoLocator, PhotoLocator>();
 
 var app = builder.Build();
+
+Console.WriteLine("Building index...");
+app.Services.GetRequiredService<IPhotoLocator>().BuildIndexAsync().Wait();
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -31,6 +41,6 @@ app.MapControllerRoute(
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
 // SignalR hubs
-app.MapHub<webapp.Hubs.JobStatusHub>("/hubs/jobstatus");
+app.MapHub<JobStatusHub>("/hubs/jobstatus");
 
 app.Run();
