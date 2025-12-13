@@ -15,6 +15,7 @@ builder.Services.AddSingleton<IJobRunner, JobRunner>();
 builder.Services.AddSingleton<IDockerFolderRunner, DockerFolderRunner>();
 builder.Services.AddSingleton<IDockerSearchRunner, DockerSearchRunner>();
 builder.Services.AddSingleton<ISearchResultsRepository, SearchResultsRepository>();
+builder.Services.AddSingleton<ISearchSessionSelectionRepository, SearchSessionSelectionRepository>();
 builder.Services.AddSingleton<IImageLocator, ImageLocator>();
 
 var app = builder.Build();

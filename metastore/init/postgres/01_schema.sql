@@ -65,6 +65,24 @@ CREATE INDEX IF NOT EXISTS ix_search_session_result_session ON search_session_re
 CREATE INDEX IF NOT EXISTS ix_search_session_result_point ON search_session_result (point_id);
 
 -- =============================================================
+-- Selected results per search session
+-- Stores the list of user-selected photo md5 hashes for a session
+-- Connected to search_session_result via shared field `session_id`
+-- =============================================================
+
+CREATE TABLE IF NOT EXISTS search_session_selected (
+    session_id uuid NOT NULL,
+    md5_hash text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (session_id, md5_hash),
+    FOREIGN KEY (session_id) REFERENCES search_session(id) ON DELETE RESTRICT,
+    FOREIGN KEY (md5_hash) REFERENCES photo(md5_hash) ON DELETE RESTRICT
+);
+
+CREATE INDEX IF NOT EXISTS ix_search_session_selected_session ON search_session_selected (session_id);
+CREATE INDEX IF NOT EXISTS ix_search_session_selected_md5 ON search_session_selected (md5_hash);
+
+-- =============================================================
 -- OpenAI Embedding cache table (used by image_searcher)
 -- Stores full JSON responses keyed by (model, input_hash)
 -- =============================================================
