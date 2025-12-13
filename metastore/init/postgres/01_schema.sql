@@ -63,3 +63,20 @@ CREATE TABLE IF NOT EXISTS search_session_result (
 
 CREATE INDEX IF NOT EXISTS ix_search_session_result_session ON search_session_result (session_id);
 CREATE INDEX IF NOT EXISTS ix_search_session_result_point ON search_session_result (point_id);
+
+-- =============================================================
+-- OpenAI Embedding cache table (used by image_searcher)
+-- Stores full JSON responses keyed by (model, input_hash)
+-- =============================================================
+
+CREATE TABLE IF NOT EXISTS embedding_cache (
+    model text NOT NULL,
+    input_hash text NOT NULL,
+    response_json jsonb NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    expires_at timestamptz NULL,
+    PRIMARY KEY (model, input_hash)
+);
+
+CREATE INDEX IF NOT EXISTS ix_embedding_cache_expires_at ON embedding_cache (expires_at);
+CREATE INDEX IF NOT EXISTS ix_embedding_cache_created_at ON embedding_cache (created_at);

@@ -27,6 +27,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "check-content", "tests\unit
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "image_searcher", "actions\image_searcher\image_searcher.csproj", "{B9589733-611E-41B0-BFFA-ECA2D9A48D85}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "PgMetaStore", "PgMetaStore", "{DDF0F669-6EB7-4C71-8997-A963F3B08E3C}"
+	ProjectSection(SolutionItems) = preProject
+		metastore\init\postgres\01_schema.sql = metastore\init\postgres\01_schema.sql
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

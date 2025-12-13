@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using Npgsql;
 using NpgsqlTypes;
 using shared_csharp;
+using shared_csharp.Extensions;
 
 namespace image_searcher;
 
@@ -13,15 +14,17 @@ public class ImageSearcher
 
     private readonly string _qdrantConnectionString;
     private readonly string _pgConnectionString;
-    private readonly string _openAiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY") 
-                                      ?? throw new ArgumentNullException(nameof(_openAiKey));
+
+    private readonly string _openAiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY")
+                                         ?? throw new ArgumentNullException(nameof(_openAiKey));
 
     private const string Url = "https://api.openai.com/v1/embeddings";
     private const string Model = "text-embedding-ada-002";
 
     public ImageSearcher()
     {
-        _qdrantConnectionString = $"http://{Environment.GetEnvironmentVariable("QD_HOST")}:{Environment.GetEnvironmentVariable("QD_PORT")}";
+        _qdrantConnectionString =
+            $"http://{Environment.GetEnvironmentVariable("QD_HOST")}:{Environment.GetEnvironmentVariable("QD_PORT")}";
         _pgConnectionString = string.Join(";",
             $"Host={Environment.GetEnvironmentVariable("PG_HOST")}",
             $"Port={Environment.GetEnvironmentVariable("PG_PORT")}",
@@ -37,7 +40,7 @@ public class ImageSearcher
     public async Task RunAsync(string[] args)
     {
         string queryText = args[0];
-        
+
         var response = await GetOpenAiEmbedding(queryText);
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         var queryEmbedding = JsonSerializer.Deserialize<EmbeddingFile>(response, options);
@@ -45,7 +48,7 @@ public class ImageSearcher
         {
             return;
         }
-        
+
         var queryVector = queryEmbedding.data[0].embedding.ToArray();
 
         using var http = new HttpClient { BaseAddress = new Uri(_qdrantConnectionString) };
@@ -64,13 +67,13 @@ public class ImageSearcher
         var body = JsonSerializer.Serialize(req);
         var resp = await http.PostAsync($"/collections/{Collection}/points/search",
             new StringContent(body, Encoding.UTF8, "application/json"));
-        
+
         if (!resp.IsSuccessStatusCode)
         {
             Console.WriteLine($"Search failed: {resp.StatusCode} {await resp.Content.ReadAsStringAsync()}");
             return;
         }
-        
+
         var resultJson = await resp.Content.ReadAsStringAsync();
         var result = JsonSerializer.Deserialize<SearchResultWrapper>(resultJson);
         if (result?.Result == null || result.Result.Length == 0)
@@ -97,13 +100,14 @@ public class ImageSearcher
         // Also print brief top results for immediate visibility
         foreach (var r in result.Result.Take(10))
         {
-            var path = r.Payload != null && r.Payload.TryGetValue("path", out var pEl) && pEl.ValueKind == JsonValueKind.String
+            var path = r.Payload != null && r.Payload.TryGetValue("path", out var pEl) &&
+                       pEl.ValueKind == JsonValueKind.String
                 ? pEl.GetString()
                 : "(no path)";
             Console.WriteLine($"{r.Score:F4}  {path}");
         }
     }
-    
+
     private static Filter? BuildFilter(string[] args)
     {
         if (args.Length == 0) return null;
@@ -112,7 +116,7 @@ public class ImageSearcher
 
         string? GetArg(string key)
             => args.FirstOrDefault(a => a.StartsWith($"--{key}=", StringComparison.OrdinalIgnoreCase))?
-                    .Split('=', 2)[1];
+                .Split('=', 2)[1];
 
         // Note: tenant/visibility/album/nsfw filters were removed as they are not defined in payload
 
@@ -144,7 +148,8 @@ public class ImageSearcher
         {
             var tags = tagsStr.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             if (tags.Length > 0)
-                must.Add(new Condition("tags", new Match(Value: null, Any: tags.Cast<object>().ToArray(), Text: null), null));
+                must.Add(new Condition("tags", new Match(Value: null, Any: tags.Cast<object>().ToArray(), Text: null),
+                    null));
         }
 
         // Full-text filter on "text" field (requires text index in Qdrant)
@@ -158,8 +163,31 @@ public class ImageSearcher
 
     private async Task<string> GetOpenAiEmbedding(string input)
     {
+        // 1) Try to get cached embedding response from Postgres
+        var inputHash = input.AsSha256();
+        await using (var conn = new NpgsqlConnection(_pgConnectionString))
+        {
+            await conn.OpenAsync();
+
+            // Lookup cache
+            const string selectSql =
+                "SELECT response_json::text FROM embedding_cache " +
+                "WHERE model = @model AND input_hash = @hash AND (expires_at IS NULL OR expires_at > now()) LIMIT 1";
+            await using (var selectCmd = new NpgsqlCommand(selectSql, conn))
+            {
+                selectCmd.Parameters.AddWithValue("@model", NpgsqlDbType.Text, Model);
+                selectCmd.Parameters.AddWithValue("@hash", NpgsqlDbType.Text, inputHash);
+                await using var reader = await selectCmd.ExecuteReaderAsync();
+                if (await reader.ReadAsync())
+                {
+                    var cached = reader.GetString(0);
+                    return cached;
+                }
+            }
+        }
+
+        // 2) Cache miss: request OpenAI
         using var client = new HttpClient();
-        
         client.DefaultRequestHeaders.Add("Authorization", $"Bearer {_openAiKey}");
 
         var requestBody = new
@@ -173,14 +201,33 @@ public class ImageSearcher
         using var data = new StringContent(jsonBody, Encoding.UTF8, "application/json");
 
         using var response = await client.PostAsync(Url, data);
-
-        if (response.IsSuccessStatusCode)
+        var responseText = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
         {
-            return await response.Content.ReadAsStringAsync();
+            throw new Exception($"Error: {response.StatusCode}, Response: {responseText}");
         }
 
-        var errorResponse = await response.Content.ReadAsStringAsync();
-        throw new Exception($"Error: {response.StatusCode}, Response: {errorResponse}");
+        // 3) Store in cache (best-effort)
+        try
+        {
+            await using var conn = new NpgsqlConnection(_pgConnectionString);
+            await conn.OpenAsync();
+            const string upsertSql = @"INSERT INTO embedding_cache (model, input_hash, response_json, expires_at)
+                                       VALUES (@model, @hash, @json, NULL)
+                                       ON CONFLICT (model, input_hash)
+                                       DO UPDATE SET response_json = EXCLUDED.response_json, created_at = now(), expires_at = EXCLUDED.expires_at";
+            await using var upsertCmd = new NpgsqlCommand(upsertSql, conn);
+            upsertCmd.Parameters.AddWithValue("@model", NpgsqlDbType.Text, Model);
+            upsertCmd.Parameters.AddWithValue("@hash", NpgsqlDbType.Text, inputHash);
+            upsertCmd.Parameters.AddWithValue("@json", NpgsqlDbType.Jsonb, responseText);
+            await upsertCmd.ExecuteNonQueryAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Warning: failed to cache embedding: {ex.Message}");
+        }
+
+        return responseText;
     }
 
     private async Task<Guid> PersistSearchSessionAsync(
@@ -205,7 +252,8 @@ public class ImageSearcher
         // Insert session row
         var insertSession = new NpgsqlCommand(@"INSERT INTO search_session
             (id, query_text, embedding_model, embedding_dim, embedding_hash, filter_json, collection_name, limit_requested, score_threshold, result_count)
-            VALUES (@id, @query_text, @embedding_model, @embedding_dim, @embedding_hash, @filter_json, @collection_name, @limit_requested, @score_threshold, @result_count)", conn, tx);
+            VALUES (@id, @query_text, @embedding_model, @embedding_dim, @embedding_hash, @filter_json, @collection_name, @limit_requested, @score_threshold, @result_count)",
+            conn, tx);
         insertSession.Parameters.AddWithValue("@id", NpgsqlDbType.Uuid, sessionId);
         insertSession.Parameters.AddWithValue("@query_text", NpgsqlDbType.Text, queryText);
         insertSession.Parameters.AddWithValue("@embedding_model", NpgsqlDbType.Text, vectorModel);
@@ -225,7 +273,8 @@ public class ImageSearcher
         if (qdrantResults.Length > 0)
         {
             var sb = new StringBuilder();
-            sb.Append("INSERT INTO search_session_result (session_id, rank, point_id, score, path_md5, payload_snapshot) VALUES ");
+            sb.Append(
+                "INSERT INTO search_session_result (session_id, rank, point_id, score, path_md5, payload_snapshot) VALUES ");
             var cmd = new NpgsqlCommand { Connection = conn, Transaction = tx };
 
             for (int i = 0; i < qdrantResults.Length; i++)
@@ -241,7 +290,8 @@ public class ImageSearcher
                 };
 
                 string? pathMd5 = null;
-                if (r.Payload != null && r.Payload.TryGetValue("path", out var p) && p.ValueKind == JsonValueKind.String)
+                if (r.Payload != null && r.Payload.TryGetValue("path", out var p) &&
+                    p.ValueKind == JsonValueKind.String)
                     pathMd5 = p.GetString();
 
                 // Build a compact payload snapshot with selected fields (safe for paging/render)
@@ -254,7 +304,9 @@ public class ImageSearcher
                     AddIfExists(r.Payload, snapshot, "yearName");
                     AddIfExists(r.Payload, snapshot, "commerceRate");
                     if (r.Payload.TryGetValue("eng30TagsData", out var tagsEl))
-                        snapshot["eng30TagsData"] = tagsEl.ValueKind == JsonValueKind.Array ? JsonSerializer.Deserialize<object>(tagsEl.GetRawText()) : null;
+                        snapshot["eng30TagsData"] = tagsEl.ValueKind == JsonValueKind.Array
+                            ? JsonSerializer.Deserialize<object>(tagsEl.GetRawText())
+                            : null;
                 }
 
                 var payloadJson = snapshot != null ? JsonSerializer.Serialize(snapshot) : null;
@@ -284,7 +336,8 @@ public class ImageSearcher
         return sessionId;
     }
 
-    private static void AddIfExists(Dictionary<string, JsonElement> payload, Dictionary<string, object?> snapshot, string key)
+    private static void AddIfExists(Dictionary<string, JsonElement> payload, Dictionary<string, object?> snapshot,
+        string key)
     {
         if (payload.TryGetValue(key, out var el))
         {
@@ -294,7 +347,9 @@ public class ImageSearcher
                     snapshot[key] = el.GetString();
                     break;
                 case JsonValueKind.Number:
-                    if (el.TryGetInt64(out var l)) snapshot[key] = l; else if (el.TryGetDouble(out var d)) snapshot[key] = d; else snapshot[key] = JsonSerializer.Deserialize<object>(el.GetRawText());
+                    if (el.TryGetInt64(out var l)) snapshot[key] = l;
+                    else if (el.TryGetDouble(out var d)) snapshot[key] = d;
+                    else snapshot[key] = JsonSerializer.Deserialize<object>(el.GetRawText());
                     break;
                 case JsonValueKind.True:
                 case JsonValueKind.False:
@@ -311,15 +366,18 @@ public class ImageSearcher
 record SearchRequest(
     [property: JsonPropertyName("vector")] float[] Vector,
     [property: JsonPropertyName("limit")] int Limit,
-    [property: JsonPropertyName("with_payload")] bool WithPayload,
-    [property: JsonPropertyName("score_threshold")] float? ScoreThreshold,
+    [property: JsonPropertyName("with_payload")]
+    bool WithPayload,
+    [property: JsonPropertyName("score_threshold")]
+    float? ScoreThreshold,
     [property: JsonPropertyName("filter")] Filter? Filter
 );
 
 public record Filter(
     [property: JsonPropertyName("must")] Condition[]? Must,
     [property: JsonPropertyName("should")] Condition[]? Should,
-    [property: JsonPropertyName("must_not")] Condition[]? MustNot
+    [property: JsonPropertyName("must_not")]
+    Condition[]? MustNot
 );
 
 public record Condition(
