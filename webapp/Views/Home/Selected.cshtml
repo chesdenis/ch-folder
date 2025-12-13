@@ -10,6 +10,38 @@
 <div class="container mt-3">
     <h3>Selected images for session @Model.SessionId</h3>
 
+    <style>
+        /* Scoped fixes for this view to prevent horizontal overflow when there are many/long tags */
+        .selected-table {
+            table-layout: fixed;
+            width: 100%;
+        }
+        .selected-cell {
+            min-width: 0;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+        }
+        .selected-details-text {
+            word-break: break-word;
+            overflow-wrap: anywhere;
+        }
+        .selected-tags {
+            max-width: 100%;
+            min-width: 0;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            /* If there are too many tags, limit height and allow vertical scroll to avoid layout overflow */
+            max-height: 10rem;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        .selected-tags .badge {
+            white-space: normal; /* override Bootstrap nowrap */
+            word-break: break-word;
+            overflow-wrap: anywhere;
+        }
+    </style>
+
     @if (Model.Items == null || Model.Items.Count == 0)
     {
         <div class="alert alert-info mt-3">No items selected for this session.</div>
@@ -17,7 +49,7 @@
     else
     {
         <div class="table-responsive mt-3">
-            <table class="table table-hover align-middle">
+            <table class="table table-hover align-middle selected-table">
                 <thead>
                 <tr>
                     <th style="width:140px;">Preview</th>
@@ -31,19 +63,19 @@
                         <td>
                             <img src="@it.ImageUrl" alt="@it.Md5" width="128" height="128" class="img-thumbnail" style="object-fit: cover;"/>
                         </td>
-                        <td>
-                            <div class="fw-semibold">@it.ShortDetails</div>
+                        <td class="w-100 selected-cell">
+                            <div class="fw-semibold selected-details-text text-break">@it.ShortDetails</div>
                             @if (it.Tags is { Length: > 0 })
                             {
-                                <div class="mt-1 d-flex align-items-start flex-wrap gap-2">
+                                <div class="selected-tags mt-1 d-flex align-items-start flex-wrap gap-2 w-100 mw-100 text-break">
                                     @foreach (var tag in it.Tags)
                                     {
-                                        <span class="badge bg-secondary rounded-pill me-1 mb-1">@tag</span>
+                                        <span class="badge bg-secondary rounded-pill me-1 mb-1 text-break">@tag</span>
                                     }
                                 </div>
                             }
                             <div class="mt-1 d-flex align-items-center justify-content-between flex-wrap gap-2">
-                                <small class="text-muted mb-0">MD5: <code class="user-select-all">@it.Md5</code></small>
+                                <small class="text-muted mb-0">MD5: <code class="user-select-all text-break">@it.Md5</code></small>
                                 <div class="d-flex align-items-center gap-2">
                                     <button type="button" class="btn btn-outline-secondary btn-sm copy-btn"
                                             data-copy-text="@it.ShortDetails" title="Copy text" aria-label="Copy text">

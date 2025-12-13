@@ -238,6 +238,17 @@ public class HomeController(
         // Pass results to the Index view directly for immediate display
         ViewBag.SelectedTags = route.TryGetValue("tags", out var t) ? t : Array.Empty<string>();
         ViewBag.SearchResults = sessionToUse!.Results;
+        // Load distinct tags for this session to populate tags selector
+        try
+        {
+            var availableTags = await searchResultsRepo.GetDistinctTagsForSessionAsync(sessionToUse.SessionId, HttpContext.RequestAborted);
+            ViewBag.AvailableTags = availableTags;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[Search] Failed to load available tags for session {SessionId}", sessionToUse.SessionId);
+            ViewBag.AvailableTags = Array.Empty<string>();
+        }
         ViewBag.Total = sessionToUse.Results.Count;
         ViewBag.Page = pageFromQuery; // reflect requested page
         ViewBag.PageSize = pageSizeInt; // strongly-typed int

@@ -61,7 +61,7 @@
                 <div class="toolbar-group" role="group" aria-label="Tags selector">
                     <span class="toolbar-label">Tags</span>
                     @await Component.InvokeAsync("TagsSelector", new {
-                        availableTags = new string[] {  },
+                        availableTags = (ViewBag.AvailableTags as IEnumerable<string> ?? Array.Empty<string>()).Take(10),
                         selectedTags = ViewBag.SelectedTags as IEnumerable<string>
                     })
                 </div>
