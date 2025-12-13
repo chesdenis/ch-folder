@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using webapp.Models;
 using Microsoft.Extensions.Options;
+using shared_csharp.Extensions;
 using webapp.Services;
 
 namespace webapp.Controllers;
@@ -25,7 +26,7 @@ public class HomeController(
         var page = int.TryParse(Request.Query["page"], out var p) ? Math.Max(1, p) : 1;
         var pageSize = int.TryParse(Request.Query["pageSize"], out var ps) ? Math.Max(1, ps) : 12;
         var thumbSize = int.TryParse(Request.Query["size"], out var sz) ? sz : 256;
-        thumbSize = SnapToAllowed(thumbSize);
+        thumbSize = thumbSize.SnapToAllowed();
 
         // Load recent photos as the default gallery content (no sample data)
         var total = await searchResultsRepo.GetPhotosCountAsync(HttpContext.RequestAborted);
@@ -53,17 +54,7 @@ public class HomeController(
         return View();
     }
 
-    private static readonly int[] AllowedSizes = [16, 32, 64, 128, 256, 512, 2000];
-
-    private static int SnapToAllowed(int value)
-    {
-        var closest = AllowedSizes[0];
-        foreach (var s in AllowedSizes)
-        {
-            if (Math.Abs(s - value) < Math.Abs(closest - value)) closest = s;
-        }
-        return closest;
-    }
+    
 
     [HttpGet]
     public async Task<IActionResult> Search()
@@ -98,7 +89,8 @@ public class HomeController(
         {
             sizeVal = 256;
         }
-        route["size"] = SnapToAllowed(sizeVal);
+
+        route["size"] = sizeVal.SnapToAllowed();
 
         // Determine requested page from query; default to 1
         var pageFromQuery = 1;
@@ -209,7 +201,7 @@ public class HomeController(
         // Normalize typed values for the view to avoid dynamic cast issues
         var pageSizeInt = int.TryParse(route["pageSize"]?.ToString(), out var psVal) ? psVal : 12;
         var sizeInt = int.TryParse(route["size"]?.ToString(), out var szVal) ? szVal : 256;
-        sizeInt = SnapToAllowed(sizeInt);
+        sizeInt = sizeInt.SnapToAllowed();
 
         // Pass results to the Index view directly for immediate display
         ViewBag.SelectedTags = route.TryGetValue("tags", out var t) ? t : Array.Empty<string>();
@@ -231,10 +223,10 @@ public class HomeController(
         [FromQuery] int? pageSize,
         [FromQuery] int? size)
     {
-        var current = SnapToAllowed(size ?? 256);
-        var idx = Array.IndexOf(AllowedSizes, current);
-        var nextIdx = Math.Min(AllowedSizes.Length - 1, Math.Max(0, idx + 1));
-        var nextSize = AllowedSizes[nextIdx];
+        var current = (size ?? 256).SnapToAllowed();
+        var idx = Array.IndexOf(ImageProcessingExtensions.AllowedSizes, current);
+        var nextIdx = Math.Min(ImageProcessingExtensions.AllowedSizes.Length - 1, Math.Max(0, idx + 1));
+        var nextSize = ImageProcessingExtensions.AllowedSizes[nextIdx];
 
         return RedirectToAction("Index", new
         {
@@ -257,10 +249,10 @@ public class HomeController(
         [FromQuery] int? pageSize,
         [FromQuery] int? size)
     {
-        var current = SnapToAllowed(size ?? 256);
-        var idx = Array.IndexOf(AllowedSizes, current);
+        var current = (size ?? 256).SnapToAllowed();
+        var idx = Array.IndexOf(ImageProcessingExtensions.AllowedSizes, current);
         var prevIdx = Math.Max(0, Math.Max(0, idx - 1));
-        var prevSize = AllowedSizes[prevIdx];
+        var prevSize = ImageProcessingExtensions.AllowedSizes[prevIdx];
 
         return RedirectToAction("Index", new
         {

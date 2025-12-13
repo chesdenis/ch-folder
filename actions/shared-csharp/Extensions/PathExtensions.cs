@@ -86,7 +86,7 @@ public static class PathExtensions
             });
             // excluding preview and system files and unsupported file types
             files = files.Where(f =>
-                !ImageProcessingGuardExtensions.IgnoredExtensions
+                !ImageProcessingExtensions.IgnoredExtensions
                     .Contains(Path.GetExtension(f.fileName)));
             
             foreach (var file in files)
