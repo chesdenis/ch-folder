@@ -1,5 +1,4 @@
-﻿
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using shared_csharp;
@@ -12,25 +11,28 @@ public class ValidationTests
 {
     // Define the regex for MD5 prefix (32 characters of hexadecimal)
     private readonly Regex _md5PrefixRegex = new Regex(@"^[a-fA-F0-9]{32}$", RegexOptions.Compiled);
-    private static readonly string ContextPath = "C:\\PhotoHive";
+    private static readonly string ContextPath = "/Users/dchesnokov/PhotoHive";
 
-    public static readonly object[][] TestFilePaths = PathExtensions.CollectStorageFolders(ContextPath);
-      
-    private static string[] GetPreviewKinds()
-    {
-        return new[] { "16", "32", "64", "128", "512", "2000" };
-    }
+    public static readonly object[][] TestFilePaths = GetStorageFoldersForTests(ContextPath);
+
+    private static string[] GetPreviewKinds() => ["16", "32", "64", "128", "512", "2000"];
 
     [Fact]
     public async Task AllFilesAreUnique()
     {
         var ht = new HashSet<string>();
+
+        if (!GetTestingFiles().Any())
+        {
+            Assert.Fail("No files found in the testing folder.");
+        }
+
         foreach (var filePath in GetTestingFiles())
         {
             var md5 = await (filePath[0] as string).CalculateMd5Async();
             if (ht.Contains(md5))
                 Assert.Fail($"Duplicate file found: {filePath[0]}");
-            
+
             ht.Add(md5);
         }
     }
@@ -411,8 +413,30 @@ public class ValidationTests
         }
     }
 
-    public static IEnumerable<object[]> GetTestingFiles() 
-        => PathExtensions.GetFilesInFolder(ContextPath, TestFilePaths);
+    public static IEnumerable<object[]> GetTestingFiles()
+        => GetFilesInFolderForTests(ContextPath, TestFilePaths);
 
+    private static object[][] GetStorageFoldersForTests(string contextPath)
+    {
+        if (!Directory.Exists(contextPath))
+            return Array.Empty<object[]>();
+        return PathExtensions.GetStorageFolders(ContextPath)
+            .Select(storageFolder => (object[])[storageFolder])
+            .ToArray();
+    }
     
+    private static IEnumerable<object[]> GetFilesInFolderForTests(string contextPath, object[][] storageFolders,
+        Action<string> onFolderProcessed = null)
+    {
+        foreach (var inputArgs in storageFolders)
+        foreach (string arg in inputArgs)
+        {
+            foreach (var file in PathExtensions.GetFilesInFolder(contextPath, [arg]))
+            {
+                yield return [file];
+            }
+            
+            onFolderProcessed?.Invoke(arg);
+        }
+    }
 }

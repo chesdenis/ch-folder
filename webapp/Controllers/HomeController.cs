@@ -15,8 +15,7 @@ public class HomeController(
     ISearchResultsRepository searchResultsRepo) : Controller
 {
     private readonly StorageOptions _storage = storageOptions.Value;
-    private readonly IDockerSearchRunner _dockerSearchRunner = dockerSearchRunner;
-    private readonly ISearchResultsRepository _searchResultsRepo = searchResultsRepo;
+
     public IActionResult Index([FromQuery] string[]? tags)
     {
         // expose selected tags (from model binding) to the view
@@ -95,7 +94,7 @@ public class HomeController(
             return RedirectToAction("Index", route);
         }
 
-        int exitCode = await _dockerSearchRunner.RunImageSearcherAsync(actionsPath, queryText,
+        int exitCode = await dockerSearchRunner.RunImageSearcherAsync(actionsPath, queryText,
             onStdout: s => logger.LogInformation("[image_searcher][stdout] {Line}", s),
             onStderr: s => logger.LogWarning("[image_searcher][stderr] {Line}", s));
 
@@ -107,7 +106,7 @@ public class HomeController(
         }
 
         // Read the latest results from metastore
-        var latest = await _searchResultsRepo.GetLatestResultsAsync(HttpContext.RequestAborted);
+        var latest = await searchResultsRepo.GetLatestResultsAsync(HttpContext.RequestAborted);
         if (latest is null || latest.Results.Count == 0)
         {
             TempData["SearchInfo"] = "No results found";

@@ -5,6 +5,7 @@ namespace shared_csharp.Extensions;
 public static class PathExtensions
 {
     private static readonly Regex Md5Regex = new Regex("^[a-fA-F0-9]{32}$", RegexOptions.Compiled);
+
     public static string GetGroupName(this string filePath)
     {
         var groupName = Path.GetFileNameWithoutExtension(filePath).Split("_")[0];
@@ -12,19 +13,36 @@ public static class PathExtensions
         {
             groupName = Path.GetFileNameWithoutExtension(filePath);
         }
-        
+
         return groupName;
     }
     
-    public static object[][] CollectStorageFolders (string contextPath)
+    public static string GetPreview16Path(this string filePath) => GetPreviewPath(filePath, "16");
+    public static string GetPreview32Path(this string filePath) => GetPreviewPath(filePath, "32");
+    public static string GetPreview64Path(this string filePath) => GetPreviewPath(filePath, "64");
+    public static string GetPreview128Path(this string filePath) => GetPreviewPath(filePath, "128");
+    public static string GetPreview512Path(this string filePath) => GetPreviewPath(filePath, "512");
+    public static string GetPreview2000Path(this string filePath) => GetPreviewPath(filePath, "2000");
+
+    public static string GetPreviewPath(this string filePath, string previewKind)
     {
-        if (!Directory.Exists(contextPath))
-            return Array.Empty<object[]>();
+        var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
+        var previewFolder = Path.Combine(directoryName, "preview");
 
-        var result = new List<object[]>();
+        return Path.Combine(previewFolder, $"{Path.GetFileNameWithoutExtension(filePath)}_p{previewKind}.jpg");
+    }
 
+    /// <summary>
+    /// Storage folders are 2 level deep. First level is yearly based partition, second level is event partition
+    /// </summary>
+    /// <returns></returns>
+    public static IEnumerable<string> GetStorageFolders(string rootStoragePath)
+    {
+        if (!Directory.Exists(rootStoragePath))
+            yield break;
+        
         // Level 1: immediate subfolders of contextPath
-        var firstLevelDirs = Directory.GetDirectories(contextPath, "*", SearchOption.TopDirectoryOnly);
+        var firstLevelDirs = Directory.GetDirectories(rootStoragePath, "*", SearchOption.TopDirectoryOnly);
         foreach (var dr in firstLevelDirs)
         {
             var directoryName = Path.GetFileName(dr);
@@ -32,7 +50,7 @@ public static class PathExtensions
                 continue;
 
             // include the level-1 folder itself
-            result.Add([directoryName]);
+            yield return directoryName;
 
             // Level 2: subfolders of each level-1 folder
             var level2Dirs = Directory.GetDirectories(dr, "*", SearchOption.TopDirectoryOnly);
@@ -43,43 +61,43 @@ public static class PathExtensions
                     continue;
 
                 var relative = Path.Combine(directoryName, name2);
-                result.Add([relative]);
+                
+                yield return relative;
             }
         }
-
-        return result.ToArray();
     }
     
-    public static IEnumerable<object[]> GetFilesInFolder(string contextPath, object[][] storageFolders, Action<string> onFolderProcessed = null)
+    public static IEnumerable<string> GetFilesInFolder(string contextPath, IEnumerable<string> storageFolders, Action<string> onFolderProcessed = null)
     {
-        foreach (var inputArgs in storageFolders)
-        foreach (string arg in inputArgs)
+        foreach (var storageFolder in storageFolders)
         {
-            var folderPath = Path.Combine(contextPath, arg);
+            var folderPath = Path.Combine(contextPath, storageFolder);
             // Ensure the folder exists
             if (!Directory.Exists(folderPath))
                 continue;
 
             // Get all files in the folder and add their names to the data
             // use top directory only because other folders are system, preview, etc.
-            var files = Directory.GetFiles(folderPath, "*", SearchOption.TopDirectoryOnly).Select(s => new
+            var files = Directory.GetFiles(folderPath, "*", SearchOption.TopDirectoryOnly)
+                .Select(s => new
             {
                 fileName = Path.GetFileName(s),
                 filePath = s
-            }).ToArray();
+            });
             // excluding preview and system files and unsupported file types
-            files = files.Where(f => 
+            files = files.Where(f =>
                 !ImageProcessingGuardExtensions.IgnoredExtensions
-                    .Contains(Path.GetExtension(f.fileName))).ToArray();
+                    .Contains(Path.GetExtension(f.fileName)));
+            
             foreach (var file in files)
             {
-                yield return [file.filePath];
+                yield return file.filePath;
             }
-            
+
             onFolderProcessed?.Invoke(folderPath);
         }
     }
-    
+
     public static bool IsMd5InFileName(this string fileName)
     {
         // Get the file name without the extension
@@ -97,7 +115,7 @@ public static class PathExtensions
         // Get the file name without the extension and split by underscores
         string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
         var parts = fileNameWithoutExtension.Split('_');
-        
+
         return parts[^1];
     }
 }

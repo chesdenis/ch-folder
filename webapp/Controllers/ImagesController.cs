@@ -9,15 +9,15 @@ namespace webapp.Controllers;
 public sealed class ImagesController : Controller
 {
     private readonly ISearchResultsRepository _repo;
-    private readonly IPhotoLocator _photoLocator;
+    private readonly IImageLocator _imageLocator;
     private readonly StorageOptions _storage;
     private readonly ILogger<ImagesController> _logger;
 
-    public ImagesController(ISearchResultsRepository repo, IOptions<StorageOptions> storage, IPhotoLocator photoLocator,
+    public ImagesController(ISearchResultsRepository repo, IOptions<StorageOptions> storage, IImageLocator imageLocator,
         ILogger<ImagesController> logger)
     {
         _repo = repo;
-        _photoLocator = photoLocator;
+        _imageLocator = imageLocator;
         _storage = storage.Value;
         _logger = logger;
     }
@@ -27,7 +27,7 @@ public sealed class ImagesController : Controller
     {
         if (string.IsNullOrWhiteSpace(md5)) return BadRequest("md5 is required");
 
-        var photoContent = _photoLocator.GetPhotoContent(md5);
+        var photoContent = _imageLocator.GetImageLinks(md5);
 
         if (photoContent == null || !System.IO.File.Exists(photoContent.P512))
         {

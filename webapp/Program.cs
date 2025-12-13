@@ -14,12 +14,12 @@ builder.Services.AddSingleton<IJobRunner, JobRunner>();
 builder.Services.AddSingleton<IDockerFolderRunner, DockerFolderRunner>();
 builder.Services.AddSingleton<IDockerSearchRunner, DockerSearchRunner>();
 builder.Services.AddSingleton<ISearchResultsRepository, SearchResultsRepository>();
-builder.Services.AddSingleton<IPhotoLocator, PhotoLocator>();
+builder.Services.AddSingleton<IImageLocator, ImageLocator>();
 
 var app = builder.Build();
 
 Console.WriteLine("Building index...");
-app.Services.GetRequiredService<IPhotoLocator>().BuildIndexAsync().Wait();
+app.Services.GetRequiredService<IImageLocator>().IdentifyImageLocations().Wait();
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

@@ -27,16 +27,16 @@ public class JobRunner : IJobRunner
     private readonly ILogger<JobRunner> _logger;
     private readonly StorageOptions _storage;
     private readonly IDockerFolderRunner _dockerFolder;
-    private readonly IPhotoLocator _photoLocator;
+    private readonly IImageLocator _imageLocator;
 
     public JobRunner(
-        IHubContext<JobStatusHub> hub, ILogger<JobRunner> logger, IOptions<StorageOptions> storage, IDockerFolderRunner dockerFolder, IPhotoLocator photoLocator)
+        IHubContext<JobStatusHub> hub, ILogger<JobRunner> logger, IOptions<StorageOptions> storage, IDockerFolderRunner dockerFolder, IImageLocator imageLocator)
     {
         _hub = hub;
         _logger = logger;
         _storage = storage.Value;
         _dockerFolder = dockerFolder;
-        _photoLocator = photoLocator;
+        _imageLocator = imageLocator;
     }
 
     public string StartJob(string jobId, JobType jobType, int? degreeOfParallelism = null)
@@ -64,7 +64,7 @@ public class JobRunner : IJobRunner
                     throw new DirectoryNotFoundException($"Storage root '{rootPath}' does not exist");
                 }
                 
-                var storageFolders = PathExtensions.CollectStorageFolders(_storage.RootPath);
+                var storageFolders = PathExtensions.GetStorageFolders(_storage.RootPath).ToArray();
                 var total = storageFolders.Length;
                 var completed = 0;
                 var dop = Math.Max(1, degreeOfParallelism ?? Math.Min(Environment.ProcessorCount, 4));
@@ -85,10 +85,9 @@ public class JobRunner : IJobRunner
                 {
                     try
                     {
-                        var rel = row.Length > 0 ? row[0] as string : null;
-                        if (string.IsNullOrWhiteSpace(rel)) return;
+                        if (string.IsNullOrWhiteSpace(row)) return;
 
-                        var folderAbs = Path.GetFullPath(Path.Combine(rootPath, rel));
+                        var folderAbs = Path.GetFullPath(Path.Combine(rootPath, row));
                         if (!Directory.Exists(folderAbs)) return;
 
                         await _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
@@ -132,7 +131,7 @@ public class JobRunner : IJobRunner
                         Interlocked.Increment(ref completed);
                         if (exit != 0)
                         {
-                            errors.Add($"{jobType} failed for '{rel}' with exit code {exit}");
+                            errors.Add($"{jobType} failed for '{row}' with exit code {exit}");
                         }
 
                         await _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
