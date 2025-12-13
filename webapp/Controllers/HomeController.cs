@@ -20,6 +20,23 @@ public class HomeController(
 
     public async Task<IActionResult> Index([FromQuery] string[]? tags)
     {
+        // If only sessionId is provided (no query), redirect to Search to restore query by sessionId
+        var sessionIdStr = Request.Query["sessionId"].ToString();
+        var hasSessionInQuery = Guid.TryParse(sessionIdStr, out var sessionIdVal);
+        var hasQueryInQuery = Request.Query.ContainsKey("query") && !string.IsNullOrWhiteSpace(Request.Query["query"].ToString());
+        if (hasSessionInQuery && !hasQueryInQuery)
+        {
+            // Preserve all query parameters (page/pageSize/size/tags/etc.) and let Search restore query
+            var route = new RouteValueDictionary();
+            foreach (var (key, value) in Request.Query)
+            {
+                if (string.IsNullOrWhiteSpace(key)) continue;
+                route[key] = value.Count > 1 ? value.ToArray() : value.ToString();
+            }
+            route["sessionId"] = sessionIdVal; // ensure normalized
+            return RedirectToAction("Search", route);
+        }
+
         // Expose selected tags (from model binding) to the view
         ViewBag.SelectedTags = tags ?? Array.Empty<string>();
 
@@ -107,11 +124,28 @@ public class HomeController(
             "[Search] normalized state -> pageSize: {PageSize}, size: {Size}, page reset to 1",
             normalizedPageSize, normalizedSize);
 
+        // Determine if a specific session is requested via query string
+        var sessionIdStr = Request.Query["sessionId"].ToString();
+        Guid requestedSessionId;
+        var hasSessionInQuery = Guid.TryParse(sessionIdStr, out requestedSessionId);
+
         // Execute ImageSearcher container and wait for completion based on session/query state
         var queryText = Request.Query["query"].ToString();
         if (string.IsNullOrWhiteSpace(queryText))
         {
-            // No query provided, just redirect with normalized route
+            if (hasSessionInQuery)
+            {
+                // Try to restore query text by session id
+                var byId = await searchResultsRepo.GetResultsBySessionIdAsync(requestedSessionId, HttpContext.RequestAborted);
+                if (byId != null)
+                {
+                    route["query"] = byId.QueryText;
+                    route["sessionId"] = byId.SessionId;
+                    return RedirectToAction("Search", route);
+                }
+            }
+
+            // No query and no valid session to restore from -> go to Index with normalized route
             return RedirectToAction("Index", route);
         }
 
@@ -122,10 +156,7 @@ public class HomeController(
             return RedirectToAction("Index", route);
         }
 
-        // Determine if a specific session is requested via query string
-        var sessionIdStr = Request.Query["sessionId"].ToString();
-        Guid requestedSessionId;
-        var hasSessionInQuery = Guid.TryParse(sessionIdStr, out requestedSessionId);
+        // requestedSessionId/hasSessionInQuery are already computed above
 
         var isPagingRequest = Request.Query.ContainsKey("page");
 
