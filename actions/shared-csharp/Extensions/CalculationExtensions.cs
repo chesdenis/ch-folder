@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 
 namespace shared_csharp.Extensions;
 
-public static class FileCalculationExtensions
+public static class CalculationExtensions
 {
     public static readonly Regex Md5PrefixRegex = new Regex(@"^[a-fA-F0-9]{32}$", RegexOptions.Compiled);
 

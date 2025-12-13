@@ -25,7 +25,11 @@
                         <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Selected">Selected</a>
+                        <a class="nav-link text-dark"
+                           asp-area=""
+                           asp-controller="Home"
+                           asp-action="Selected"
+                           asp-route-sessionId="@(ViewBag.SessionId != null ? ViewBag.SessionId.ToString() : Context.Request.Query["sessionId"].ToString())">Selected</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Meta">Meta</a>

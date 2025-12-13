@@ -7,17 +7,17 @@ using Xunit;
 
 namespace shared_csharp_tests
 {
-    public class FileCalculationExtensionsTests
+    public class CalculationExtensionsTests
     {
         [Fact]
         public void Md5PrefixRegex_Should_Match_32_Hex_Digits_Only()
         {
-            Assert.Matches(FileCalculationExtensions.Md5PrefixRegex, "d41d8cd98f00b204e9800998ecf8427e"); // lower
-            Assert.Matches(FileCalculationExtensions.Md5PrefixRegex, "D41D8CD98F00B204E9800998ECF8427E"); // upper
-            Assert.DoesNotMatch(FileCalculationExtensions.Md5PrefixRegex, "xyz");
-            Assert.DoesNotMatch(FileCalculationExtensions.Md5PrefixRegex, "123"); // too short
-            Assert.DoesNotMatch(FileCalculationExtensions.Md5PrefixRegex, "g41d8cd98f00b204e9800998ecf8427e"); // non-hex
-            Assert.DoesNotMatch(FileCalculationExtensions.Md5PrefixRegex, "d41d8cd98f00b204e9800998ecf8427ex"); // extra char
+            Assert.Matches(CalculationExtensions.Md5PrefixRegex, "d41d8cd98f00b204e9800998ecf8427e"); // lower
+            Assert.Matches(CalculationExtensions.Md5PrefixRegex, "D41D8CD98F00B204E9800998ECF8427E"); // upper
+            Assert.DoesNotMatch(CalculationExtensions.Md5PrefixRegex, "xyz");
+            Assert.DoesNotMatch(CalculationExtensions.Md5PrefixRegex, "123"); // too short
+            Assert.DoesNotMatch(CalculationExtensions.Md5PrefixRegex, "g41d8cd98f00b204e9800998ecf8427e"); // non-hex
+            Assert.DoesNotMatch(CalculationExtensions.Md5PrefixRegex, "d41d8cd98f00b204e9800998ecf8427ex"); // extra char
         }
 
         [Fact]
@@ -35,7 +35,7 @@ namespace shared_csharp_tests
 
                 // Assert
                 Assert.Equal(expected, actual);
-                Assert.Matches(FileCalculationExtensions.Md5PrefixRegex, actual);
+                Assert.Matches(CalculationExtensions.Md5PrefixRegex, actual);
             }
             finally
             {
@@ -59,7 +59,7 @@ namespace shared_csharp_tests
 
                 // Assert
                 Assert.Equal(expected, actual);
-                Assert.Matches(FileCalculationExtensions.Md5PrefixRegex, actual);
+                Assert.Matches(CalculationExtensions.Md5PrefixRegex, actual);
             }
             finally
             {
@@ -79,7 +79,7 @@ namespace shared_csharp_tests
 
                 // Assert: all hex chars should be lowercase
                 Assert.True(actual == actual.ToLowerInvariant(), "MD5 hex string should be lowercase.");
-                Assert.Matches(FileCalculationExtensions.Md5PrefixRegex, actual);
+                Assert.Matches(CalculationExtensions.Md5PrefixRegex, actual);
             }
             finally
             {

@@ -72,8 +72,8 @@ public class ImageMetaUploader
                 md5_hash: md5,
                 extension: extension,
                 size_bytes: sizeBytes,
-                tags: Array.Empty<string>(),
-                short_details: Path.GetFileNameWithoutExtension(fileName));
+                tags: ImageProcessingExtensions.GetEng30TagsText(filePath),
+                short_details: ImageProcessingExtensions.GetEngShortText(filePath));
 
             _buffer.Add(record);
             if (_buffer.Count >= BatchSize)
