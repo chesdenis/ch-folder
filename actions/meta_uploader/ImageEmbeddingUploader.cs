@@ -7,29 +7,19 @@ using shared_csharp.Extensions;
 
 namespace meta_uploader;
 
-public class EmbeddingUploader
+public class ImageEmbeddingUploader(IFileSystem fileSystem, IFileHasher fileHasher)
 {
-    private readonly IFileSystem _fileSystem;
-    private readonly IFileHasher _fileHasher;
-    private readonly string _connectionString;
+    private readonly string _connectionString = $"http://{Environment.GetEnvironmentVariable("QD_HOST")}:{Environment.GetEnvironmentVariable("QD_PORT")}";
     private const string Collection = "photos";
-    private const int VectorSize = 1536;
     private const int BatchSize = 200;
     private readonly List<PointStruct> _buffer = new();
-
-    public EmbeddingUploader(IFileSystem fileSystem, IFileHasher fileHasher)
-    {
-        _fileSystem = fileSystem;
-        _fileHasher = fileHasher;
-        _connectionString = $"http://{Environment.GetEnvironmentVariable("QD_HOST")}:{Environment.GetEnvironmentVariable("QD_PORT")}";
-    }
 
     public async Task RunAsync(string[] args)
     {
         using var http = new HttpClient { BaseAddress = new Uri(_connectionString) };
         
         args = args.ValidateArgs();
-        await _fileSystem.WalkThrough(args, (p)=> ProcessSingleFile(p, http));
+        await fileSystem.WalkThrough(args, (p)=> ProcessSingleFile(p, http));
 
         // flush remaining buffer
         if (_buffer.Count > 0)
@@ -47,7 +37,7 @@ public class EmbeddingUploader
         }
         
         var groupName = filePath.GetGroupName();
-        var md5 = await _fileHasher.ComputeMd5Async(filePath);
+        var md5 = await fileHasher.ComputeMd5Async(filePath);
         
         var fileParentFolder = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
         var descriptionFolder = Path.Combine(fileParentFolder, "dq");
@@ -69,8 +59,7 @@ public class EmbeddingUploader
         var eng30TagsRawContent = await File.ReadAllTextAsync(Path.Combine(eng30TagsFolder, $"{groupName}.eng30tags.md.answer.md"));
         var commerceData = JsonSerializer.Deserialize<RateExplanation>(commerceRawContent);
         var eng30TagsData = eng30TagsRawContent
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .ToArray();
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         
         var eventName = Path.GetFileName(fileParentFolder);
         var yearName = Path.GetFileName(Directory.GetParent(fileParentFolder)?.FullName);
@@ -135,8 +124,7 @@ public class EmbeddingUploader
     record PointStruct(
         [property: JsonPropertyName("id")] string Id,
         [property: JsonPropertyName("vector")] float[] Vector,
-        [property: JsonPropertyName("payload")]
-        Dictionary<string, object> Payload
+        [property: JsonPropertyName("payload")] Dictionary<string, object> Payload
     );
 
     record RateExplanation(

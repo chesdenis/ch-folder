@@ -7,10 +7,10 @@ var services = new ServiceCollection();
 
 services.AddSingleton<IFileSystem, PhysicalFileSystem>();
 services.AddSingleton<IFileHasher, FileHasher>();
-services.AddSingleton<MetaUploader>();
-services.AddSingleton<EmbeddingUploader>();
+services.AddSingleton<ImageMetaUploader>();
+services.AddSingleton<ImageEmbeddingUploader>();
 
 var provider = services.BuildServiceProvider();
 
-await provider.GetRequiredService<MetaUploader>().RunAsync(args);
-await provider.GetRequiredService<EmbeddingUploader>().RunAsync(args);
+await provider.GetRequiredService<ImageMetaUploader>().RunAsync(args);
+await provider.GetRequiredService<ImageEmbeddingUploader>().RunAsync(args);
