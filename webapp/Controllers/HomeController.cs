@@ -100,8 +100,13 @@ public class HomeController(
         }
         route["size"] = SnapToAllowed(sizeVal);
 
-        // When initiating a search, reset to the first page unless explicitly provided as 1
-        route["page"] = 1;
+        // Determine requested page from query; default to 1
+        var pageFromQuery = 1;
+        if (int.TryParse(Request.Query["page"], out var pageVal) && pageVal > 0)
+        {
+            pageFromQuery = pageVal;
+        }
+        route["page"] = pageFromQuery;
 
         var normalizedSize = route["size"];
         var normalizedPageSize = route["pageSize"];
@@ -109,7 +114,7 @@ public class HomeController(
             "[Search] normalized state -> pageSize: {PageSize}, size: {Size}, page reset to 1",
             normalizedPageSize, normalizedSize);
 
-        // Execute ImageSearcher container and wait for completion
+        // Execute ImageSearcher container and wait for completion only for fresh searches (no page param)
         var queryText = Request.Query["query"].ToString();
         if (string.IsNullOrWhiteSpace(queryText))
         {
@@ -124,15 +129,19 @@ public class HomeController(
             return RedirectToAction("Index", route);
         }
 
-        int exitCode = await dockerSearchRunner.RunImageSearcherAsync(actionsPath, queryText,
-            onStdout: s => logger.LogInformation("[image_searcher][stdout] {Line}", s),
-            onStderr: s => logger.LogWarning("[image_searcher][stderr] {Line}", s));
-
-        if (exitCode != 0)
+        var isPagingRequest = Request.Query.ContainsKey("page");
+        if (!isPagingRequest)
         {
-            logger.LogError("[Search] image_searcher exited with code {Code}", exitCode);
-            TempData["SearchError"] = $"Search failed with code {exitCode}";
-            return RedirectToAction("Index", route);
+            int exitCode = await dockerSearchRunner.RunImageSearcherAsync(actionsPath, queryText,
+                onStdout: s => logger.LogInformation("[image_searcher][stdout] {Line}", s),
+                onStderr: s => logger.LogWarning("[image_searcher][stderr] {Line}", s));
+
+            if (exitCode != 0)
+            {
+                logger.LogError("[Search] image_searcher exited with code {Code}", exitCode);
+                TempData["SearchError"] = $"Search failed with code {exitCode}";
+                return RedirectToAction("Index", route);
+            }
         }
 
         // Read the latest results from metastore
@@ -152,7 +161,7 @@ public class HomeController(
         ViewBag.SelectedTags = route.TryGetValue("tags", out var t) ? t : Array.Empty<string>();
         ViewBag.SearchResults = latest.Results;
         ViewBag.Total = latest.Results.Count;
-        ViewBag.Page = 1; // always reset to first page for a new search
+        ViewBag.Page = pageFromQuery; // reflect requested page
         ViewBag.PageSize = pageSizeInt; // strongly-typed int
         ViewBag.Size = sizeInt; // strongly-typed int
         ViewBag.Query = queryText;
