@@ -8,12 +8,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <Content Include="..\..\actions\.dockerignore">
-        <Link>.dockerignore</Link>
-      </Content>
-    </ItemGroup>
-
-    <ItemGroup>
       <PackageReference Include="Npgsql" Version="8.0.3" />
       <ProjectReference Include="..\actions\shared-csharp\shared-csharp.csproj" />
     </ItemGroup>

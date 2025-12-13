@@ -1,33 +1,19 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
-using webapp.Models;
 using webapp.Services;
 
 namespace webapp.Controllers;
 
 [Route("images")]
-public sealed class ImagesController : Controller
+public sealed class ImagesController(
+    IImageLocator imageLocator)
+    : Controller
 {
-    private readonly ISearchResultsRepository _repo;
-    private readonly IImageLocator _imageLocator;
-    private readonly StorageOptions _storage;
-    private readonly ILogger<ImagesController> _logger;
-
-    public ImagesController(ISearchResultsRepository repo, IOptions<StorageOptions> storage, IImageLocator imageLocator,
-        ILogger<ImagesController> logger)
-    {
-        _repo = repo;
-        _imageLocator = imageLocator;
-        _storage = storage.Value;
-        _logger = logger;
-    }
-
     [HttpGet("by-md5/{md5}")]
     public async Task<IActionResult> ByMd5(string md5, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(md5)) return BadRequest("md5 is required");
 
-        var photoContent = _imageLocator.GetImageLinks(md5);
+        var photoContent = imageLocator.GetImageLinks(md5);
 
         if (photoContent == null || !System.IO.File.Exists(photoContent.P512))
         {

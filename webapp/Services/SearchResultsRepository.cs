@@ -1,5 +1,7 @@
 using System.Data;
+using Microsoft.Extensions.Options;
 using Npgsql;
+using webapp.Models;
 
 namespace webapp.Services;
 
@@ -9,39 +11,11 @@ public interface ISearchResultsRepository
     Task<Photo?> GetPhotoInfoByMd5Async(string md5, CancellationToken ct = default);
 }
 
-public sealed class SearchResultsRepository : ISearchResultsRepository
+public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> connectionStringsOptions) : ISearchResultsRepository
 {
-    private readonly ILogger<SearchResultsRepository> _logger;
-
-    public SearchResultsRepository(ILogger<SearchResultsRepository> logger)
-    {
-        _logger = logger;
-    }
-
-    private static string BuildPgConnectionString()
-    {
-        // Match ImageSearcher.cs env-based configuration
-        string host = Environment.GetEnvironmentVariable("PG_HOST");
-        string port = Environment.GetEnvironmentVariable("PG_PORT");
-        string database = Environment.GetEnvironmentVariable("PG_DATABASE");
-        string username = Environment.GetEnvironmentVariable("PG_USERNAME");
-        string password = Environment.GetEnvironmentVariable("PG_PASSWORD");
-
-        var parts = new[]
-        {
-            $"Host={host}",
-            $"Port={port}",
-            $"Database={database}",
-            $"Username={username}",
-            $"Password={password}",
-            "Ssl Mode=Disable",
-            "Trust Server Certificate=true",
-            "Include Error Detail=true"
-        };
-        return string.Join(";", parts);
-    }
-
-    private static NpgsqlConnection CreateConnection() => new(BuildPgConnectionString());
+    private readonly ConnectionStringOptions _connectionStrings = connectionStringsOptions.Value;
+    
+    private NpgsqlConnection CreateConnection() => new(_connectionStrings.PgPhMetaDb ?? throw new InvalidOperationException());
 
     public async Task<SearchSessionResults?> GetLatestResultsAsync(CancellationToken ct = default)
     {

@@ -10,6 +10,7 @@ builder.Services.AddSignalR();
 
 // app services
 builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection("Storage"));
+builder.Services.Configure<ConnectionStringOptions>(builder.Configuration.GetSection("ConnectionStrings"));
 builder.Services.AddSingleton<IJobRunner, JobRunner>();
 builder.Services.AddSingleton<IDockerFolderRunner, DockerFolderRunner>();
 builder.Services.AddSingleton<IDockerSearchRunner, DockerSearchRunner>();
