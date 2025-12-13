@@ -1,8 +1,11 @@
 @model webapp.Models.SelectedViewModel
 
-@{
+@{ 
     ViewData["Title"] = "Selected Items";
 }
+
+<!-- Bootstrap Icons (CDN) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
 <div class="container mt-3">
     <h3>Selected images for session @Model.SessionId</h3>
@@ -26,22 +29,37 @@
                 {
                     <tr>
                         <td>
-                            <img src="@it.ImageUrl" alt="@it.Md5" width="128" height="128" style="object-fit: cover;"/>
+                            <img src="@it.ImageUrl" alt="@it.Md5" width="128" height="128" class="img-thumbnail" style="object-fit: cover;"/>
                         </td>
                         <td>
-                            <div>
-                                <strong>@it.ShortDetails</strong>
-                            </div>
+                            <div class="fw-semibold">@it.ShortDetails</div>
                             @if (it.Tags is { Length: > 0 })
                             {
-                                <div class="mt-1">
+                                <div class="mt-1 d-flex align-items-start flex-wrap gap-2">
                                     @foreach (var tag in it.Tags)
                                     {
-                                        <span class="badge text-bg-secondary me-1">@tag</span>
+                                        <span class="badge bg-secondary rounded-pill me-1 mb-1">@tag</span>
                                     }
                                 </div>
                             }
-                            <div class="text-muted mt-1"><small>@it.Md5</small></div>
+                            <div class="mt-1 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                <small class="text-muted mb-0">MD5: <code class="user-select-all">@it.Md5</code></small>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm copy-btn"
+                                            data-copy-text="@it.ShortDetails" title="Copy text" aria-label="Copy text">
+                                        <i class="bi bi-clipboard me-1" aria-hidden="true"></i>
+                                        Copy text
+                                    </button>
+                                    @if (it.Tags is { Length: > 0 })
+                                    {
+                                        <button type="button" class="btn btn-outline-secondary btn-sm copy-btn"
+                                                data-copy-text="@string.Join(", ", it.Tags)" title="Copy tags as comma-separated" aria-label="Copy tags">
+                                            <i class="bi bi-tags me-1" aria-hidden="true"></i>
+                                            Copy tags
+                                        </button>
+                                    }
+                                </div>
+                            </div>
                         </td>
                     </tr>
                 }
@@ -54,3 +72,47 @@
         <a class="btn btn-outline-secondary" href="@Url.Action("Index", "Home")">Back</a>
     </div>
 </div>
+
+<script>
+    (function () {
+        const restoreDelay = 1200;
+        function setTempLabel(btn, temp) {
+            const original = btn.getAttribute('data-original-label') ?? btn.textContent;
+            if (!btn.getAttribute('data-original-label')) btn.setAttribute('data-original-label', original);
+            btn.disabled = true;
+            btn.textContent = temp;
+            setTimeout(() => {
+                btn.textContent = btn.getAttribute('data-original-label');
+                btn.disabled = false;
+            }, restoreDelay);
+        }
+
+        async function copy(text) {
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(text);
+                    return true;
+                }
+            } catch (_) { /* fallback below */ }
+            // Fallback for older browsers
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            const ok = document.execCommand('copy');
+            document.body.removeChild(ta);
+            return ok;
+        }
+
+        document.addEventListener('click', async function (e) {
+            const btn = e.target.closest('.copy-btn');
+            if (!btn) return;
+            const text = btn.getAttribute('data-copy-text') ?? '';
+            const success = await copy(text);
+            setTempLabel(btn, success ? 'Copied!' : 'Failed');
+        });
+    })();
+ </script>
