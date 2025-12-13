@@ -8,6 +8,7 @@ namespace webapp.Services;
 public interface ISearchResultsRepository
 {
     Task<SearchSessionResults?> GetLatestResultsAsync(CancellationToken ct = default);
+    Task<SearchSessionResults?> GetResultsBySessionIdAsync(Guid sessionId, CancellationToken ct = default);
     Task<Photo?> GetPhotoInfoByMd5Async(string md5, CancellationToken ct = default);
     Task<int> GetPhotosCountAsync(CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, CancellationToken ct = default);
@@ -28,13 +29,15 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
 
         // Get the latest session id
         Guid? sessionId = null;
-        await using (var cmd = new NpgsqlCommand("SELECT id FROM search_session ORDER BY created_at DESC LIMIT 1",
+        string? queryText = null;
+        await using (var cmd = new NpgsqlCommand("SELECT id, query_text FROM search_session ORDER BY created_at DESC LIMIT 1",
                          conn))
         await using (var reader = await cmd.ExecuteReaderAsync(ct))
         {
             if (await reader.ReadAsync(ct))
             {
                 sessionId = reader.GetGuid(0);
+                queryText = reader.GetString(1);
             }
         }
 
@@ -62,7 +65,48 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
             }
         }
 
-        return new SearchSessionResults(sessionId.Value, results);
+        return new SearchSessionResults(sessionId.Value, queryText ?? string.Empty, results);
+    }
+
+    public async Task<SearchSessionResults?> GetResultsBySessionIdAsync(Guid sessionId, CancellationToken ct = default)
+    {
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(ct);
+
+        // Verify session exists and fetch its query_text
+        string? queryText = null;
+        await using (var checkCmd = new NpgsqlCommand("SELECT query_text FROM search_session WHERE id = @sid LIMIT 1", conn))
+        {
+            checkCmd.Parameters.AddWithValue("@sid", NpgsqlTypes.NpgsqlDbType.Uuid, sessionId);
+            var scalar = await checkCmd.ExecuteScalarAsync(ct);
+            queryText = scalar as string;
+        }
+
+        if (queryText is null) return null;
+
+        var results = new List<SearchResultRow>();
+        await using (var cmd = new NpgsqlCommand(@"
+            SELECT r.rank, r.score, r.path_md5
+            FROM search_session_result r
+            LEFT JOIN photo p ON p.md5_hash = r.path_md5
+            WHERE r.session_id = @sid
+            ORDER BY r.rank ASC", conn))
+        {
+            cmd.Parameters.AddWithValue("@sid", NpgsqlTypes.NpgsqlDbType.Uuid, sessionId);
+            await using var rdr = await cmd.ExecuteReaderAsync(ct);
+            while (await rdr.ReadAsync(ct))
+            {
+                var row = new SearchResultRow
+                {
+                    Rank = rdr.GetInt32(0),
+                    Score = rdr.GetFloat(1),
+                    Md5 = rdr.IsDBNull(2) ? null : rdr.GetString(2)
+                };
+                results.Add(row);
+            }
+        }
+
+        return new SearchSessionResults(sessionId, queryText, results);
     }
 
     public async Task<Photo?> GetPhotoInfoByMd5Async(string md5, CancellationToken ct = default)
@@ -123,7 +167,7 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
     }
 }
 
-public sealed record SearchSessionResults(Guid SessionId, IReadOnlyList<SearchResultRow> Results);
+public sealed record SearchSessionResults(Guid SessionId, string QueryText, IReadOnlyList<SearchResultRow> Results);
 
 public sealed record SearchResultRow
 {

@@ -114,7 +114,7 @@ public class HomeController(
             "[Search] normalized state -> pageSize: {PageSize}, size: {Size}, page reset to 1",
             normalizedPageSize, normalizedSize);
 
-        // Execute ImageSearcher container and wait for completion only for fresh searches (no page param)
+        // Execute ImageSearcher container and wait for completion based on session/query state
         var queryText = Request.Query["query"].ToString();
         if (string.IsNullOrWhiteSpace(queryText))
         {
@@ -129,27 +129,81 @@ public class HomeController(
             return RedirectToAction("Index", route);
         }
 
-        var isPagingRequest = Request.Query.ContainsKey("page");
-        if (!isPagingRequest)
-        {
-            int exitCode = await dockerSearchRunner.RunImageSearcherAsync(actionsPath, queryText,
-                onStdout: s => logger.LogInformation("[image_searcher][stdout] {Line}", s),
-                onStderr: s => logger.LogWarning("[image_searcher][stderr] {Line}", s));
+        // Determine if a specific session is requested via query string
+        var sessionIdStr = Request.Query["sessionId"].ToString();
+        Guid requestedSessionId;
+        var hasSessionInQuery = Guid.TryParse(sessionIdStr, out requestedSessionId);
 
-            if (exitCode != 0)
+        var isPagingRequest = Request.Query.ContainsKey("page");
+
+        SearchSessionResults? sessionToUse = null;
+
+        if (hasSessionInQuery)
+        {
+            // Try to stick with provided session id
+            var byId = await searchResultsRepo.GetResultsBySessionIdAsync(requestedSessionId, HttpContext.RequestAborted);
+            if (byId != null && byId.Results.Count > 0 && string.Equals(byId.QueryText, queryText, StringComparison.Ordinal))
             {
-                logger.LogError("[Search] image_searcher exited with code {Code}", exitCode);
-                TempData["SearchError"] = $"Search failed with code {exitCode}";
-                return RedirectToAction("Index", route);
+                sessionToUse = byId;
+            }
+            else
+            {
+                // Provided session is missing or belongs to a different query -> run a new search and stick to new latest
+                int exitCode = await dockerSearchRunner.RunImageSearcherAsync(actionsPath, queryText,
+                    onStdout: s => logger.LogInformation("[image_searcher][stdout] {Line}", s),
+                    onStderr: s => logger.LogWarning("[image_searcher][stderr] {Line}", s));
+                if (exitCode != 0)
+                {
+                    logger.LogError("[Search] image_searcher exited with code {Code}", exitCode);
+                    TempData["SearchError"] = $"Search failed with code {exitCode}";
+                    return RedirectToAction("Index", route);
+                }
+
+                var latestAfterRun = await searchResultsRepo.GetLatestResultsAsync(HttpContext.RequestAborted);
+                if (latestAfterRun is null || latestAfterRun.Results.Count == 0)
+                {
+                    TempData["SearchInfo"] = "No results found";
+                    return RedirectToAction("Index", route);
+                }
+
+                // Redirect to same action but with new sessionId to stick
+                route["sessionId"] = latestAfterRun.SessionId;
+                return RedirectToAction("Search", route);
             }
         }
 
-        // Read the latest results from metastore
-        var latest = await searchResultsRepo.GetLatestResultsAsync(HttpContext.RequestAborted);
-        if (latest is null || latest.Results.Count == 0)
+        if (sessionToUse is null)
         {
-            TempData["SearchInfo"] = "No results found";
-            return RedirectToAction("Index", route);
+            // No specific session requested; optionally run search on non-paging request
+            if (!isPagingRequest)
+            {
+                int exitCode = await dockerSearchRunner.RunImageSearcherAsync(actionsPath, queryText,
+                    onStdout: s => logger.LogInformation("[image_searcher][stdout] {Line}", s),
+                    onStderr: s => logger.LogWarning("[image_searcher][stderr] {Line}", s));
+                if (exitCode != 0)
+                {
+                    logger.LogError("[Search] image_searcher exited with code {Code}", exitCode);
+                    TempData["SearchError"] = $"Search failed with code {exitCode}";
+                    return RedirectToAction("Index", route);
+                }
+            }
+
+            // Use the latest session and then stick to it by adding sessionId
+            var latest = await searchResultsRepo.GetLatestResultsAsync(HttpContext.RequestAborted);
+            if (latest is null || latest.Results.Count == 0)
+            {
+                TempData["SearchInfo"] = "No results found";
+                return RedirectToAction("Index", route);
+            }
+
+            // If the current query already has the same session id, render; otherwise redirect to stick
+            if (!hasSessionInQuery || latest.SessionId != requestedSessionId)
+            {
+                route["sessionId"] = latest.SessionId;
+                return RedirectToAction("Search", route);
+            }
+
+            sessionToUse = latest;
         }
 
         // Normalize typed values for the view to avoid dynamic cast issues
@@ -159,8 +213,8 @@ public class HomeController(
 
         // Pass results to the Index view directly for immediate display
         ViewBag.SelectedTags = route.TryGetValue("tags", out var t) ? t : Array.Empty<string>();
-        ViewBag.SearchResults = latest.Results;
-        ViewBag.Total = latest.Results.Count;
+        ViewBag.SearchResults = sessionToUse!.Results;
+        ViewBag.Total = sessionToUse.Results.Count;
         ViewBag.Page = pageFromQuery; // reflect requested page
         ViewBag.PageSize = pageSizeInt; // strongly-typed int
         ViewBag.Size = sizeInt; // strongly-typed int
