@@ -11,11 +11,13 @@ public interface ISearchResultsRepository
     Task<Photo?> GetPhotoInfoByMd5Async(string md5, CancellationToken ct = default);
 }
 
-public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> connectionStringsOptions) : ISearchResultsRepository
+public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> connectionStringsOptions)
+    : ISearchResultsRepository
 {
     private readonly ConnectionStringOptions _connectionStrings = connectionStringsOptions.Value;
-    
-    private NpgsqlConnection CreateConnection() => new(_connectionStrings.PgPhMetaDb ?? throw new InvalidOperationException());
+
+    private NpgsqlConnection CreateConnection() =>
+        new(_connectionStrings.PgPhMetaDb ?? throw new InvalidOperationException());
 
     public async Task<SearchSessionResults?> GetLatestResultsAsync(CancellationToken ct = default)
     {
@@ -24,7 +26,8 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
 
         // Get the latest session id
         Guid? sessionId = null;
-        await using (var cmd = new NpgsqlCommand("SELECT id FROM search_session ORDER BY created_at DESC LIMIT 1", conn))
+        await using (var cmd = new NpgsqlCommand("SELECT id FROM search_session ORDER BY created_at DESC LIMIT 1",
+                         conn))
         await using (var reader = await cmd.ExecuteReaderAsync(ct))
         {
             if (await reader.ReadAsync(ct))
@@ -37,7 +40,7 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
 
         var results = new List<SearchResultRow>();
         await using (var cmd = new NpgsqlCommand(@"
-            SELECT r.rank, r.score, r.path_md5, p.file_path
+            SELECT r.rank, r.score, r.path_md5
             FROM search_session_result r
             LEFT JOIN photo p ON p.md5_hash = r.path_md5
             WHERE r.session_id = @sid
@@ -51,8 +54,7 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
                 {
                     Rank = rdr.GetInt32(0),
                     Score = rdr.GetFloat(1),
-                    Md5 = rdr.IsDBNull(2) ? null : rdr.GetString(2),
-                    FilePath = rdr.IsDBNull(3) ? null : rdr.GetString(3)
+                    Md5 = rdr.IsDBNull(2) ? null : rdr.GetString(2)
                 };
                 results.Add(row);
             }
@@ -66,43 +68,30 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         await using var conn = CreateConnection();
         await conn.OpenAsync(ct);
         await using var cmd = new NpgsqlCommand(@"SELECT md5_hash,
-            file_name,
-            dir_name,
             extension,
-            dir_path,
-            file_path,
             size_bytes,
             tags,
             short_details,
-            color_hash,
-            average_hash,
             created_at,
             updated_at FROM photo WHERE md5_hash = @md5 LIMIT 1", conn);
         cmd.Parameters.AddWithValue("@md5", NpgsqlTypes.NpgsqlDbType.Text, md5);
-        
+
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         if (!await reader.ReadAsync(ct))
             return null;
-        
+
         var photo = new Photo
         {
-            Md5Hash     = reader.GetString(0),
-            FileName    = reader.GetString(1),
-            DirName     = reader.GetString(2),
-            Extension   = reader.GetString(3),
-            DirPath     = reader.GetString(4),
-            FilePath    = reader.GetString(5),
-            SizeBytes   = reader.GetInt64(6),
-            Tags        = reader.IsDBNull(7) ? Array.Empty<string>() : reader.GetFieldValue<string[]>(7),
-            ShortDetails= reader.GetString(8),
-            ColorHash   = reader.GetString(9),
-            AverageHash = reader.GetString(10),
-            CreatedAt   = reader.GetDateTime(11), // UTC DateTime for timestamptz
-            UpdatedAt   = reader.GetDateTime(12)
+            Md5Hash = reader.GetString(0),
+            Extension = reader.GetString(1),
+            SizeBytes = reader.GetInt64(2),
+            Tags = reader.IsDBNull(3) ? Array.Empty<string>() : reader.GetFieldValue<string[]>(3),
+            ShortDetails = reader.GetString(4),
+            CreatedAt = reader.GetDateTime(5), // UTC DateTime for timestamptz
+            UpdatedAt = reader.GetDateTime(6)
         };
 
         return photo;
-        
     }
 }
 
@@ -113,22 +102,15 @@ public sealed record SearchResultRow
     public int Rank { get; init; }
     public float Score { get; init; }
     public string? Md5 { get; init; }
-    public string? FilePath { get; init; }
 }
 
 public sealed record Photo
 {
-    public string Md5Hash { get; init; }  
-    public string FileName { get; set; }  
-    public string DirName { get; set; } 
-    public string Extension { get; set; }  
-    public string DirPath { get; set; }  
-    public string FilePath { get; set; }  
+    public string Md5Hash { get; init; }
+    public string Extension { get; set; }
     public long SizeBytes { get; set; }
     public string[] Tags { get; set; }
-    public string ShortDetails { get; set; }  
-    public string ColorHash { get; set; }  
-    public string AverageHash { get; set; }  
+    public string ShortDetails { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }
