@@ -9,6 +9,8 @@ public interface ISearchResultsRepository
 {
     Task<SearchSessionResults?> GetLatestResultsAsync(CancellationToken ct = default);
     Task<Photo?> GetPhotoInfoByMd5Async(string md5, CancellationToken ct = default);
+    Task<int> GetPhotosCountAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, CancellationToken ct = default);
 }
 
 public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> connectionStringsOptions)
@@ -92,6 +94,32 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         };
 
         return photo;
+    }
+
+    public async Task<int> GetPhotosCountAsync(CancellationToken ct = default)
+    {
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(ct);
+        await using var cmd = new NpgsqlCommand("SELECT COUNT(*) FROM photo", conn);
+        var result = await cmd.ExecuteScalarAsync(ct);
+        return Convert.ToInt32(result);
+    }
+
+    public async Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, CancellationToken ct = default)
+    {
+        if (limit <= 0) return Array.Empty<string>();
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(ct);
+        var list = new List<string>(limit);
+        await using var cmd = new NpgsqlCommand(@"SELECT md5_hash FROM photo ORDER BY created_at DESC LIMIT @lim OFFSET @off", conn);
+        cmd.Parameters.AddWithValue("@lim", NpgsqlTypes.NpgsqlDbType.Integer, limit);
+        cmd.Parameters.AddWithValue("@off", NpgsqlTypes.NpgsqlDbType.Integer, Math.Max(0, offset));
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            list.Add(reader.GetString(0));
+        }
+        return list;
     }
 }
 

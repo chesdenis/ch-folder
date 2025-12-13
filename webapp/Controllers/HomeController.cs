@@ -16,10 +16,40 @@ public class HomeController(
 {
     private readonly StorageOptions _storage = storageOptions.Value;
 
-    public IActionResult Index([FromQuery] string[]? tags)
+    public async Task<IActionResult> Index([FromQuery] string[]? tags)
     {
-        // expose selected tags (from model binding) to the view
+        // Expose selected tags (from model binding) to the view
         ViewBag.SelectedTags = tags ?? Array.Empty<string>();
+
+        // Pull paging and size from query to load real data for the gallery
+        var page = int.TryParse(Request.Query["page"], out var p) ? Math.Max(1, p) : 1;
+        var pageSize = int.TryParse(Request.Query["pageSize"], out var ps) ? Math.Max(1, ps) : 12;
+        var thumbSize = int.TryParse(Request.Query["size"], out var sz) ? sz : 256;
+        thumbSize = SnapToAllowed(thumbSize);
+
+        // Load recent photos as the default gallery content (no sample data)
+        var total = await searchResultsRepo.GetPhotosCountAsync(HttpContext.RequestAborted);
+        var offset = (page - 1) * pageSize;
+        var md5s = await searchResultsRepo.GetRecentPhotoMd5Async(offset, pageSize, HttpContext.RequestAborted);
+
+        var items = md5s
+            .Where(m => !string.IsNullOrWhiteSpace(m))
+            .Select(m => new webapp.Components.GalleryItem
+            {
+                FullUrl = Url.Action("ByMd5", "Images", new { md5 = m })!,
+                // Fallback dimensions (real dimensions can be added later)
+                FullWidth = 512,
+                FullHeight = 512,
+                Alt = m!
+            })
+            .ToList();
+
+        ViewBag.GalleryItems = items;
+        ViewBag.Total = total;
+        ViewBag.Page = page;
+        ViewBag.PageSize = pageSize;
+        ViewBag.Size = thumbSize;
+
         return View();
     }
 
@@ -113,12 +143,18 @@ public class HomeController(
             return RedirectToAction("Index", route);
         }
 
+        // Normalize typed values for the view to avoid dynamic cast issues
+        var pageSizeInt = int.TryParse(route["pageSize"]?.ToString(), out var psVal) ? psVal : 12;
+        var sizeInt = int.TryParse(route["size"]?.ToString(), out var szVal) ? szVal : 256;
+        sizeInt = SnapToAllowed(sizeInt);
+
         // Pass results to the Index view directly for immediate display
         ViewBag.SelectedTags = route.TryGetValue("tags", out var t) ? t : Array.Empty<string>();
         ViewBag.SearchResults = latest.Results;
         ViewBag.Total = latest.Results.Count;
-        ViewBag.PageSize = route["pageSize"]; // preserve page size for the view
-        ViewBag.Size = route["size"];
+        ViewBag.Page = 1; // always reset to first page for a new search
+        ViewBag.PageSize = pageSizeInt; // strongly-typed int
+        ViewBag.Size = sizeInt; // strongly-typed int
         ViewBag.Query = queryText;
         return View("Index");
     }
