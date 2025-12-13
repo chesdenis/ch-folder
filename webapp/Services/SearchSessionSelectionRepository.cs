@@ -6,7 +6,7 @@ namespace webapp.Services;
 
 public interface ISearchSessionSelectionRepository
 {
-    Task<IReadOnlyList<string>> GetSelectedMd5Async(Guid sessionId, CancellationToken ct = default);
+    Task<IReadOnlyList<SelectedPhotoInfo>> GetSelectedMd5Async(Guid sessionId, CancellationToken ct = default);
     Task<bool> AddSelectionAsync(Guid sessionId, string md5, CancellationToken ct = default);
     Task<bool> RemoveSelectionAsync(Guid sessionId, string md5, CancellationToken ct = default);
 }
@@ -19,22 +19,26 @@ public sealed class SearchSessionSelectionRepository(IOptions<ConnectionStringOp
     private NpgsqlConnection CreateConnection() =>
         new(_connectionStrings.PgPhMetaDb ?? throw new InvalidOperationException());
 
-    public async Task<IReadOnlyList<string>> GetSelectedMd5Async(Guid sessionId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<SelectedPhotoInfo>> GetSelectedMd5Async(Guid sessionId, CancellationToken ct = default)
     {
         await using var conn = CreateConnection();
         await conn.OpenAsync(ct);
 
-        var list = new List<string>();
-        await using var cmd = new NpgsqlCommand(@"SELECT md5_hash
-            FROM search_session_selected
-            WHERE session_id = @sid
-            ORDER BY created_at ASC", conn);
+        var list = new List<SelectedPhotoInfo>();
+        await using var cmd = new NpgsqlCommand(@"SELECT p.md5_hash, p.short_details, p.tags
+            FROM search_session_selected s
+            INNER JOIN photo p ON p.md5_hash = s.md5_hash
+            WHERE s.session_id = @sid
+            ORDER BY s.created_at ASC", conn);
         cmd.Parameters.AddWithValue("@sid", NpgsqlTypes.NpgsqlDbType.Uuid, sessionId);
 
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
-            list.Add(reader.GetString(0));
+            var md5 = reader.GetString(0);
+            var shortDetails = reader.GetString(1);
+            var tags = reader.IsDBNull(2) ? Array.Empty<string>() : reader.GetFieldValue<string[]>(2);
+            list.Add(new SelectedPhotoInfo(md5, shortDetails, tags));
         }
 
         return list;
@@ -69,3 +73,5 @@ public sealed class SearchSessionSelectionRepository(IOptions<ConnectionStringOp
         return affected > 0;
     }
 }
+
+public sealed record SelectedPhotoInfo(string Md5, string ShortDetails, string[] Tags);

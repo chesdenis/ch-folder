@@ -13,7 +13,8 @@ public class HomeController(
     IJobRunner jobRunner,
     IOptions<StorageOptions> storageOptions,
     IDockerSearchRunner dockerSearchRunner,
-    ISearchResultsRepository searchResultsRepo) : Controller
+    ISearchResultsRepository searchResultsRepo,
+    ISearchSessionSelectionRepository selectionRepo) : Controller
 {
     private readonly StorageOptions _storage = storageOptions.Value;
 
@@ -276,6 +277,29 @@ public class HomeController(
     {
         ViewBag.StoragePath = _storage.RootPath ?? string.Empty;
         return View();
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Selected([FromQuery] Guid sessionId)
+    {
+        if (sessionId == Guid.Empty)
+            return BadRequest("sessionId is required");
+
+        var items = await selectionRepo.GetSelectedMd5Async(sessionId, HttpContext.RequestAborted);
+
+        var vm = new SelectedViewModel
+        {
+            SessionId = sessionId,
+            Items = items.Select(i => new SelectedItemViewModel
+            {
+                Md5 = i.Md5,
+                ShortDetails = i.ShortDetails,
+                Tags = i.Tags ?? Array.Empty<string>(),
+                ImageUrl = Url.Action("ByMd5", "Images", new { md5 = i.Md5, w = 128 })!
+            }).ToList()
+        };
+
+        return View(vm);
     }
 
     public IActionResult About()
