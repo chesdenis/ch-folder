@@ -13,6 +13,9 @@ namespace webapp.Components
 
         public string Alt { get; set; } = string.Empty;
 
+        // Optional md5 identifier of the photo (helps with selection)
+        public string? Md5 { get; set; }
+
         // Helper: builds thumbnail URL for a requested width
         public string GetThumbUrl(int width)
         {

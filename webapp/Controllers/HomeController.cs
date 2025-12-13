@@ -212,6 +212,7 @@ public class HomeController(
         ViewBag.PageSize = pageSizeInt; // strongly-typed int
         ViewBag.Size = sizeInt; // strongly-typed int
         ViewBag.Query = queryText;
+        ViewBag.SessionId = sessionToUse.SessionId;
         return View("Index");
     }
 

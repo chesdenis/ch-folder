@@ -11,7 +11,10 @@
        data-pswp-height="@item.FullHeight"
        target="_blank"
        class="d-inline-block">
-        <img src="@item.GetThumbUrl(size)" alt="@item.Alt" class="img-thumbnail m-2" />
+        <img src="@item.GetThumbUrl(size)"
+             alt="@item.Alt"
+             class="img-thumbnail m-2"
+             data-md5="@item.Md5" />
     </a>
 }
 </div>
