@@ -178,14 +178,16 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         await using var conn = CreateConnection();
         await conn.OpenAsync(ct);
         var tags = new List<string>();
-        // Flatten tags array from photos that appear in the session results and return distinct sorted list
+        // Return distinct tags for a session, prioritizing tags coming from higher-ranked (score) results
+        // and higher frequency. We aggregate per tag and order by total score then frequency.
         await using var cmd = new NpgsqlCommand(@"
-            SELECT DISTINCT t
+            SELECT t AS tag
             FROM search_session_result r
             JOIN photo p ON p.md5_hash = r.path_md5
             CROSS JOIN LATERAL unnest(p.tags) AS t
-            WHERE r.session_id = @sid
-            ORDER BY t ASC", conn);
+            WHERE r.session_id = @sid AND t IS NOT NULL AND length(trim(t)) > 0
+            GROUP BY t
+            ORDER BY SUM(r.score) DESC, COUNT(*) DESC, t ASC", conn);
         cmd.Parameters.AddWithValue("@sid", NpgsqlTypes.NpgsqlDbType.Uuid, sessionId);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
