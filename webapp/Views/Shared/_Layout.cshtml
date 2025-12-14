@@ -29,7 +29,10 @@
                            asp-area=""
                            asp-controller="Home"
                            asp-action="Selected"
-                           asp-route-sessionId="@(ViewBag.SessionId != null ? ViewBag.SessionId.ToString() : Context.Request.Query["sessionId"].ToString())">Selected</a>
+                           asp-route-sessionId="@(ViewBag.SessionId != null ? ViewBag.SessionId.ToString() : Context.Request.Query["sessionId"].ToString())"
+                           asp-route-page="@(ViewBag.Page != null ? ViewBag.Page.ToString() : Context.Request.Query["page"].ToString())"
+                           asp-route-pageSize="@(ViewBag.PageSize != null ? ViewBag.PageSize.ToString() : Context.Request.Query["pageSize"].ToString())"
+                           asp-route-size="@(ViewBag.Size != null ? ViewBag.Size.ToString() : Context.Request.Query["size"].ToString())">Selected</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Meta">Meta</a>
