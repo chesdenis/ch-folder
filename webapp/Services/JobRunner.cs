@@ -189,10 +189,11 @@ public class JobRunner : IJobRunner
         Func<string, string, Action<string>?, Action<string>?, CancellationToken, Task<int>> jobFunc = jobType switch
         {
             JobType.MetaUploader => (ap, hf, o, e, ct) => _dockerFolder.RunMetaUploaderAsync(ap, hf, o, e, ct),
-            JobType.AiContentQueryBuilder => (ap, hf, o, e, ct) => _dockerFolder.RunAiContentQueryBuilderAsync(ap, hf, null, o, e, ct),
-            JobType.Md5ImageMarker => (ap, hf, o, e, ct) => _dockerFolder.RunMd5ImageMarkerAsync(ap, hf, null, o, e, ct),
-            JobType.FaceHashBuilder => (ap, hf, o, e, ct) => _dockerFolder.RunFaceHashBuilderAsync(ap, hf, null, o, e, ct),
-            JobType.AverageImageMarker => (ap, hf, o, e, ct) => _dockerFolder.RunAverageImageMarkerAsync(ap, hf, null, o, e, ct),
+            JobType.AiContentQueryBuilder => (ap, hf, o, e, ct) => _dockerFolder.RunAiContentQueryBuilderAsync(ap, hf, o, e, ct),
+            JobType.Md5ImageMarker => (ap, hf, o, e, ct) => _dockerFolder.RunMd5ImageMarkerAsync(ap, hf, o, e, ct),
+            JobType.DuplicateMarker => (ap, hf, o, e, ct) => _dockerFolder.RunDuplicateMarkerAsync(ap, hf, o, e, ct),
+            JobType.FaceHashBuilder => (ap, hf, o, e, ct) => _dockerFolder.RunFaceHashBuilderAsync(ap, hf, o, e, ct),
+            JobType.AverageImageMarker => (ap, hf, o, e, ct) => _dockerFolder.RunAverageImageMarkerAsync(ap, hf, o, e, ct),
             _ => (ap, hf, o, e, ct) => _dockerFolder.RunMetaUploaderAsync(ap, hf, o, e, ct)
         };
         return jobFunc;

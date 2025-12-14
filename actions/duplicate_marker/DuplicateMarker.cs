@@ -70,7 +70,7 @@ public class DuplicateMarker(IFileSystem fileSystem)
             Console.WriteLine($"Invalid real_path '{realPath}' for '{filePath}'");
         }
 
-        var destinationFolderName = Path.GetFileName(dirOfReal);
+        var destinationFolderName = "duplicate_" + Path.GetFileName(dirOfReal);
         if (string.IsNullOrEmpty(destinationFolderName))
         {
             Console.WriteLine($"Invalid real_path '{realPath}' for '{filePath}'");
