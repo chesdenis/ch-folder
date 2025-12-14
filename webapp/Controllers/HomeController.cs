@@ -14,6 +14,7 @@ public class HomeController(
     IOptions<StorageOptions> storageOptions,
     IDockerSearchRunner dockerSearchRunner,
     ISearchResultsRepository searchResultsRepo,
+    ISearchSessionRepository sessionsRepo,
     ISearchSessionSelectionRepository selectionRepo,
     IImageLocator imageLocator) : Controller
 {
@@ -463,5 +464,21 @@ public class HomeController(
         if (string.IsNullOrWhiteSpace(jobId)) return BadRequest("jobId is required");
         var id = jobRunner.StartJob(jobId, type, dop);
         return Ok(new { jobId = id });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Sessions([FromQuery] int? page, [FromQuery] int? pageSize)
+    {
+        var p = Math.Max(1, page ?? 1);
+        var ps = Math.Max(1, pageSize ?? 20);
+        var offset = (p - 1) * ps;
+
+        var (items, total) = await sessionsRepo.GetRecentSessionsAsync(offset, ps, HttpContext.RequestAborted);
+
+        ViewBag.Total = total;
+        ViewBag.Page = p;
+        ViewBag.PageSize = ps;
+
+        return View(items);
     }
 }
