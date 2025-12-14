@@ -38,7 +38,10 @@
                            asp-route-size="@(ViewBag.Size != null ? ViewBag.Size.ToString() : Context.Request.Query["size"].ToString())">Selected</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Meta">Meta</a>
+                        <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Meta">Rebuild</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Images">Add Images</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="About">About</a>

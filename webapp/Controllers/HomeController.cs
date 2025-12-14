@@ -430,6 +430,13 @@ public class HomeController(
         return View();
     }
 
+    public IActionResult Images()
+    {
+        ViewBag.StoragePath = _storage.RootPath ?? string.Empty;
+        ViewBag.InputPath = _storage.InputPath ?? string.Empty;
+        return View();
+    }
+
     [HttpGet]
     public async Task<IActionResult> Selected([FromQuery] Guid sessionId)
     {

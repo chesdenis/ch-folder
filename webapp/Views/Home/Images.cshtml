@@ -1,0 +1,249 @@
+@{
+    ViewData["Title"] = "Add Images";
+}
+
+<div class="row">
+    <div class="col-md-10 col-lg-8">
+        <h1 class="mb-3">Add and analyze images</h1>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row g-2 align-items-center">
+                    <div class="col-12 col-md-5">
+                        <label class="form-label">Storage path</label>
+                        <div class="form-control-plaintext" id="storagePath">@ViewBag.StoragePath</div>
+                    </div>
+                    <div class="col-12 col-md-5">
+                        <label class="form-label">Input path</label>
+                        <div class="form-control-plaintext" id="inputPath">@ViewBag.InputPath</div>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label for="dop" class="form-label">Threads</label>
+                        <input id="dop" class="form-control" type="number" min="1" max="32" value="12" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">Day 1 — preparation</div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                    <button class="btn btn-outline-primary" id="btnMd5">Run Md5ImageMarker</button>
+                    <button class="btn btn-outline-secondary" id="btnDuplicate" disabled title="DuplicateMarker is not available in current build">Run DuplicateMarker</button>
+                    <button class="btn btn-primary ms-auto" id="btnDay1">Run Day 1 sequence</button>
+                </div>
+                <small class="text-muted">Day 1 computes MD5 hashes and marks potential duplicates.</small>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">Day 2 — analysis</div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                    <button class="btn btn-outline-primary" id="btnAvg">Run AverageImageMarker</button>
+                    <button class="btn btn-outline-primary" id="btnFace">Run FaceHashBuilder</button>
+                    <button class="btn btn-outline-primary" id="btnAi">Run AiContentQueryBuilder</button>
+                    <button class="btn btn-success ms-auto" id="btnDay2">Run Day 2 sequence</button>
+                </div>
+                <small class="text-muted">Day 2 builds average hash, face embeddings, and AI content queries.</small>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2 align-items-center">
+                    <div>
+                        <strong>Progress:</strong>
+                        <span id="progressText">0%</span>
+                    </div>
+                    <div>
+                        <span class="badge bg-secondary" id="jobIdBadge" style="display:none"></span>
+                    </div>
+                </div>
+                <div class="progress" role="progressbar" aria-label="Job progress" aria-valuemin="0" aria-valuemax="100">
+                    <div id="progressBar" class="progress-bar progress-bar-striped" style="width: 0%">0%</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">Live log</div>
+            <div class="card-body">
+                <pre id="log" class="mb-0" style="white-space: pre-wrap; max-height: 300px; overflow: auto"></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/lib/signalr/dist/browser/signalr.min.js"></script>
+    <script>
+        (function() {
+            const bar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            const log = document.getElementById('log');
+            const jobIdBadge = document.getElementById('jobIdBadge');
+            const dopEl = document.getElementById('dop');
+
+            const btnMd5 = document.getElementById('btnMd5');
+            const btnDuplicate = document.getElementById('btnDuplicate');
+            const btnAvg = document.getElementById('btnAvg');
+            const btnFace = document.getElementById('btnFace');
+            const btnAi = document.getElementById('btnAi');
+            const btnDay1 = document.getElementById('btnDay1');
+            const btnDay2 = document.getElementById('btnDay2');
+
+            let currentJobId = null;
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl('/hubs/jobstatus')
+                .withAutomaticReconnect()
+                .build();
+
+            function setProgress(p) {
+                p = Math.max(0, Math.min(100, p|0));
+                bar.style.width = p + '%';
+                bar.textContent = p + '%';
+                progressText.textContent = p + '%';
+            }
+
+            function addLog(msg) {
+                const time = new Date().toLocaleTimeString();
+                log.textContent += `[${time}] ${msg}\n`;
+                log.scrollTop = log.scrollHeight;
+            }
+
+            function clearLogs() { log.textContent = ''; }
+
+            connection.on('ReceiveProgress', payload => {
+                if (!payload || !currentJobId || payload.jobId !== currentJobId) return;
+                setProgress(payload.percent || 0);
+                if (payload.message) addLog(payload.message);
+            });
+
+            connection.on('ReceiveCompleted', payload => {
+                if (!payload || !currentJobId || payload.jobId !== currentJobId) return;
+                setProgress(100);
+                addLog(payload.message || 'Completed');
+                enableAll(true);
+            });
+
+            connection.on('ReceiveError', payload => {
+                addLog('Error: ' + (payload?.message || 'Unknown error'));
+                enableAll(true);
+            });
+
+            function enableAll(en) {
+                [btnMd5, btnDuplicate, btnAvg, btnFace, btnAi, btnDay1, btnDay2].forEach(b => { if (b) b.disabled = !en || b.hasAttribute('data-force-disabled'); });
+            }
+
+            (async () => {
+                try { await connection.start(); addLog('Connected to hub.'); } catch (e) { addLog('Hub connection failed: ' + e); }
+            })();
+
+            connection.onreconnected(async () => {
+                if (currentJobId) {
+                    try {
+                        await connection.invoke('JoinJobGroup', currentJobId);
+                        addLog('Reconnected and rejoined job group.');
+                    } catch (e) { addLog('Failed to rejoin group: ' + e); }
+                } else {
+                    addLog('Reconnected.');
+                }
+            });
+
+            async function startJobAndWait(jobType) {
+                // prepare UI
+                setProgress(0);
+                clearLogs();
+                enableAll(false);
+
+                const jobId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID().replace(/-/g,'') : (Date.now().toString(36) + Math.random().toString(36).slice(2));
+                currentJobId = jobId;
+                jobIdBadge.textContent = currentJobId;
+                jobIdBadge.style.display = '';
+
+                if (connection.state !== signalR.HubConnectionState.Connected) {
+                    await connection.start().catch(err => { addLog('Hub connection failed: ' + err); throw err; });
+                }
+                await connection.invoke('JoinJobGroup', currentJobId);
+                addLog('Joined job group. Starting ' + jobType + '...');
+
+                const completedHandler = (payload) => {
+                    if (payload && payload.jobId === jobId) {
+                        connection.off('ReceiveCompleted', completedHandler);
+                        resolveFn();
+                    }
+                };
+                let resolveFn;
+                const p = new Promise(res => { resolveFn = res; });
+                connection.on('ReceiveCompleted', completedHandler);
+
+                const body = new URLSearchParams({ jobId: jobId, type: jobType, dop: (dopEl.value||'').toString() });
+                const resp = await fetch('@Url.Action("IndexJob", "Home")', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+                if (!resp.ok) {
+                    addLog('Failed to start job: ' + resp.status);
+                    enableAll(true);
+                    connection.off('ReceiveCompleted', completedHandler);
+                    throw new Error('Failed to start job');
+                }
+                addLog('Job started: ' + jobId);
+                return p;
+            }
+
+            // Buttons
+            btnMd5.addEventListener('click', async (e) => {
+                e.preventDefault();
+                try { await startJobAndWait('Md5ImageMarker'); } catch {}
+            });
+
+            btnAvg.addEventListener('click', async (e) => {
+                e.preventDefault();
+                try { await startJobAndWait('AverageImageMarker'); } catch {}
+            });
+
+            btnFace.addEventListener('click', async (e) => {
+                e.preventDefault();
+                try { await startJobAndWait('FaceHashBuilder'); } catch {}
+            });
+
+            btnAi.addEventListener('click', async (e) => {
+                e.preventDefault();
+                try { await startJobAndWait('AiContentQueryBuilder'); } catch {}
+            });
+
+            // Duplicate button disabled permanently
+            btnDuplicate.setAttribute('data-force-disabled', '1');
+
+            btnDay1.addEventListener('click', async (e) => {
+                e.preventDefault();
+                try {
+                    addLog('Day 1 sequence started');
+                    await startJobAndWait('Md5ImageMarker');
+                    addLog('Note: DuplicateMarker job is not available in current build and is skipped.');
+                    addLog('Day 1 sequence finished');
+                } catch (err) {
+                    addLog('Day 1 sequence failed: ' + err);
+                } finally {
+                    enableAll(true);
+                }
+            });
+
+            btnDay2.addEventListener('click', async (e) => {
+                e.preventDefault();
+                try {
+                    addLog('Day 2 sequence started');
+                    await startJobAndWait('AverageImageMarker');
+                    await startJobAndWait('FaceHashBuilder');
+                    await startJobAndWait('AiContentQueryBuilder');
+                    addLog('Day 2 sequence finished');
+                } catch (err) {
+                    addLog('Day 2 sequence failed: ' + err);
+                } finally {
+                    enableAll(true);
+                }
+            });
+
+        })();
+    </script>
+}
