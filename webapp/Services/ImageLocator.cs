@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using Microsoft.Extensions.Options;
 using shared_csharp.Extensions;
 using webapp.Models;
@@ -11,11 +12,15 @@ public interface IImageLocator
     public ImageLinks? GetImageLinks(string md5);
 }
 
-public sealed class ImageLocator(IOptions<StorageOptions> storage, ILogger<ImageLocator> logger)
+public sealed class ImageLocator(
+    IOptions<StorageOptions> storage,
+    ILogger<ImageLocator> logger,
+    IImageLocationRepository imageLocationRepository)
     : IImageLocator
 {
     private readonly StorageOptions _storage = storage.Value;
     private readonly ConcurrentDictionary<string, string> _imageLocationsMap = new();
+    private readonly IImageLocationRepository _repo = imageLocationRepository;
     
     private static (int width, int height)? TryReadJpegSize(string path)
     {
@@ -103,6 +108,7 @@ public sealed class ImageLocator(IOptions<StorageOptions> storage, ILogger<Image
 
     public async Task<int> IdentifyImageLocations(CancellationToken ct = default)
     {
+        var sw = Stopwatch.StartNew();
         _imageLocationsMap.Clear();
 
         var root = _storage.RootPath;
@@ -136,7 +142,26 @@ public sealed class ImageLocator(IOptions<StorageOptions> storage, ILogger<Image
             }
         }
         
-        logger.LogInformation("PhotoLocator: indexed {Count} files from {Root}", totalProcessed, root);
+        // Persist image locations into Postgres so other services can use them
+        try
+        {
+            await _repo.UpsertLocationsAsync(_imageLocationsMap, ct);
+            logger.LogInformation("PhotoLocator: uploaded {Count} image locations to DB", _imageLocationsMap.Count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "PhotoLocator: failed to upload image locations to DB");
+        }
+        
+        sw.Stop();
+        logger.LogInformation(
+            "PhotoLocator: indexed {Count} files from {Root} in {ElapsedMs} ms ({Elapsed})",
+            totalProcessed,
+            root,
+            sw.ElapsedMilliseconds,
+            sw.Elapsed
+        );
+        
         return totalProcessed;
     }
 }

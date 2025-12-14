@@ -98,3 +98,21 @@ CREATE TABLE IF NOT EXISTS embedding_cache (
 
 CREATE INDEX IF NOT EXISTS ix_embedding_cache_expires_at ON embedding_cache (expires_at);
 CREATE INDEX IF NOT EXISTS ix_embedding_cache_created_at ON embedding_cache (created_at);
+
+-- =============================================================
+-- Image physical location table (updated by webapp on startup)
+-- Stores mapping from md5 hash to real file system path
+-- =============================================================
+
+CREATE TABLE IF NOT EXISTS image_location (
+    md5_hash text PRIMARY KEY,
+    real_path text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TRIGGER trg_image_location_updated_at
+    BEFORE UPDATE ON image_location
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE INDEX IF NOT EXISTS ix_image_location_created_at ON image_location (created_at);
