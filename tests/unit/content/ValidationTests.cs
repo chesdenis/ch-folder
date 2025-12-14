@@ -3,14 +3,16 @@ using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using shared_csharp;
 using shared_csharp.Extensions;
+using Xunit.Abstractions;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace pa_validate_folder;
 
-public class ValidationTests
+public class ValidationTests(ITestOutputHelper testOutputHelper)
 {
     // Define the regex for MD5 prefix (32 characters of hexadecimal)
     private readonly Regex _md5PrefixRegex = new Regex(@"^[a-fA-F0-9]{32}$", RegexOptions.Compiled);
+
     private static readonly string ContextPath = "/Users/dchesnokov/PhotoHive";
 
     public static readonly object[][] TestFilePaths = GetStorageFoldersForTests(ContextPath);
@@ -197,6 +199,66 @@ public class ValidationTests
         Assert.True(File.Exists(Path.Combine(dqFolder, groupName + ".eng30tags.md.answer.md")),
             $"Answer file '{Path.Combine(dqFolder, groupName + ".eng30tags.md.answer.md")}' does not exist.");
     }
+    
+    [Theory]
+    [MemberData(nameof(GetTestingFiles))]
+    public async Task ValidateAndFixTagsAnswersStructure(string filePath)
+    {
+        var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
+        var dqFolder = Path.Combine(directoryName, "eng30tags");
+
+        var groupName = Path.GetFileNameWithoutExtension(filePath).Split("_")[0];
+        if (groupName.Length != 4)
+        {
+            groupName = Path.GetFileNameWithoutExtension(filePath);
+        }
+
+        var eng30TagsFilePath = Path.Combine(dqFolder, groupName + ".eng30tags.md.answer.md");
+        
+        Assert.True(File.Exists(eng30TagsFilePath),
+            $"Answer file '{eng30TagsFilePath}' does not exist.");
+
+        var content = await File.ReadAllTextAsync(eng30TagsFilePath);
+        var tags = content.Split(',').Select(s => s.Trim()).ToArray();
+
+        // attempting to fix when tags splitted by dash
+        if (tags.Length == 1)
+        {
+            var fixedTags = tags[0].Split('-').Select(s => s.Trim())
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .ToArray();
+            
+            await File.WriteAllTextAsync(eng30TagsFilePath, string.Join(",", fixedTags));
+            
+            // re read again
+            content = await File.ReadAllTextAsync(eng30TagsFilePath);
+            tags = content.Split(',').Select(s => s.Trim()).ToArray();
+
+            // attempting to fix another way
+            if (tags.Length == 1)
+            {
+                fixedTags = Regex.Replace(content, "\\d+. ", string.Empty).Split('\n')
+                    .Where(s => !string.IsNullOrWhiteSpace(s)).ToArray();
+
+                if (fixedTags.Length > 1)
+                {
+                    await File.WriteAllTextAsync(eng30TagsFilePath, string.Join(",", fixedTags));
+
+                    // re read again
+                    content = await File.ReadAllTextAsync(eng30TagsFilePath);
+                    tags = content.Split(',').Select(s => s.Trim()).ToArray();
+                }
+
+            }
+        }
+
+        if (tags.Length == 1)
+        {
+            testOutputHelper.WriteLine(eng30TagsFilePath);
+        }
+        
+        Assert.True(tags.Length > 5);
+    }
 
     [Theory]
     [MemberData(nameof(GetTestingFiles))]
@@ -247,7 +309,7 @@ public class ValidationTests
     /*
      * {
          "rate" : 2,
-         "rate-explanation" : "Good resolution and an appealing concept (colorful overhead decorations, cobblestone street, copy space), but the scene includes identifiable storefront signage and readable license plates, which limits commercial usability without retouching or releases. Backlit sun creates harsh contrast and deep shadows, and the road sign at left is a distracting element. Composition lacks a clear hero subject, making it less targeted for advertisers. Stronger commercial potential if plates/signage are removed, lighting is softer, and the frame is cleaned or reframed to focus on the decorations or a specific concept."
+         "rate-explanation" : "Good resolution... ."
        }
      */
     public record CommerceJson(
