@@ -119,7 +119,6 @@
                     totalPages = (int)Math.Ceiling(totalItems / (double)Math.Max(1, pageSize));
 
                     @await Component.InvokeAsync("Pagination", new { currentPage, totalPages })
-                    @* Items are already paged in the controller; pass page = 1 to avoid double pagination inside Gallery *@
                     @await Component.InvokeAsync("Gallery", new { page = 1, pageSize = pageSize, thumbSize = thumbSize, items = defaultItems, totalItems = totalItems })
                     @await Component.InvokeAsync("Pagination", new { currentPage, totalPages })
                 }

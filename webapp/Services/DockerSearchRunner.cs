@@ -4,25 +4,31 @@ namespace webapp.Services;
 
 public interface IDockerSearchRunner
 {
-    Task<int> RunImageSearcherAsync(string actionsPath, string queryText, Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
+    Task<int> RunImageSearcherAsync(string actionsPath, string queryText, string[] tags, Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
 }
 
 public class DockerSearchRunner : IDockerSearchRunner
 {
-    public Task<int> RunImageSearcherAsync(string actionsPath, string queryText, Action<string>? onStdout = null, Action<string>? onStderr = null,
+    public Task<int> RunImageSearcherAsync(string actionsPath, string queryText, string[] tags, Action<string>? onStdout = null, Action<string>? onStderr = null,
         CancellationToken ct = default) =>
-        RunDockerAsync(actionsPath, "image_searcher", queryText, onStdout, onStderr, ct);
+        RunDockerAsync(actionsPath, "image_searcher", queryText, tags, onStdout, onStderr, ct);
 
     private static Task<int> RunDockerAsync(
         string actionsPath,
         string image,
         string queryText,
+        string[] tags,
         Action<string>? onStdout,
         Action<string>? onStderr,
         CancellationToken ct)
     {
         var arguments =
             $"run --env-file {Path.Combine(actionsPath,image)}/.env --rm {image} \"{queryText}\"";
+
+        if (tags.Length > 0)
+        {
+            arguments += $" --tags={string.Join(",", tags)}";
+        }
 
         var psi = new ProcessStartInfo
         {

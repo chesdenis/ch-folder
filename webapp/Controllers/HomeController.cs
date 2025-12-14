@@ -157,6 +157,9 @@ public class HomeController(
             // No query and no valid session to restore from -> go to Index with normalized route
             return RedirectToAction("Index", route);
         }
+        
+        var tagsValues = Request.Query["tags"].ToString();
+        var tags = tagsValues.Split(',', StringSplitOptions.RemoveEmptyEntries);
 
         var actionsPath = _storage.ActionsPath ?? string.Empty;
         if (string.IsNullOrWhiteSpace(actionsPath))
@@ -182,7 +185,7 @@ public class HomeController(
             else
             {
                 // Provided session is missing or belongs to a different query -> run a new search and stick to new latest
-                int exitCode = await dockerSearchRunner.RunImageSearcherAsync(actionsPath, queryText,
+                int exitCode = await dockerSearchRunner.RunImageSearcherAsync(actionsPath, queryText, tags,
                     onStdout: s => logger.LogInformation("[image_searcher][stdout] {Line}", s),
                     onStderr: s => logger.LogWarning("[image_searcher][stderr] {Line}", s));
                 if (exitCode != 0)
@@ -210,7 +213,7 @@ public class HomeController(
             // No specific session requested; optionally run search on non-paging request
             if (!isPagingRequest)
             {
-                int exitCode = await dockerSearchRunner.RunImageSearcherAsync(actionsPath, queryText,
+                int exitCode = await dockerSearchRunner.RunImageSearcherAsync(actionsPath, queryText, tags,
                     onStdout: s => logger.LogInformation("[image_searcher][stdout] {Line}", s),
                     onStderr: s => logger.LogWarning("[image_searcher][stderr] {Line}", s));
                 if (exitCode != 0)
