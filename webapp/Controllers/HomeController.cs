@@ -469,7 +469,19 @@ public class HomeController(
     public IActionResult IndexJob([FromForm] string jobId, [FromForm] JobType type, [FromForm] int? dop)
     {
         if (string.IsNullOrWhiteSpace(jobId)) return BadRequest("jobId is required");
-        var id = jobRunner.StartJob(jobId, type, dop);
+        var rootPath = _storage.RootPath;
+        if (string.IsNullOrWhiteSpace(rootPath)) return BadRequest("Storage root path is not configured");
+        var id = jobRunner.StartJob(jobId, type, rootPath, dop);
+        return Ok(new { jobId = id });
+    }
+
+    [HttpPost]
+    public IActionResult AddImagesJob([FromForm] string jobId, [FromForm] JobType type, [FromForm] int? dop)
+    {
+        if (string.IsNullOrWhiteSpace(jobId)) return BadRequest("jobId is required");
+        var inputPath = _storage.InputPath;
+        if (string.IsNullOrWhiteSpace(inputPath)) return BadRequest("Input path is not configured");
+        var id = jobRunner.StartJob(jobId, type, inputPath, dop);
         return Ok(new { jobId = id });
     }
 

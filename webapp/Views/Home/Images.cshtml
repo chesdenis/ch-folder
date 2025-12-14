@@ -29,9 +29,8 @@
             <div class="card-header">Day 1 — preparation</div>
             <div class="card-body">
                 <div class="d-flex flex-wrap gap-2 mb-2">
+                    <button class="btn btn-outline-primary" id="btnDuplicate">Run DuplicateMarker</button>
                     <button class="btn btn-outline-primary" id="btnMd5">Run Md5ImageMarker</button>
-                    <button class="btn btn-outline-secondary" id="btnDuplicate" disabled title="DuplicateMarker is not available in current build">Run DuplicateMarker</button>
-                    <button class="btn btn-primary ms-auto" id="btnDay1">Run Day 1 sequence</button>
                 </div>
                 <small class="text-muted">Day 1 computes MD5 hashes and marks potential duplicates.</small>
             </div>
@@ -44,7 +43,6 @@
                     <button class="btn btn-outline-primary" id="btnAvg">Run AverageImageMarker</button>
                     <button class="btn btn-outline-primary" id="btnFace">Run FaceHashBuilder</button>
                     <button class="btn btn-outline-primary" id="btnAi">Run AiContentQueryBuilder</button>
-                    <button class="btn btn-success ms-auto" id="btnDay2">Run Day 2 sequence</button>
                 </div>
                 <small class="text-muted">Day 2 builds average hash, face embeddings, and AI content queries.</small>
             </div>
@@ -91,8 +89,7 @@
             const btnAvg = document.getElementById('btnAvg');
             const btnFace = document.getElementById('btnFace');
             const btnAi = document.getElementById('btnAi');
-            const btnDay1 = document.getElementById('btnDay1');
-            const btnDay2 = document.getElementById('btnDay2');
+            // No group sequence buttons: jobs start only when specific button is clicked
 
             let currentJobId = null;
             const connection = new signalR.HubConnectionBuilder()
@@ -134,7 +131,7 @@
             });
 
             function enableAll(en) {
-                [btnMd5, btnDuplicate, btnAvg, btnFace, btnAi, btnDay1, btnDay2].forEach(b => { if (b) b.disabled = !en || b.hasAttribute('data-force-disabled'); });
+                [btnMd5, btnDuplicate, btnAvg, btnFace, btnAi].forEach(b => { if (b) b.disabled = !en || b.hasAttribute('data-force-disabled'); });
             }
 
             (async () => {
@@ -178,9 +175,9 @@
                 let resolveFn;
                 const p = new Promise(res => { resolveFn = res; });
                 connection.on('ReceiveCompleted', completedHandler);
-
                 const body = new URLSearchParams({ jobId: jobId, type: jobType, dop: (dopEl.value||'').toString() });
-                const resp = await fetch('@Url.Action("IndexJob", "Home")', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+                const url = '@Url.Action("AddImagesJob", "Home")';
+                const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
                 if (!resp.ok) {
                     addLog('Failed to start job: ' + resp.status);
                     enableAll(true);
@@ -195,6 +192,11 @@
             btnMd5.addEventListener('click', async (e) => {
                 e.preventDefault();
                 try { await startJobAndWait('Md5ImageMarker'); } catch {}
+            });
+            
+            btnDuplicate.addEventListener('click', async (e) => {
+                e.preventDefault();
+                try { await startJobAndWait('DuplicateMarker'); } catch {}
             });
 
             btnAvg.addEventListener('click', async (e) => {
@@ -211,39 +213,7 @@
                 e.preventDefault();
                 try { await startJobAndWait('AiContentQueryBuilder'); } catch {}
             });
-
-            // Duplicate button disabled permanently
-            btnDuplicate.setAttribute('data-force-disabled', '1');
-
-            btnDay1.addEventListener('click', async (e) => {
-                e.preventDefault();
-                try {
-                    addLog('Day 1 sequence started');
-                    await startJobAndWait('Md5ImageMarker');
-                    addLog('Note: DuplicateMarker job is not available in current build and is skipped.');
-                    addLog('Day 1 sequence finished');
-                } catch (err) {
-                    addLog('Day 1 sequence failed: ' + err);
-                } finally {
-                    enableAll(true);
-                }
-            });
-
-            btnDay2.addEventListener('click', async (e) => {
-                e.preventDefault();
-                try {
-                    addLog('Day 2 sequence started');
-                    await startJobAndWait('AverageImageMarker');
-                    await startJobAndWait('FaceHashBuilder');
-                    await startJobAndWait('AiContentQueryBuilder');
-                    addLog('Day 2 sequence finished');
-                } catch (err) {
-                    addLog('Day 2 sequence failed: ' + err);
-                } finally {
-                    enableAll(true);
-                }
-            });
-
+            
         })();
     </script>
 }

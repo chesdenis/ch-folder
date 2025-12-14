@@ -12,13 +12,14 @@ public enum JobType
     MetaUploader,
     AiContentQueryBuilder,
     Md5ImageMarker,
+    DuplicateMarker,
     FaceHashBuilder,
     AverageImageMarker
 }
 
 public interface IJobRunner
 {
-    string StartJob(string jobId, JobType jobType, int? degreeOfParallelism = null);
+    string StartJob(string jobId, JobType jobType, string workingFolder, int? degreeOfParallelism = null);
 }
 
 public class JobRunner : IJobRunner
@@ -27,7 +28,6 @@ public class JobRunner : IJobRunner
     private readonly ILogger<JobRunner> _logger;
     private readonly StorageOptions _storage;
     private readonly IDockerFolderRunner _dockerFolder;
-    private readonly IImageLocator _imageLocator;
 
     public JobRunner(
         IHubContext<JobStatusHub> hub, ILogger<JobRunner> logger, IOptions<StorageOptions> storage, IDockerFolderRunner dockerFolder, IImageLocator imageLocator)
@@ -36,10 +36,9 @@ public class JobRunner : IJobRunner
         _logger = logger;
         _storage = storage.Value;
         _dockerFolder = dockerFolder;
-        _imageLocator = imageLocator;
     }
 
-    public string StartJob(string jobId, JobType jobType, int? degreeOfParallelism = null)
+    public string StartJob(string jobId, JobType jobType, string workingFolder, int? degreeOfParallelism = null)
     {
         var id = string.IsNullOrWhiteSpace(jobId) ? Guid.NewGuid().ToString("N") : jobId;
         var group = JobStatusHub.GroupName(id);
@@ -49,7 +48,7 @@ public class JobRunner : IJobRunner
         {
             try
             {
-                var rootPath = _storage.RootPath ?? throw new InvalidOperationException("Storage root not specified in settings");
+                var rootPath = workingFolder ?? throw new InvalidOperationException("Working folder was not provided");
                 var actionsPath =_storage.ActionsPath ?? throw new InvalidOperationException("Actions root not specified in settings");
                     
                 await _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
@@ -61,10 +60,10 @@ public class JobRunner : IJobRunner
 
                 if (!Directory.Exists(rootPath))
                 {
-                    throw new DirectoryNotFoundException($"Storage root '{rootPath}' does not exist");
+                    throw new DirectoryNotFoundException($"Working folder '{rootPath}' does not exist");
                 }
                 
-                var storageFolders = PathExtensions.GetStorageFolders(_storage.RootPath).ToArray();
+                var storageFolders = PathExtensions.GetStorageFolders(rootPath).ToArray();
                 var total = storageFolders.Length;
                 var completed = 0;
                 var dop = Math.Max(1, degreeOfParallelism ?? Math.Min(Environment.ProcessorCount, 4));
