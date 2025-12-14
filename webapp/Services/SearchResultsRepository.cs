@@ -8,7 +8,7 @@ namespace webapp.Services;
 public interface ISearchResultsRepository
 {
     Task<SearchSessionResults?> GetLatestResultsAsync(CancellationToken ct = default);
-    Task<SearchSessionResults?> GetResultsBySessionIdAsync(Guid sessionId, CancellationToken ct = default);
+    Task<SearchSessionResults?> GetResultsBySessionIdAsync(Guid sessionId, float? minScore = null, CancellationToken ct = default);
     Task<Photo?> GetPhotoInfoByMd5Async(string md5, CancellationToken ct = default);
     Task<int> GetPhotosCountAsync(CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, CancellationToken ct = default);
@@ -46,11 +46,11 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
 
         var results = new List<SearchResultRow>();
         await using (var cmd = new NpgsqlCommand(@"
-            SELECT r.rank, r.score, r.path_md5
+            SELECT r.score, r.path_md5
             FROM search_session_result r
             LEFT JOIN photo p ON p.md5_hash = r.path_md5
             WHERE r.session_id = @sid
-            ORDER BY r.rank ASC", conn))
+            ORDER BY r.score DESC, r.path_md5 ASC", conn))
         {
             cmd.Parameters.AddWithValue("@sid", NpgsqlTypes.NpgsqlDbType.Uuid, sessionId.Value);
             await using var rdr = await cmd.ExecuteReaderAsync(ct);
@@ -58,9 +58,8 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
             {
                 var row = new SearchResultRow
                 {
-                    Rank = rdr.GetInt32(0),
-                    Score = rdr.GetFloat(1),
-                    Md5 = rdr.IsDBNull(2) ? null : rdr.GetString(2)
+                    Score = rdr.GetFloat(0),
+                    Md5 = rdr.IsDBNull(1) ? null : rdr.GetString(1)
                 };
                 results.Add(row);
             }
@@ -69,7 +68,7 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         return new SearchSessionResults(sessionId.Value, queryText ?? string.Empty, results);
     }
 
-    public async Task<SearchSessionResults?> GetResultsBySessionIdAsync(Guid sessionId, CancellationToken ct = default)
+    public async Task<SearchSessionResults?> GetResultsBySessionIdAsync(Guid sessionId, float? minScore = null, CancellationToken ct = default)
     {
         await using var conn = CreateConnection();
         await conn.OpenAsync(ct);
@@ -86,22 +85,29 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         if (queryText is null) return null;
 
         var results = new List<SearchResultRow>();
-        await using (var cmd = new NpgsqlCommand(@"
-            SELECT r.rank, r.score, r.path_md5
+        var sql = @"SELECT r.score, r.path_md5
             FROM search_session_result r
             LEFT JOIN photo p ON p.md5_hash = r.path_md5
-            WHERE r.session_id = @sid
-            ORDER BY r.rank ASC", conn))
+            WHERE r.session_id = @sid";
+        if (minScore.HasValue)
+        {
+            sql += " AND r.score >= @min";
+        }
+        sql += " ORDER BY r.score DESC, r.path_md5 ASC";
+        await using (var cmd = new NpgsqlCommand(sql, conn))
         {
             cmd.Parameters.AddWithValue("@sid", NpgsqlTypes.NpgsqlDbType.Uuid, sessionId);
+            if (minScore.HasValue)
+            {
+                cmd.Parameters.AddWithValue("@min", NpgsqlTypes.NpgsqlDbType.Real, minScore.Value);
+            }
             await using var rdr = await cmd.ExecuteReaderAsync(ct);
             while (await rdr.ReadAsync(ct))
             {
                 var row = new SearchResultRow
                 {
-                    Rank = rdr.GetInt32(0),
-                    Score = rdr.GetFloat(1),
-                    Md5 = rdr.IsDBNull(2) ? null : rdr.GetString(2)
+                    Score = rdr.GetFloat(0),
+                    Md5 = rdr.IsDBNull(1) ? null : rdr.GetString(1)
                 };
                 results.Add(row);
             }
@@ -196,7 +202,6 @@ public sealed record SearchSessionResults(Guid SessionId, string QueryText, IRea
 
 public sealed record SearchResultRow
 {
-    public int Rank { get; init; }
     public float Score { get; init; }
     public string? Md5 { get; init; }
 }

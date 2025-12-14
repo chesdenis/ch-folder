@@ -128,6 +128,18 @@ public class HomeController(
         route["page"] = pageFromQuery;
 
         var normalizedSize = route["size"];
+        // Score limiter (minScore) normalization with default 0.78
+        const double defaultMinScore = 0.78;
+        if (!route.ContainsKey("minScore") ||
+            !double.TryParse(route["minScore"]?.ToString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var minScoreVal))
+        {
+            route["minScore"] = defaultMinScore.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            minScoreVal = defaultMinScore;
+        }
+        // Clamp [0,1] and round to 2 decimals for display/urls
+        minScoreVal = Math.Max(0, Math.Min(1, minScoreVal));
+        minScoreVal = Math.Round(minScoreVal, 2, MidpointRounding.AwayFromZero);
+        route["minScore"] = minScoreVal.ToString(System.Globalization.CultureInfo.InvariantCulture);
         var normalizedPageSize = route["pageSize"];
         logger.LogInformation(
             "[Search] normalized state -> pageSize: {PageSize}, size: {Size}, page reset to 1",
@@ -145,7 +157,8 @@ public class HomeController(
             if (hasSessionInQuery)
             {
                 // Try to restore query text by session id
-                var byId = await searchResultsRepo.GetResultsBySessionIdAsync(requestedSessionId, HttpContext.RequestAborted);
+                // Do NOT apply minScore here; we just need to restore the query for the session
+                var byId = await searchResultsRepo.GetResultsBySessionIdAsync(requestedSessionId, null, HttpContext.RequestAborted);
                 if (byId != null)
                 {
                     route["query"] = byId.QueryText;
@@ -177,8 +190,9 @@ public class HomeController(
         if (hasSessionInQuery)
         {
             // Try to stick with provided session id
-            var byId = await searchResultsRepo.GetResultsBySessionIdAsync(requestedSessionId, HttpContext.RequestAborted);
-            if (byId != null && byId.Results.Count > 0 && string.Equals(byId.QueryText, queryText, StringComparison.Ordinal))
+            // IMPORTANT: don't use minScore for this validation; otherwise zero filtered results causes endless reruns
+            var byId = await searchResultsRepo.GetResultsBySessionIdAsync(requestedSessionId, null, HttpContext.RequestAborted);
+            if (byId != null && string.Equals(byId.QueryText, queryText, StringComparison.Ordinal))
             {
                 sessionToUse = byId;
             }
@@ -247,11 +261,17 @@ public class HomeController(
         var sizeInt = int.TryParse(route["size"]?.ToString(), out var szVal) ? szVal : 256;
         sizeInt = sizeInt.SnapToAllowed();
 
+        // Apply score limiter to results
+        var minScoreForFilter = (float)minScoreVal;
+        var filteredResults = sessionToUse!.Results
+            .Where(r => r.Score >= minScoreForFilter)
+            .ToList();
+
         // Pass results to the Index view directly for immediate display
         ViewBag.SelectedTags = route.TryGetValue("tags", out var t) ? t : Array.Empty<string>();
-        ViewBag.SearchResults = sessionToUse!.Results;
+        ViewBag.SearchResults = filteredResults;
         // Build gallery items with real preview dimensions for PhotoSwipe
-        var galleryItems = sessionToUse.Results
+        var galleryItems = filteredResults
             .Where(r => !string.IsNullOrWhiteSpace(r.Md5))
             .Select(r => r.Md5!)
             .Select(m =>
@@ -281,12 +301,13 @@ public class HomeController(
             logger.LogWarning(ex, "[Search] Failed to load available tags for session {SessionId}", sessionToUse.SessionId);
             ViewBag.AvailableTags = Array.Empty<string>();
         }
-        ViewBag.Total = sessionToUse.Results.Count;
+        ViewBag.Total = filteredResults.Count;
         ViewBag.Page = pageFromQuery; // reflect requested page
         ViewBag.PageSize = pageSizeInt; // strongly-typed int
         ViewBag.Size = sizeInt; // strongly-typed int
         ViewBag.Query = queryText;
         ViewBag.SessionId = sessionToUse.SessionId;
+        ViewBag.MinScore = minScoreVal;
         return View("Index");
     }
 
@@ -338,6 +359,60 @@ public class HomeController(
             sorting,
             pageSize = pageSize ?? 12,
             size = prevSize,
+            page = 1
+        });
+    }
+
+    [HttpGet]
+    public IActionResult RankUp(
+        [FromQuery] string? query,
+        [FromQuery] string[]? tags,
+        [FromQuery] string[]? filters,
+        [FromQuery] string[]? sorting,
+        [FromQuery] int? pageSize,
+        [FromQuery] int? size,
+        [FromQuery] string? minScore)
+    {
+        if (!double.TryParse(minScore, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var ms))
+            ms = 0.78;
+        ms = Math.Min(1.0, Math.Round(ms + 0.01, 2, MidpointRounding.AwayFromZero));
+        var msStr = ms.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return RedirectToAction("Index", new
+        {
+            query,
+            tags,
+            filters,
+            sorting,
+            pageSize = pageSize ?? 12,
+            size = (size ?? 256).SnapToAllowed(),
+            minScore = msStr,
+            page = 1
+        });
+    }
+
+    [HttpGet]
+    public IActionResult RankDown(
+        [FromQuery] string? query,
+        [FromQuery] string[]? tags,
+        [FromQuery] string[]? filters,
+        [FromQuery] string[]? sorting,
+        [FromQuery] int? pageSize,
+        [FromQuery] int? size,
+        [FromQuery] string? minScore)
+    {
+        if (!double.TryParse(minScore, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var ms))
+            ms = 0.78;
+        ms = Math.Max(0.0, Math.Round(ms - 0.01, 2, MidpointRounding.AwayFromZero));
+        var msStr = ms.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return RedirectToAction("Index", new
+        {
+            query,
+            tags,
+            filters,
+            sorting,
+            pageSize = pageSize ?? 12,
+            size = (size ?? 256).SnapToAllowed(),
+            minScore = msStr,
             page = 1
         });
     }

@@ -9,6 +9,23 @@
     var currentPage = int.TryParse(Context.Request.Query["page"], out var p) ? p : 1;
     var pageSize = int.TryParse(Context.Request.Query["pageSize"], out var ps) ? ps : 12;
     var thumbSize = int.TryParse(Context.Request.Query["size"], out var sz) ? sz : 256;
+    // Score limiter (minScore) from query or ViewBag with default 0.78
+    double minScore;
+    var qsMinScore = Context.Request.Query["minScore"].ToString();
+    if (!string.IsNullOrWhiteSpace(qsMinScore) && double.TryParse(qsMinScore, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var ms1))
+    {
+        minScore = ms1;
+    }
+    else
+    {
+        string vbMinScoreStr = ViewBag.MinScore != null ? (Convert.ToString(ViewBag.MinScore, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty) : string.Empty;
+        double vbParsed;
+        if (!string.IsNullOrWhiteSpace(vbMinScoreStr) && double.TryParse(vbMinScoreStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out vbParsed))
+            minScore = vbParsed;
+        else
+            minScore = 0.78;
+    }
+    minScore = Math.Max(0, Math.Min(1, Math.Round(minScore, 2)));
     // Prefer real totals/items from controller if provided (handle possible string/object types safely)
     var vbPageStr = ViewBag.Page?.ToString();
     int vbPageParsed = 0;
@@ -72,10 +89,19 @@
                         <button type="button" id="sizeUpBtn" class="seg-btn" aria-label="Make larger">Larger</button>
                     </div>
                 </div>
+                <div class="toolbar-group" role="group" aria-label="Score limiter">
+                    <span class="toolbar-label">Score limit</span>
+                    <div class="segmented">
+                        <button type="button" id="rankDownBtn" class="seg-btn" aria-label="Decrease score limit">-0.01</button>
+                        <button type="button" id="rankUpBtn" class="seg-btn" aria-label="Increase score limit">+0.01</button>
+                    </div>
+                    <span class="ms-2 text-muted" id="rankValue">@minScore.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)</span>
+                </div>
                 <div class="toolbar-spacer"></div>
                 <!-- Preserve current state on submit -->
                 <input type="hidden" name="size" value="@thumbSize" />
                 <input type="hidden" name="pageSize" value="@pageSize" />
+                <input type="hidden" name="minScore" id="minScoreInput" value="@minScore.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)" />
                 @* Preserve any existing filters/sorting from the current query *@
                 @foreach (var f in filters)
                 {
@@ -259,7 +285,33 @@
             if (down) down.addEventListener('click', () => adjustSize('down'));
         }
 
-        document.addEventListener('DOMContentLoaded', () => { wirePageSizeButtons(); wireSizeButtons(); });
+        // Score limiter buttons handling
+        function getCurrentMinScore() {
+            const params = new URL(window.location.href).searchParams;
+            const qs = params.get('minScore');
+            let v = parseFloat(qs ?? document.getElementById('minScoreInput')?.value ?? '0.78');
+            if (isNaN(v)) v = 0.78;
+            v = Math.max(0, Math.min(1, v));
+            return Math.round(v * 100) / 100;
+        }
+        function adjustMinScore(delta) {
+            let v = getCurrentMinScore();
+            v = v + delta;
+            v = Math.max(0, Math.min(1, v));
+            v = Math.round(v * 100) / 100;
+            let url = window.location.href;
+            url = setQueryParam(url, 'minScore', v.toFixed(2));
+            url = setQueryParam(url, 'page', '1');
+            window.location.href = url;
+        }
+        function wireRankButtons() {
+            const up = document.getElementById('rankUpBtn');
+            const down = document.getElementById('rankDownBtn');
+            if (up) up.addEventListener('click', () => adjustMinScore(0.01));
+            if (down) down.addEventListener('click', () => adjustMinScore(-0.01));
+        }
+
+        document.addEventListener('DOMContentLoaded', () => { wirePageSizeButtons(); wireSizeButtons(); wireRankButtons(); });
 
         // Server now provides real slide sizes via data-pswp-width/height
 
