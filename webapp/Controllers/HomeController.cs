@@ -14,9 +14,11 @@ public class HomeController(
     IOptions<StorageOptions> storageOptions,
     IDockerSearchRunner dockerSearchRunner,
     ISearchResultsRepository searchResultsRepo,
-    ISearchSessionSelectionRepository selectionRepo) : Controller
+    ISearchSessionSelectionRepository selectionRepo,
+    IImageLocator imageLocator) : Controller
 {
     private readonly StorageOptions _storage = storageOptions.Value;
+    private readonly IImageLocator _imageLocator = imageLocator;
 
     public async Task<IActionResult> Index([FromQuery] string[]? tags)
     {
@@ -53,13 +55,20 @@ public class HomeController(
 
         var items = md5s
             .Where(m => !string.IsNullOrWhiteSpace(m))
-            .Select(m => new webapp.Components.GalleryItem
+            .Select(m =>
             {
-                FullUrl = Url.Action("ByMd5", "Images", new { md5 = m })!,
-                // Fallback dimensions (real dimensions can be added later)
-                FullWidth = 512,
-                FullHeight = 512,
-                Alt = m!
+                var links = _imageLocator.GetImageLinks(m);
+                // Prefer actual preview-2000 dimensions if available, otherwise use a safe fallback
+                int pw = Math.Max(1, links?.P2000Width ?? 2000);
+                int ph = Math.Max(1, links?.P2000Height ?? 1500);
+                return new webapp.Components.GalleryItem
+                {
+                    FullUrl = Url.Action("ByMd5", "Images", new { md5 = m })!,
+                    FullWidth = pw,
+                    FullHeight = ph,
+                    Alt = m!,
+                    Md5 = m!
+                };
             })
             .ToList();
 
@@ -238,6 +247,26 @@ public class HomeController(
         // Pass results to the Index view directly for immediate display
         ViewBag.SelectedTags = route.TryGetValue("tags", out var t) ? t : Array.Empty<string>();
         ViewBag.SearchResults = sessionToUse!.Results;
+        // Build gallery items with real preview dimensions for PhotoSwipe
+        var galleryItems = sessionToUse.Results
+            .Where(r => !string.IsNullOrWhiteSpace(r.Md5))
+            .Select(r => r.Md5!)
+            .Select(m =>
+            {
+                var links = _imageLocator.GetImageLinks(m);
+                int pw = Math.Max(1, links?.P2000Width ?? 2000);
+                int ph = Math.Max(1, links?.P2000Height ?? 1500);
+                return new webapp.Components.GalleryItem
+                {
+                    FullUrl = Url.Action("ByMd5", "Images", new { md5 = m })!,
+                    FullWidth = pw,
+                    FullHeight = ph,
+                    Alt = m,
+                    Md5 = m
+                };
+            })
+            .ToList();
+        ViewBag.GalleryItems = galleryItems;
         // Load distinct tags for this session to populate tags selector
         try
         {

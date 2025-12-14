@@ -105,22 +105,10 @@
                         Found @results.Count images for "@queryText"
                     </div>
 
-                    // Map search results to gallery items
-                    var galleryItems = results
-                        .Where(r => !string.IsNullOrWhiteSpace(r.Md5))
-                        .Select(r => new webapp.Components.GalleryItem
-                        {
-                            FullUrl = Url.Action("ByMd5", "Images", new { md5 = r.Md5 })!,
-                            // We don't know original sizes here; use 512 as a safe fallback
-                            FullWidth = 512,
-                            FullHeight = 512,
-                            Alt = r.Md5!,
-                            Md5 = r.Md5!
-                        })
-                        .ToList();
-
+                    // Use server-prepared gallery items with real sizes
+                    var srvItems = ViewBag.GalleryItems as IReadOnlyList<webapp.Components.GalleryItem> ?? new List<webapp.Components.GalleryItem>();
                     @await Component.InvokeAsync("Pagination", new { currentPage, totalPages })
-                    @await Component.InvokeAsync("Gallery", new { page = currentPage, pageSize = pageSize, thumbSize = thumbSize, items = (IReadOnlyList<webapp.Components.GalleryItem>)galleryItems, totalItems = totalItems })
+                    @await Component.InvokeAsync("Gallery", new { page = currentPage, pageSize = pageSize, thumbSize = thumbSize, items = srvItems, totalItems = totalItems })
                     @await Component.InvokeAsync("Pagination", new { currentPage, totalPages })
                 }
                 else
@@ -273,6 +261,8 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => { wirePageSizeButtons(); wireSizeButtons(); });
+
+        // Server now provides real slide sizes via data-pswp-width/height
 
         const lightbox = new PhotoSwipeLightbox({
             gallery: '#my-gallery',
