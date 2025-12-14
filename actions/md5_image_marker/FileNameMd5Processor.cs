@@ -5,21 +5,12 @@ using shared_csharp.Extensions;
 
 namespace md5_image_hasher.Services;
 
-public class FileNameMd5Processor
+public class FileNameMd5Processor(IFileSystem fileSystem, IFileHasher fileHasher)
 {
-    private readonly IFileSystem _fileSystem;
-    private readonly IFileHasher _fileHasher;
-
-    public FileNameMd5Processor(IFileSystem fileSystem, IFileHasher fileHasher)
-    {
-        _fileSystem = fileSystem;
-        _fileHasher = fileHasher;
-    }
-
     public async Task RunAsync(string[] args)
     {
         args = args.ValidateArgs();
-        await _fileSystem.WalkThrough(args, ProcessSingleFile);
+        await fileSystem.WalkThrough(args, ProcessSingleFile);
     }
 
     private async Task ProcessSingleFile(string filePath)
@@ -41,7 +32,7 @@ public class FileNameMd5Processor
             // Rename the file if there is an update
             if (newFilePath != filePath)
             {
-                _fileSystem.MoveFile(filePath, newFilePath);
+                fileSystem.MoveFile(filePath, newFilePath);
                 Console.WriteLine($"Renamed: {filePath} -> {newFilePath}");
             }
             else
@@ -78,7 +69,7 @@ public class FileNameMd5Processor
         string part3 = parts.Length > 2 ? parts[2] : string.Empty;
 
         // Generate MD5 hash for the given file name
-        string hash = await _fileHasher.ComputeMd5Async(existingFilePath);
+        string hash = await fileHasher.ComputeMd5Async(existingFilePath);
 
         // Return the formatted prefix
         var partsOutput = new[] { part1, part2, part3, hash }.Where(x => !string.IsNullOrWhiteSpace(x));
