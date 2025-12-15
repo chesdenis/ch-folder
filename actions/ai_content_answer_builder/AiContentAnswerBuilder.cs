@@ -47,28 +47,29 @@ public class AiContentAnswerBuilder(IFileSystem fileSystem)
     {
         var expectedPath = Path.Combine(directory, "dq", $"{groupName}.dq.md");
         Console.WriteLine($"Building description for {expectedPath}");
-        
-        var results = await RunExternalAsync($"gpt-5 \"{expectedPath}\"");
-       
-        Console.WriteLine($"Results: {results.ExitCode}, {results.Stdout}, {results.Stderr}");
+        var results = await RunExternalAsync($"\"{expectedPath}\" gpt-5");
+        Console.WriteLine($"Results for {expectedPath}: {results.ExitCode}, {results.Stdout}, {results.Stderr}");
     }
     
     private static async Task BuildEnglish10Words(string directory, string groupName)
     {
         var expectedPath = Path.Combine(directory, "engShort", $"{groupName}.engShort.md");
-        Console.WriteLine($"Building english short description for {expectedPath}");
+        var results = await RunExternalAsync($"\"{expectedPath}\" gpt-5");
+        Console.WriteLine($"Results for {expectedPath}: {results.ExitCode}, {results.Stdout}, {results.Stderr}");
     } 
     
     private static async Task BuildTags(string directory, string groupName)
     {
         var expectedPath = Path.Combine(directory, "eng30tags", $"{groupName}.eng30tags.md");
-        Console.WriteLine($"Building english tags for {expectedPath}");
+        var results = await RunExternalAsync($"\"{expectedPath}\" gpt-5");
+        Console.WriteLine($"Results for {expectedPath}: {results.ExitCode}, {results.Stdout}, {results.Stderr}");
     } 
     
     private static async Task BuildCommerceMark(string directory, string groupName)
     {
         var expectedPath = Path.Combine(directory, "commerceMark", $"{groupName}.commerceMark.md");
-        Console.WriteLine($"Building commerce mark for {expectedPath}");
+        var results = await RunExternalAsync($"\"{expectedPath}\" gpt-5");
+        Console.WriteLine($"Results for {expectedPath}: {results.ExitCode}, {results.Stdout}, {results.Stderr}");
     }
     
     /// <summary>
