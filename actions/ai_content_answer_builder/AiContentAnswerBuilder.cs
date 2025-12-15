@@ -1,22 +1,16 @@
 using System.Text;
+using System.Diagnostics;
 using shared_csharp.Abstractions;
 using shared_csharp.Extensions;
 
 namespace ai_content_answer_builder;
 
-public class AiContentAnswerBuilder
+public class AiContentAnswerBuilder(IFileSystem fileSystem)
 {
-    private readonly IFileSystem _fileSystem;
-    
-    public AiContentAnswerBuilder(IFileSystem fileSystem)
-    {
-        _fileSystem = fileSystem;
-    }
-    
     public async Task RunAsync(string[] args)
     {
         args = args.ValidateArgs();
-        await _fileSystem.WalkThrough(args, ProcessSingleFile);
+        await fileSystem.WalkThrough(args, ProcessSingleFile);
     }
 
     private static async Task ProcessSingleFile(string filePath)
@@ -35,15 +29,11 @@ public class AiContentAnswerBuilder
             }
             // Extract file information
             var directory = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
-            var previewFolder = Path.Combine(directory, "preview");
-            var previewFileName = Path.GetFileNameWithoutExtension(filePath) + "_p2000.jpg";
             
-            var previewPath = Path.Combine(previewFolder, previewFileName);
-            
-            await BuildDescription(previewPath, directory, groupName);
-            await BuildEnglish10Words(previewPath, directory, groupName);
-            await BuildTags(previewPath, directory, groupName);
-            await BuildCommerceMark(previewPath, directory, groupName);
+            await BuildDescription(directory, groupName);
+            await BuildEnglish10Words(directory, groupName);
+            await BuildTags(directory, groupName);
+            await BuildCommerceMark(directory, groupName);
 
             Console.WriteLine($"File {filePath} processed successfully.");
         }
@@ -53,25 +43,138 @@ public class AiContentAnswerBuilder
         }
     }
 
-    private static async Task BuildDescription(string previewPath, string directory, string groupName)
+    private static async Task BuildDescription(string directory, string groupName)
     {
         var expectedPath = Path.Combine(directory, "dq", $"{groupName}.dq.md");
+        Console.WriteLine($"Building description for {expectedPath}");
         
+        var results = await RunExternalAsync($"gpt-5 \"{expectedPath}\"");
+       
+        Console.WriteLine($"Results: {results.ExitCode}, {results.Stdout}, {results.Stderr}");
     }
     
-    private static async Task BuildEnglish10Words(string previewPath, string directory, string groupName)
+    private static async Task BuildEnglish10Words(string directory, string groupName)
     {
         var expectedPath = Path.Combine(directory, "engShort", $"{groupName}.engShort.md");
+        Console.WriteLine($"Building english short description for {expectedPath}");
     } 
     
-    private static async Task BuildTags(string previewPath, string directory, string groupName)
+    private static async Task BuildTags(string directory, string groupName)
     {
         var expectedPath = Path.Combine(directory, "eng30tags", $"{groupName}.eng30tags.md");
+        Console.WriteLine($"Building english tags for {expectedPath}");
     } 
     
-    private static async Task BuildCommerceMark(string previewPath, string directory, string groupName)
+    private static async Task BuildCommerceMark(string directory, string groupName)
     {
         var expectedPath = Path.Combine(directory, "commerceMark", $"{groupName}.commerceMark.md");
-        
+        Console.WriteLine($"Building commerce mark for {expectedPath}");
+    }
+    
+    /// <summary>
+    /// Resolves the path to the external tool built and copied by the Dockerfile.
+    /// Priority:
+    /// 1) ENV `EXT_BIN_PATH` — absolute path to the executable.
+    /// 2) ENV `EXT_BIN_NAME` (default: "external_app") placed by Dockerfile into `/usr/local/bin/<name>`.
+    /// </summary>
+    private static string ResolveExternalToolPath()
+    {
+        var explicitPath = Environment.GetEnvironmentVariable("EXT_BIN_PATH") ?? throw new InvalidOperationException("EXT_BIN_PATH is not configured");
+
+        return explicitPath;
+    }
+
+    /// <summary>
+    /// Convenience wrapper to run the external tool configured via Dockerfile/ENV.
+    /// </summary>
+    /// <param name="arguments">Arguments string passed to the external tool.</param>
+    /// <param name="workingDirectory">Optional working directory for the process.</param>
+    /// <param name="timeoutMs">Optional timeout in milliseconds.</param>
+    public static Task<(int ExitCode, string Stdout, string Stderr)> RunExternalAsync(
+        string arguments,
+        string? workingDirectory = null,
+        int? timeoutMs = null)
+    {
+        var exePath = ResolveExternalToolPath();
+        return RunProcessAsync(exePath, arguments, workingDirectory, timeoutMs);
+    }
+
+    /// <summary>
+    /// Runs an external process located at a custom path synchronously and returns its exit code and captured output.
+    /// Output (stdout/stderr) is read after the process finishes to satisfy the requirement
+    /// "make run sync with output reading once it will be finished".
+    /// </summary>
+    /// <param name="exePath">Full path to the executable to run.</param>
+    /// <param name="arguments">Arguments string to pass to the executable.</param>
+    /// <param name="workingDirectory">Optional working directory. If null, current directory is used.</param>
+    /// <param name="timeoutMs">Optional timeout in milliseconds. If exceeded, the process is killed and -1 is returned.</param>
+    /// <returns>Tuple containing ExitCode, Stdout, Stderr.</returns>
+    private static async Task<(int ExitCode, string Stdout, string Stderr)> RunProcessAsync(
+        string exePath,
+        string arguments,
+        string? workingDirectory = null,
+        int? timeoutMs = null)
+    {
+        if (string.IsNullOrWhiteSpace(exePath))
+        {
+            throw new ArgumentException("Executable path must be provided", nameof(exePath));
+        }
+
+        if (!File.Exists(exePath))
+        {
+            throw new FileNotFoundException($"Executable not found: {exePath}");
+        }
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = exePath,
+            Arguments = arguments ?? string.Empty,
+            WorkingDirectory = string.IsNullOrWhiteSpace(workingDirectory) ? Environment.CurrentDirectory : workingDirectory,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        using var process = new Process { StartInfo = startInfo, EnableRaisingEvents = false };
+
+        // Start the process
+        if (!process.Start())
+        {
+            throw new InvalidOperationException($"Failed to start process: {exePath}");
+        }
+
+        // Read output ONLY after the process finishes. We still initiate reads now but await them after exit.
+        var stdOutTask = process.StandardOutput.ReadToEndAsync();
+        var stdErrTask = process.StandardError.ReadToEndAsync();
+
+        Task waitTask = process.WaitForExitAsync();
+
+        if (timeoutMs is > 0)
+        {
+            var completed = await Task.WhenAny(waitTask, Task.Delay(timeoutMs.Value));
+            if (completed != waitTask)
+            {
+                try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { /* ignore */ }
+                var outAfterKill = await SafeGetOutput(stdOutTask);
+                var errAfterKill = await SafeGetOutput(stdErrTask);
+                return (-1, outAfterKill, errAfterKill);
+            }
+        }
+        else
+        {
+            await waitTask;
+        }
+
+        // Ensure process fully exited and streams are complete
+        var stdout = await stdOutTask;
+        var stderr = await stdErrTask;
+        var exitCode = process.ExitCode;
+        return (exitCode, stdout, stderr);
+
+        static async Task<string> SafeGetOutput(Task<string> t)
+        {
+            try { return await t; } catch { return string.Empty; }
+        }
     }
 }

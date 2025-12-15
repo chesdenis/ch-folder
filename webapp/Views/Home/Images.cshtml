@@ -43,6 +43,7 @@
                     <button class="btn btn-outline-primary" id="btnAvg">Run AverageImageMarker</button>
                     <button class="btn btn-outline-primary" id="btnFace">Run FaceHashBuilder</button>
                     <button class="btn btn-outline-primary" id="btnAi">Run AiContentQueryBuilder</button>
+                    <button class="btn btn-outline-primary" id="btnAiAnswers">Run AiContentAnswerBuilder</button>
                 </div>
                 <small class="text-muted">Day 2 builds average hash, face embeddings, and AI content queries.</small>
             </div>
@@ -89,6 +90,7 @@
             const btnAvg = document.getElementById('btnAvg');
             const btnFace = document.getElementById('btnFace');
             const btnAi = document.getElementById('btnAi');
+            const btnAiAnswers = document.getElementById('btnAiAnswers');
             // No group sequence buttons: jobs start only when specific button is clicked
 
             let currentJobId = null;
@@ -131,7 +133,7 @@
             });
 
             function enableAll(en) {
-                [btnMd5, btnDuplicate, btnAvg, btnFace, btnAi].forEach(b => { if (b) b.disabled = !en || b.hasAttribute('data-force-disabled'); });
+                [btnMd5, btnDuplicate, btnAvg, btnFace, btnAi, btnAiAnswers].forEach(b => { if (b) b.disabled = !en || b.hasAttribute('data-force-disabled'); });
             }
 
             (async () => {
@@ -212,6 +214,11 @@
             btnAi.addEventListener('click', async (e) => {
                 e.preventDefault();
                 try { await startJobAndWait('AiContentQueryBuilder'); } catch {}
+            }); 
+            
+            btnAiAnswers.addEventListener('click', async (e) => {
+                e.preventDefault();
+                try { await startJobAndWait('AiContentAnswerBuilder'); } catch {}
             });
             
         })();

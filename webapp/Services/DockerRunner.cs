@@ -8,6 +8,9 @@ public interface IDockerFolderRunner
         Action<string>? onStderr = null, CancellationToken ct = default);
 
     Task<int> RunAiContentQueryBuilderAsync(string actionsPath, string hostFolderAbs,
+        Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default); 
+    
+    Task<int> RunAiContentAnswerBuilderAsync(string actionsPath, string hostFolderAbs,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
 
     Task<int> RunMd5ImageMarkerAsync(string actionsPath, string hostFolderAbs,
@@ -34,7 +37,11 @@ public class DockerFolderRunner : IDockerFolderRunner
 
     public Task<int> RunAiContentQueryBuilderAsync(string actionsPath, string hostFolderAbs,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
-        => RunDockerAsync(actionsPath, "ai_content_query_builder", hostFolderAbs, "/in", onStdout, onStderr, ct);
+        => RunDockerAsync(actionsPath, "ai_content_query_builder", hostFolderAbs, "/in", onStdout, onStderr, ct); 
+    
+    public Task<int> RunAiContentAnswerBuilderAsync(string actionsPath, string hostFolderAbs,
+        Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
+        => RunDockerAsync(actionsPath, "ai_content_answer_builder", hostFolderAbs, "/in", onStdout, onStderr, ct);
 
     public Task<int> RunMd5ImageMarkerAsync(string actionsPath, string hostFolderAbs,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
