@@ -55,6 +55,16 @@ public static class ImageProcessingExtensions
             "._",
         };
     
-    public static bool AllowImageToProcess(this string filePath) => 
-        !IgnoredExtensions.Contains(Path.GetExtension(filePath));
+    public static bool AllowImageToProcess(this string filePath)
+    {
+        if (!IgnoredExtensions.Contains(Path.GetExtension(filePath)))
+        {
+            // ignore system files
+            if (!Path.GetFileName(filePath).StartsWith("._"))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 }

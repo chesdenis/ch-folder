@@ -13,7 +13,7 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
     // Define the regex for MD5 prefix (32 characters of hexadecimal)
     private readonly Regex _md5PrefixRegex = new Regex(@"^[a-fA-F0-9]{32}$", RegexOptions.Compiled);
 
-    private static readonly string ContextPath = "/Users/dchesnokov/PhotoHive";
+    private static readonly string ContextPath = "/Volumes/AnnaB/PhotoHive";
 
     public static readonly object[][] TestFilePaths = GetStorageFoldersForTests(ContextPath);
 
@@ -22,7 +22,7 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
     [Fact]
     public async Task AllFilesAreUnique()
     {
-        var ht = new HashSet<string>();
+        var ht = new Dictionary<string, string>();
 
         if (!GetTestingFiles().Any())
         {
@@ -32,10 +32,10 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
         foreach (var filePath in GetTestingFiles())
         {
             var md5 = await (filePath[0] as string).CalculateMd5Async();
-            if (ht.Contains(md5))
-                Assert.Fail($"Duplicate file found: {filePath[0]}");
+            if (ht.ContainsKey(md5))
+                Assert.Fail($"Duplicate file found: {filePath[0]}. Already exist here {ht[md5]}");
 
-            ht.Add(md5);
+            ht.Add(md5, filePath[0] as string);
         }
     }
 

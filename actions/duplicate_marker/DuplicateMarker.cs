@@ -61,6 +61,7 @@ public class DuplicateMarker(IFileSystem fileSystem)
         {
             // not found in DB, nothing to move
             Console.WriteLine($"No duplicate found for '{filePath}'");
+            return;
         }
 
         // Destination folder name is the directory name of real_path
@@ -68,18 +69,21 @@ public class DuplicateMarker(IFileSystem fileSystem)
         if (string.IsNullOrEmpty(dirOfReal))
         {
             Console.WriteLine($"Invalid real_path '{realPath}' for '{filePath}'");
+            return;
         }
 
         var destinationFolderName = "duplicate_" + Path.GetFileName(dirOfReal);
         if (string.IsNullOrEmpty(destinationFolderName))
         {
             Console.WriteLine($"Invalid real_path '{realPath}' for '{filePath}'");
+            return;
         }
 
         var sourceDir = Path.GetDirectoryName(filePath);
         if (string.IsNullOrEmpty(sourceDir))
         {
             Console.WriteLine($"Invalid file path '{filePath}'");
+            return;
         }
 
         var destinationDir = Path.Combine(sourceDir, destinationFolderName);
