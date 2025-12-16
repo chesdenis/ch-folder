@@ -72,7 +72,7 @@ public class ContentQueryBuilder
     private static async Task GenerateTags(string previewPath, string directory, string groupName)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"Give me english tags of this picture @\"{previewPath}\". Tags count must be less than 30 items. Order them by relevance from most to less suitable");
+        sb.AppendLine($"Give me english tags of this picture @\"{previewPath}\". Tags count must be less than 30 items. Order them by relevance from most to less suitable and use comma as separation character");
         Directory.CreateDirectory(Path.Combine(directory, "eng30tags"));
         await File.WriteAllTextAsync(Path.Combine(directory,"eng30tags", $"{groupName}.eng30tags.md"), sb.ToString());
     } 

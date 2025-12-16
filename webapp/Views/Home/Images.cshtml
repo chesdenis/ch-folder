@@ -24,28 +24,70 @@
                 </div>
             </div>
         </div>
-
+        
         <div class="card mb-3">
-            <div class="card-header">Day 1 — preparation</div>
+            <div class="card-header">Day 0 — make sure that content is new</div>
             <div class="card-body">
                 <div class="d-flex flex-wrap gap-2 mb-2">
                     <button class="btn btn-outline-primary" id="btnDuplicate">Run DuplicateMarker</button>
-                    <button class="btn btn-outline-primary" id="btnMd5">Run Md5ImageMarker</button>
                 </div>
-                <small class="text-muted">Day 1 computes MD5 hashes and marks potential duplicates.</small>
+                <small class="text-muted">This will help to remove content which is not required for processing and embedding generation</small>
             </div>
         </div>
 
         <div class="card mb-3">
-            <div class="card-header">Day 2 — analysis</div>
+            <div class="card-header">Day 1 — Generate Md5 in file names and averages based on 512w previews</div>
             <div class="card-body">
                 <div class="d-flex flex-wrap gap-2 mb-2">
+                    <button class="btn btn-outline-primary" id="btnMd5">Run Md5ImageMarker</button>
                     <button class="btn btn-outline-primary" id="btnAvg">Run AverageImageMarker</button>
-                    <button class="btn btn-outline-primary" id="btnFace">Run FaceHashBuilder</button>
+                </div>
+                <small class="text-muted">This will give you nice names and you can apply grouping of images if required.</small>
+            </div>
+        </div>
+        
+        <div class="card mb-3">
+            <div class="card-header">Day 3 — Apply grouping against images. </div>
+            <div class="card-body">
+                <small class="text-muted">This will help you to reduce amount of AI generation calls and costs.</small>
+            </div>
+        </div>
+        
+        <div class="card mb-3">
+            <div class="card-header">Day 5 — Apply preview generator again. Detect faces</div>
+            <div class="card-body">
+                <button class="btn btn-outline-primary" id="btnFace">Run FaceHashBuilder</button>
+                <small class="text-muted">Apply preview generator again but for all range of sizes.</small>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">Day 6 — AI analysis</div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2 mb-2">
                     <button class="btn btn-outline-primary" id="btnAi">Run AiContentQueryBuilder</button>
                     <button class="btn btn-outline-primary" id="btnAiAnswers">Run AiContentAnswerBuilder</button>
                 </div>
-                <small class="text-muted">Day 2 builds average hash, face embeddings, and AI content queries.</small>
+                <small class="text-muted">Builds face embeddings, and AI content queries.</small>
+            </div>
+        </div>
+        
+        <div class="card mb-3">
+            <div class="card-header">Day 7 — AI Embeddings download</div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                    <button class="btn btn-outline-primary" id="btnEmbeddingDownloader">Run EmbeddingDownloader</button>
+                </div>
+                <small class="text-muted">Because we have text details, we can process it and download vector embeddings</small>
+            </div>
+        </div> 
+        
+        <div class="card mb-3">
+            <div class="card-header">Day 7 — run tests against new folder</div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                </div>
+                <small class="text-muted">Day 7 run tests to verify all content processed correct and no any issues with that.</small>
             </div>
         </div>
 
@@ -89,6 +131,7 @@
             const btnDuplicate = document.getElementById('btnDuplicate');
             const btnAvg = document.getElementById('btnAvg');
             const btnFace = document.getElementById('btnFace');
+            const btnEmbeddingDownloader = document.getElementById('btnEmbeddingDownloader');
             const btnAi = document.getElementById('btnAi');
             const btnAiAnswers = document.getElementById('btnAiAnswers');
             // No group sequence buttons: jobs start only when specific button is clicked
@@ -133,7 +176,7 @@
             });
 
             function enableAll(en) {
-                [btnMd5, btnDuplicate, btnAvg, btnFace, btnAi, btnAiAnswers].forEach(b => { if (b) b.disabled = !en || b.hasAttribute('data-force-disabled'); });
+                [btnMd5, btnDuplicate, btnAvg, btnFace, btnEmbeddingDownloader, btnAi, btnAiAnswers].forEach(b => { if (b) b.disabled = !en || b.hasAttribute('data-force-disabled'); });
             }
 
             (async () => {
@@ -209,6 +252,11 @@
             btnFace.addEventListener('click', async (e) => {
                 e.preventDefault();
                 try { await startJobAndWait('FaceHashBuilder'); } catch {}
+            }); 
+            
+            btnFace.addEventListener('click', async (e) => {
+                e.preventDefault();
+                try { await startJobAndWait('EmbeddingDownloader'); } catch {}
             });
 
             btnAi.addEventListener('click', async (e) => {

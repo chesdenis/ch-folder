@@ -23,6 +23,10 @@ public interface IDockerFolderRunner
 
     Task<int> RunFaceHashBuilderAsync(string actionsPath, string hostFolderAbs,
         Action<string>? onStdout = null,
+        Action<string>? onStderr = null, CancellationToken ct = default); 
+    
+    Task<int> RunEmbeddingDownloaderAsync(string actionsPath, string hostFolderAbs,
+        Action<string>? onStdout = null,
         Action<string>? onStderr = null, CancellationToken ct = default);
 
     Task<int> RunAverageImageMarkerAsync(string actionsPath, string hostFolderAbs,
@@ -54,6 +58,10 @@ public class DockerFolderRunner : IDockerFolderRunner
     public Task<int> RunFaceHashBuilderAsync(string actionsPath, string hostFolderAbs,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
         => RunDockerAsync(actionsPath, "face_hash_builder", hostFolderAbs, "/in", onStdout, onStderr, ct);
+    
+    public Task<int> RunEmbeddingDownloaderAsync(string actionsPath, string hostFolderAbs,
+        Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
+        => RunDockerAsync(actionsPath, "embedding_downloader", hostFolderAbs, "/in", onStdout, onStderr, ct);
 
     public Task<int> RunAverageImageMarkerAsync(string actionsPath, string hostFolderAbs,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)

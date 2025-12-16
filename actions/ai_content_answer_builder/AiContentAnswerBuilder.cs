@@ -7,19 +7,46 @@ namespace ai_content_answer_builder;
 
 public class AiContentAnswerBuilder(IFileSystem fileSystem)
 {
+    private static readonly HashSet<string> queriesToProcess = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    private static readonly List<string> filesToProcess = new List<string>();
+
     public async Task RunAsync(string[] args)
     {
         args = args.ValidateArgs();
-        await fileSystem.WalkThrough(args, ProcessSingleFile);
+        await fileSystem.WalkThrough(args, async s =>
+        {
+            filesToProcess.Add(s);
+            await Task.CompletedTask;
+        });
+        
+        await fileSystem.WalkThrough(args, CollectQueryFiles);
+        
+        Console.WriteLine($"Found {filesToProcess.Count} files to process.");
+        Console.WriteLine($"Found {queriesToProcess.Count} queries to process.");
+        
+        await Parallel.ForEachAsync(queriesToProcess,
+            new ParallelOptions { MaxDegreeOfParallelism = 4 },
+            async (s, ct) =>
+            {
+                var results = await RunExternalAsync($"\"{s}\" gpt-5");
+                if (results.ExitCode != 0)
+                {
+                    Console.WriteLine($"Error building description for {s}: {results.Stderr}");
+                }
+                else
+                {
+                    Console.WriteLine($"Built AI analysis for {s}");
+                }
+            });
     }
 
-    private static async Task ProcessSingleFile(string filePath)
+    private static async Task CollectQueryFiles(string filePath)
     {
         if (!filePath.AllowImageToProcess())
         {
             return;
         }
-        
+
         try
         {
             var groupName = Path.GetFileNameWithoutExtension(filePath).Split("_")[0];
@@ -27,15 +54,15 @@ public class AiContentAnswerBuilder(IFileSystem fileSystem)
             {
                 groupName = Path.GetFileNameWithoutExtension(filePath);
             }
+
             // Extract file information
             var directory = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
-            
-            await BuildDescription(directory, groupName);
-            await BuildEnglish10Words(directory, groupName);
-            await BuildTags(directory, groupName);
-            await BuildCommerceMark(directory, groupName);
 
-            Console.WriteLine($"File {filePath} processed successfully.");
+            await CollectDescriptionQueries(directory, groupName);
+            await CollectEnglish10WordsQueries(directory, groupName);
+            await CollectTagsQueries(directory, groupName);
+            await CollectCommerceMarkQueries(directory, groupName);
+
         }
         catch (Exception ex)
         {
@@ -43,35 +70,30 @@ public class AiContentAnswerBuilder(IFileSystem fileSystem)
         }
     }
 
-    private static async Task BuildDescription(string directory, string groupName)
+    private static async Task CollectDescriptionQueries(string directory, string groupName)
     {
         var expectedPath = Path.Combine(directory, "dq", $"{groupName}.dq.md");
-        Console.WriteLine($"Building description for {expectedPath}");
-        var results = await RunExternalAsync($"\"{expectedPath}\" gpt-5");
-        Console.WriteLine($"Results for {expectedPath}: {results.ExitCode}, {results.Stdout}, {results.Stderr}");
+        queriesToProcess.Add(expectedPath);
     }
-    
-    private static async Task BuildEnglish10Words(string directory, string groupName)
+
+    private static async Task CollectEnglish10WordsQueries(string directory, string groupName)
     {
         var expectedPath = Path.Combine(directory, "engShort", $"{groupName}.engShort.md");
-        var results = await RunExternalAsync($"\"{expectedPath}\" gpt-5");
-        Console.WriteLine($"Results for {expectedPath}: {results.ExitCode}, {results.Stdout}, {results.Stderr}");
-    } 
-    
-    private static async Task BuildTags(string directory, string groupName)
+        queriesToProcess.Add(expectedPath);
+    }
+
+    private static async Task CollectTagsQueries(string directory, string groupName)
     {
         var expectedPath = Path.Combine(directory, "eng30tags", $"{groupName}.eng30tags.md");
-        var results = await RunExternalAsync($"\"{expectedPath}\" gpt-5");
-        Console.WriteLine($"Results for {expectedPath}: {results.ExitCode}, {results.Stdout}, {results.Stderr}");
-    } 
-    
-    private static async Task BuildCommerceMark(string directory, string groupName)
+        queriesToProcess.Add(expectedPath);
+    }
+
+    private static async Task CollectCommerceMarkQueries(string directory, string groupName)
     {
         var expectedPath = Path.Combine(directory, "commerceMark", $"{groupName}.commerceMark.md");
-        var results = await RunExternalAsync($"\"{expectedPath}\" gpt-5");
-        Console.WriteLine($"Results for {expectedPath}: {results.ExitCode}, {results.Stdout}, {results.Stderr}");
+        queriesToProcess.Add(expectedPath);
     }
-    
+
     /// <summary>
     /// Resolves the path to the external tool built and copied by the Dockerfile.
     /// Priority:
@@ -80,7 +102,8 @@ public class AiContentAnswerBuilder(IFileSystem fileSystem)
     /// </summary>
     private static string ResolveExternalToolPath()
     {
-        var explicitPath = Environment.GetEnvironmentVariable("EXT_BIN_PATH") ?? throw new InvalidOperationException("EXT_BIN_PATH is not configured");
+        var explicitPath = Environment.GetEnvironmentVariable("EXT_BIN_PATH") ??
+                           throw new InvalidOperationException("EXT_BIN_PATH is not configured");
 
         return explicitPath;
     }
@@ -130,7 +153,9 @@ public class AiContentAnswerBuilder(IFileSystem fileSystem)
         {
             FileName = exePath,
             Arguments = arguments ?? string.Empty,
-            WorkingDirectory = string.IsNullOrWhiteSpace(workingDirectory) ? Environment.CurrentDirectory : workingDirectory,
+            WorkingDirectory = string.IsNullOrWhiteSpace(workingDirectory)
+                ? Environment.CurrentDirectory
+                : workingDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -156,7 +181,15 @@ public class AiContentAnswerBuilder(IFileSystem fileSystem)
             var completed = await Task.WhenAny(waitTask, Task.Delay(timeoutMs.Value));
             if (completed != waitTask)
             {
-                try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { /* ignore */ }
+                try
+                {
+                    if (!process.HasExited) process.Kill(entireProcessTree: true);
+                }
+                catch
+                {
+                    /* ignore */
+                }
+
                 var outAfterKill = await SafeGetOutput(stdOutTask);
                 var errAfterKill = await SafeGetOutput(stdErrTask);
                 return (-1, outAfterKill, errAfterKill);
@@ -175,7 +208,14 @@ public class AiContentAnswerBuilder(IFileSystem fileSystem)
 
         static async Task<string> SafeGetOutput(Task<string> t)
         {
-            try { return await t; } catch { return string.Empty; }
+            try
+            {
+                return await t;
+            }
+            catch
+            {
+                return string.Empty;
+            }
         }
     }
 }
