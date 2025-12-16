@@ -83,7 +83,7 @@
         </div> 
         
         <div class="card mb-3">
-            <div class="card-header">Day 7 — run tests against new folder</div>
+            <div class="card-header">Day 8 — run tests against new folder</div>
             <div class="card-body">
                 <div class="d-flex flex-wrap gap-2 mb-2">
                 </div>
@@ -267,6 +267,11 @@
             btnAiAnswers.addEventListener('click', async (e) => {
                 e.preventDefault();
                 try { await startJobAndWait('AiContentAnswerBuilder'); } catch {}
+            }); 
+            
+            btnEmbeddingDownloader.addEventListener('click', async (e) => {
+                e.preventDefault();
+                try { await startJobAndWait('EmbeddingDownloader'); } catch {}
             });
             
         })();

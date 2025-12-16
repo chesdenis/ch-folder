@@ -12,7 +12,7 @@ public interface IDockerFolderRunner
     
     Task<int> RunAiContentAnswerBuilderAsync(string actionsPath, string hostFolderAbs,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
-
+    
     Task<int> RunMd5ImageMarkerAsync(string actionsPath, string hostFolderAbs,
         Action<string>? onStdout = null,
         Action<string>? onStderr = null, CancellationToken ct = default);

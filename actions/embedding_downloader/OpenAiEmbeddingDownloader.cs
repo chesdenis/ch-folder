@@ -5,24 +5,17 @@ using shared_csharp.Extensions;
 
 namespace embedding_downloader;
 
-public class OpenAiEmbeddingDownloader
+public class OpenAiEmbeddingDownloader(IFileSystem fileSystem)
 {
-    private readonly IFileSystem _fileSystem;
-    private readonly string _apiKey;
+    private readonly string _apiKey = Environment.GetEnvironmentVariable("OpenAiApiKey")
+                                      ?? throw new ArgumentNullException("OpenAiApiKey");
     private const string model = "text-embedding-ada-002";
     private const string endpoint = "https://api.openai.com/v1/embeddings";
-
-    public OpenAiEmbeddingDownloader(IFileSystem fileSystem)
-    {
-        _fileSystem = fileSystem;
-        _apiKey = Environment.GetEnvironmentVariable("OpenAiApiKey")
-                  ?? throw new ArgumentNullException("OpenAiApiKey");
-    }
 
     public async Task RunAsync(string[] args)
     {
         args = args.ValidateArgs();
-        await _fileSystem.WalkThrough(args, ProcessSingleFile);
+        await fileSystem.WalkThrough(args, ProcessSingleFile);
     }
 
     private async Task ProcessSingleFile(string filePath)
