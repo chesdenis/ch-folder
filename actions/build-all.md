@@ -11,7 +11,7 @@ docker build \
 -f ai_content_answer_builder.Dockerfile \
 --build-arg EXT_REPO_URL="https://github.com/chesdenis/ask-ai.git" \
 --build-arg EXT_REPO_REF="master" \
---build-arg EXT_BUILD_CMD="dotnet restore /ext/repo/AskAI.sln && dotnet publish /ext/repo/AskAI/AskAI.csproj -c Release -r linux-arm64 --self-contained true -p:PublishSingleFile=true -o /ext/out" \
+--build-arg EXT_BUILD_CMD="dotnet restore /ext/repo/AskAI.sln && dotnet publish /ext/repo/AskAI/AskAI.csproj -c Release -p:PublishSingleFile=true -o /ext/out" \
 --build-arg EXT_BIN_SRC="/ext/out/AskAI" \
 --build-arg EXT_BIN_NAME="AskAI" \
 -t ai_content_answer_builder .

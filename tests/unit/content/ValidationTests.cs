@@ -14,8 +14,8 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
     // Define the regex for MD5 prefix (32 characters of hexadecimal)
     private readonly Regex _md5PrefixRegex = new Regex(@"^[a-fA-F0-9]{32}$", RegexOptions.Compiled);
 
-    // private static readonly string ContextPath = "/Volumes/AnnaR/PhotoHive-merge";
-    private static readonly string ContextPath = "/Volumes/AnnaX/PhotoHive";
+    private static readonly string ContextPath = "/Volumes/AnnaB/PhotoHive-merge";
+    // private static readonly string ContextPath = "/Volumes/AnnaB/PhotoHive";
 
     public static readonly object[][] TestFilePaths = GetStorageFoldersForTests(ContextPath);
 

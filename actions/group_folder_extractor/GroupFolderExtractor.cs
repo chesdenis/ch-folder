@@ -30,11 +30,18 @@ public class GroupFolderExtractor(IFileSystem fileSystem)
         // 1) Ensure each file has the correct prefix
         foreach (var file in files)
         {
-            var name = Path.GetFileName(file);
-            if (name.StartsWith(requiredPrefix)) continue;
-            
-            var renamedPath = Path.Combine(folderPath, requiredPrefix + name);
-            fileSystem.MoveFile(file, renamedPath);
+            try
+            {
+                var name = Path.GetFileName(file);
+                if (name.StartsWith(requiredPrefix)) continue;
+
+                var renamedPath = Path.Combine(folderPath, requiredPrefix + name);
+                fileSystem.MoveFile(file, renamedPath);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+            }
         }
 
         // Refresh files list after potential renames
@@ -47,8 +54,15 @@ public class GroupFolderExtractor(IFileSystem fileSystem)
 
         foreach (var file in files)
         {
-            var target = Path.Combine(parent, Path.GetFileName(file));
-            fileSystem.MoveFile(file, target);
+            try
+            {
+                var target = Path.Combine(parent, Path.GetFileName(file));
+                fileSystem.MoveFile(file, target);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+            }
         }
 
         return Task.CompletedTask;
