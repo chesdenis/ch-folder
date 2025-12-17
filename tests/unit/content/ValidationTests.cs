@@ -23,6 +23,7 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
     public async Task AllFilesAreUnique()
     {
         var ht = new Dictionary<string, string>();
+        var duplicates = new List<string>();
 
         if (!GetTestingFiles().Any())
         {
@@ -33,9 +34,28 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
         {
             var md5 = await (filePath[0] as string).CalculateMd5Async();
             if (ht.ContainsKey(md5))
-                Assert.Fail($"Duplicate file found: {filePath[0]}. Already exist here {ht[md5]}");
+            {
+                duplicates.Add(filePath[0] as string);
+            }
+            else
+            {
+                ht.Add(md5, filePath[0] as string);
+            }
+        }
 
-            ht.Add(md5, filePath[0] as string);
+        if (duplicates.Any())
+        {
+            foreach (var duplicate in duplicates)
+            {
+                testOutputHelper.WriteLine(duplicate);
+            }
+
+            foreach (var duplicate in duplicates)
+            {
+                File.Delete(duplicate);
+            }
+
+            Assert.Fail($"Duplicate file found");
         }
     }
 
@@ -199,7 +219,7 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
         Assert.True(File.Exists(Path.Combine(dqFolder, groupName + ".eng30tags.md.answer.md")),
             $"Answer file '{Path.Combine(dqFolder, groupName + ".eng30tags.md.answer.md")}' does not exist.");
     }
-    
+
     [Theory]
     [MemberData(nameof(GetTestingFiles))]
     public async Task ValidateAndFixTagsAnswersStructure(string filePath)
@@ -214,7 +234,7 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
         }
 
         var eng30TagsFilePath = Path.Combine(dqFolder, groupName + ".eng30tags.md.answer.md");
-        
+
         Assert.True(File.Exists(eng30TagsFilePath),
             $"Answer file '{eng30TagsFilePath}' does not exist.");
 
@@ -227,9 +247,9 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
             var fixedTags = tags[0].Split('-').Select(s => s.Trim())
                 .Where(s => !string.IsNullOrWhiteSpace(s))
                 .ToArray();
-            
+
             await File.WriteAllTextAsync(eng30TagsFilePath, string.Join(",", fixedTags));
-            
+
             // re read again
             content = await File.ReadAllTextAsync(eng30TagsFilePath);
             tags = content.Split(',').Select(s => s.Trim()).ToArray();
@@ -248,7 +268,6 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
                     content = await File.ReadAllTextAsync(eng30TagsFilePath);
                     tags = content.Split(',').Select(s => s.Trim()).ToArray();
                 }
-
             }
         }
 
@@ -256,7 +275,7 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
         {
             testOutputHelper.WriteLine(eng30TagsFilePath);
         }
-        
+
         Assert.True(tags.Length > 5);
     }
 
@@ -486,7 +505,7 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
             .Select(storageFolder => (object[])[storageFolder])
             .ToArray();
     }
-    
+
     private static IEnumerable<object[]> GetFilesInFolderForTests(string contextPath, object[][] storageFolders,
         Action<string> onFolderProcessed = null)
     {
@@ -497,7 +516,7 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
             {
                 yield return [file];
             }
-            
+
             onFolderProcessed?.Invoke(arg);
         }
     }

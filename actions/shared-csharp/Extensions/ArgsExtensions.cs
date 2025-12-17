@@ -35,4 +35,17 @@ public static class ArgsExtensions
             }
         }
     }
+
+    public static async Task WalkFolders(this IFileSystem fileSystem, string[] args, Func<string, Task> processPath)
+    {
+        foreach (var arg in args)
+        {
+            if (!fileSystem.DirectoryExists(arg)) continue;
+            
+            foreach (var filePath in fileSystem.EnumerateDirectories(arg, "*", SearchOption.TopDirectoryOnly))
+            {
+                await processPath(filePath);
+            }
+        }
+    }
 }

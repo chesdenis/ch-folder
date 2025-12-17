@@ -36,6 +36,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "duplicate_marker", "actions
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ai_content_answer_builder", "actions\ai_content_answer_builder\ai_content_answer_builder.csproj", "{99646F50-639A-44F1-A7E7-B6D753385D46}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "group_folder_extractor", "actions\group_folder_extractor\group_folder_extractor.csproj", "{7387C4F8-A43F-480C-8F2D-5DDD499D0D7F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -90,6 +92,10 @@ Global
 		{99646F50-639A-44F1-A7E7-B6D753385D46}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{99646F50-639A-44F1-A7E7-B6D753385D46}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{99646F50-639A-44F1-A7E7-B6D753385D46}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7387C4F8-A43F-480C-8F2D-5DDD499D0D7F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7387C4F8-A43F-480C-8F2D-5DDD499D0D7F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7387C4F8-A43F-480C-8F2D-5DDD499D0D7F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7387C4F8-A43F-480C-8F2D-5DDD499D0D7F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{E94BF234-9583-4054-9356-B0AAD9C36194} = {68B14173-6FCA-4D2D-9F5C-6C2B56887904}

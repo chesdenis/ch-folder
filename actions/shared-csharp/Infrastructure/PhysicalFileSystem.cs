@@ -8,6 +8,9 @@ public class PhysicalFileSystem : IFileSystem
 
     public IEnumerable<string> EnumerateFiles(string path, string searchPattern, SearchOption searchOption) =>
         Directory.EnumerateFiles(path, searchPattern, searchOption);
+    
+    public IEnumerable<string> EnumerateDirectories(string path, string searchPattern, SearchOption searchOption) =>
+        Directory.EnumerateDirectories(path, searchPattern, searchOption);
 
     public void MoveFile(string sourceFileName, string destFileName) => File.Move(sourceFileName, destFileName);
 }

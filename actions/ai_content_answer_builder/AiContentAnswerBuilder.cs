@@ -24,6 +24,9 @@ public class AiContentAnswerBuilder(IFileSystem fileSystem)
         Console.WriteLine($"Found {filesToProcess.Count} files to process.");
         Console.WriteLine($"Found {queriesToProcess.Count} queries to process.");
         
+        int totalQueriesToProcess = queriesToProcess.Count;
+        int processedQueries = 0;
+        
         await Parallel.ForEachAsync(queriesToProcess,
             new ParallelOptions { MaxDegreeOfParallelism = 4 },
             async (s, ct) =>
@@ -35,7 +38,8 @@ public class AiContentAnswerBuilder(IFileSystem fileSystem)
                 }
                 else
                 {
-                    Console.WriteLine($"Built AI analysis for {s}");
+                    Interlocked.Increment(ref processedQueries);
+                    Console.WriteLine($"[{processedQueries}/{totalQueriesToProcess}] Built AI analysis for {s}");
                 }
             });
     }
