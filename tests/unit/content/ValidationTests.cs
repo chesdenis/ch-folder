@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using shared_csharp;
@@ -13,11 +14,45 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
     // Define the regex for MD5 prefix (32 characters of hexadecimal)
     private readonly Regex _md5PrefixRegex = new Regex(@"^[a-fA-F0-9]{32}$", RegexOptions.Compiled);
 
-    private static readonly string ContextPath = "/Volumes/AnnaR/PhotoHive-merge";
+    // private static readonly string ContextPath = "/Volumes/AnnaR/PhotoHive-merge";
+    private static readonly string ContextPath = "/Volumes/AnnaX/PhotoHive";
 
     public static readonly object[][] TestFilePaths = GetStorageFoldersForTests(ContextPath);
 
     private static string[] GetPreviewKinds() => ["16", "32", "64", "128", "512", "2000"];
+
+    [Fact]
+    public async Task PrintFsStatistic()
+    {
+        testOutputHelper.WriteLine(ContextPath);
+        if (!GetTestingFiles().Any())
+        {
+            Assert.Fail("No files found in the testing folder.");
+        }
+
+        var sb = new StringBuilder();
+        foreach (var storageFoldersForTest in GetStorageFoldersForTests(ContextPath)
+                     .OrderByDescending(x => x[0] as string))
+        {
+            var storageFolder = storageFoldersForTest[0] as string;
+
+            long totalSize = 0;
+            long totalFiles = 0;
+            foreach (var file in PathExtensions.GetFilesInFolder(ContextPath, [storageFolder]))
+            {
+                var fileSize = new FileInfo(file).Length;
+                totalSize += fileSize;
+                totalFiles++;
+                sb.AppendLine(fileSize.ToString());
+            }
+            testOutputHelper.WriteLine(storageFolder);
+            testOutputHelper.WriteLine($"Total size: {totalSize} bytes");
+            testOutputHelper.WriteLine($"Total files: {totalFiles}");
+        }
+
+        var totalString = sb.ToString();
+        testOutputHelper.WriteLine(totalString.AsSha256());
+    }
 
     [Fact]
     public async Task AllFilesAreUnique()

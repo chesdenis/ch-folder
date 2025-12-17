@@ -112,7 +112,11 @@
         <div class="card">
             <div class="card-header">Live log</div>
             <div class="card-body">
-                <pre id="log" class="mb-0" style="white-space: pre-wrap; max-height: 300px; overflow: auto"></pre>
+                <!-- Virtualized log viewer -->
+                <div id="logContainer" class="mb-0" style="height:300px; overflow:auto; position:relative; border: 1px solid rgba(0,0,0,.125); border-radius: .25rem;">
+                    <div id="logSpacer"></div>
+                    <pre id="logViewport" style="position:absolute; top:0; left:0; right:0; margin:0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; line-height: 18px; white-space: pre; padding:.25rem .5rem;"></pre>
+                </div>
             </div>
         </div>
     </div>
@@ -124,7 +128,10 @@
         (function() {
             const bar = document.getElementById('progressBar');
             const progressText = document.getElementById('progressText');
-            const log = document.getElementById('log');
+            // Virtual log elements
+            const logContainer = document.getElementById('logContainer');
+            const logViewport = document.getElementById('logViewport');
+            const logSpacer = document.getElementById('logSpacer');
             const jobIdBadge = document.getElementById('jobIdBadge');
             const dopEl = document.getElementById('dop');
 
@@ -151,13 +158,57 @@
                 progressText.textContent = p + '%';
             }
 
-            function addLog(msg) {
-                const time = new Date().toLocaleTimeString();
-                log.textContent += `[${time}] ${msg}\n`;
-                log.scrollTop = log.scrollHeight;
+            // Virtual scrolling state
+            const LOG_LINE_HEIGHT = 18; // must match CSS line-height in px
+            const LOG_MAX_LINES = 50000; // cap to avoid unbounded memory
+            let logLines = [];
+
+            function renderLog() {
+                const total = logLines.length;
+                const viewH = logContainer.clientHeight;
+                const scrollTop = logContainer.scrollTop;
+                const start = Math.floor(scrollTop / LOG_LINE_HEIGHT);
+                const visibleCount = Math.ceil(viewH / LOG_LINE_HEIGHT) + 10; // small buffer
+                const end = Math.min(total, start + visibleCount);
+
+                // Set total scrollable height via spacer
+                logSpacer.style.height = (total * LOG_LINE_HEIGHT) + 'px';
+
+                // Position the visible slice
+                const offsetY = start * LOG_LINE_HEIGHT;
+                logViewport.style.transform = `translateY(${offsetY}px)`;
+                logViewport.textContent = logLines.slice(start, end).join('\n');
             }
 
-            function clearLogs() { log.textContent = ''; }
+            function scrollToBottom() {
+                // Scroll to the very end; spacer height reflects total size
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
+
+            function addLog(msg) {
+                const time = new Date().toLocaleTimeString();
+                const shouldStickToBottom = (logContainer.scrollTop + logContainer.clientHeight) >= (logContainer.scrollHeight - 4);
+
+                logLines.push(`[${time}] ${msg}`);
+                // Trim if exceeds max
+                if (logLines.length > LOG_MAX_LINES) {
+                    const removeCount = logLines.length - LOG_MAX_LINES;
+                    logLines.splice(0, removeCount);
+                }
+
+                renderLog();
+                if (shouldStickToBottom) scrollToBottom();
+            }
+
+            function clearLogs() {
+                logLines = [];
+                renderLog();
+                // ensure at top
+                logContainer.scrollTop = 0;
+            }
+
+            // Re-render on scroll
+            logContainer.addEventListener('scroll', renderLog);
 
             connection.on('ReceiveProgress', payload => {
                 if (!payload || !currentJobId || payload.jobId !== currentJobId) return;
