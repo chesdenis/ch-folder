@@ -1,7 +1,5 @@
 using shared_csharp.Abstractions;
 using shared_csharp.Extensions;
-using System.IO;
-using System.Linq;
 
 namespace group_folder_extractor;
 

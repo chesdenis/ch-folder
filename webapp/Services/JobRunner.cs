@@ -16,6 +16,7 @@ public enum JobType
     Md5ImageMarker,
     DuplicateMarker,
     FaceHashBuilder,
+    GroupFolderExtractor,
     AverageImageMarker
 }
 
@@ -197,6 +198,7 @@ public class JobRunner : IJobRunner
             JobType.Md5ImageMarker => (ap, hf, o, e, ct) => _dockerFolder.RunMd5ImageMarkerAsync(ap, hf, o, e, ct),
             JobType.DuplicateMarker => (ap, hf, o, e, ct) => _dockerFolder.RunDuplicateMarkerAsync(ap, hf, o, e, ct),
             JobType.FaceHashBuilder => (ap, hf, o, e, ct) => _dockerFolder.RunFaceHashBuilderAsync(ap, hf, o, e, ct),
+            JobType.GroupFolderExtractor => (ap, hf, o, e, ct) => _dockerFolder.RunGroupFolderExtractorAsync(ap, hf, o, e, ct),
             JobType.AverageImageMarker => (ap, hf, o, e, ct) => _dockerFolder.RunAverageImageMarkerAsync(ap, hf, o, e, ct),
             _ => (ap, hf, o, e, ct) => _dockerFolder.RunMetaUploaderAsync(ap, hf, o, e, ct)
         };

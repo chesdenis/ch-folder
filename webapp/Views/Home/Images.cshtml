@@ -47,9 +47,10 @@
         </div>
         
         <div class="card mb-3">
-            <div class="card-header">Day 3 — Apply grouping against images. </div>
+            <div class="card-header">Day 3 — Apply grouping against images via unique 4 chars folder name.</div>
             <div class="card-body">
-                <small class="text-muted">This will help you to reduce amount of AI generation calls and costs.</small>
+                <button class="btn btn-outline-primary" id="btnExtractGroups">Run GroupFolderExtractor</button>
+                <small class="text-muted">Group will help you to reduce cost of AI builder, once you applied grouping you can run this service to move images back.</small>
             </div>
         </div>
         
@@ -87,7 +88,7 @@
             <div class="card-body">
                 <div class="d-flex flex-wrap gap-2 mb-2">
                 </div>
-                <small class="text-muted">Day 7 run tests to verify all content processed correct and no any issues with that.</small>
+                <small class="text-muted">Day 8 run tests to verify all content processed correct and no any issues with that.</small>
             </div>
         </div>
 
@@ -131,6 +132,7 @@
             const btnDuplicate = document.getElementById('btnDuplicate');
             const btnAvg = document.getElementById('btnAvg');
             const btnFace = document.getElementById('btnFace');
+            const btnExtractGroups = document.getElementById('btnExtractGroups');
             const btnEmbeddingDownloader = document.getElementById('btnEmbeddingDownloader');
             const btnAi = document.getElementById('btnAi');
             const btnAiAnswers = document.getElementById('btnAiAnswers');
@@ -176,7 +178,7 @@
             });
 
             function enableAll(en) {
-                [btnMd5, btnDuplicate, btnAvg, btnFace, btnEmbeddingDownloader, btnAi, btnAiAnswers].forEach(b => { if (b) b.disabled = !en || b.hasAttribute('data-force-disabled'); });
+                [btnMd5, btnDuplicate, btnAvg, btnFace, btnExtractGroups, btnEmbeddingDownloader, btnAi, btnAiAnswers].forEach(b => { if (b) b.disabled = !en || b.hasAttribute('data-force-disabled'); });
             }
 
             (async () => {
@@ -252,11 +254,11 @@
             btnFace.addEventListener('click', async (e) => {
                 e.preventDefault();
                 try { await startJobAndWait('FaceHashBuilder'); } catch {}
-            }); 
-            
-            btnFace.addEventListener('click', async (e) => {
+            });
+
+            btnExtractGroups.addEventListener('click', async (e) => {
                 e.preventDefault();
-                try { await startJobAndWait('EmbeddingDownloader'); } catch {}
+                try { await startJobAndWait('GroupFolderExtractor'); } catch {}
             });
 
             btnAi.addEventListener('click', async (e) => {

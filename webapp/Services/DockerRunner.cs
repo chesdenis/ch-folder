@@ -25,6 +25,10 @@ public interface IDockerFolderRunner
         Action<string>? onStdout = null,
         Action<string>? onStderr = null, CancellationToken ct = default); 
     
+    Task<int> RunGroupFolderExtractorAsync(string actionsPath, string hostFolderAbs,
+        Action<string>? onStdout = null,
+        Action<string>? onStderr = null, CancellationToken ct = default); 
+    
     Task<int> RunEmbeddingDownloaderAsync(string actionsPath, string hostFolderAbs,
         Action<string>? onStdout = null,
         Action<string>? onStderr = null, CancellationToken ct = default);
@@ -58,6 +62,9 @@ public class DockerFolderRunner : IDockerFolderRunner
     public Task<int> RunFaceHashBuilderAsync(string actionsPath, string hostFolderAbs,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
         => RunDockerAsync(actionsPath, "face_hash_builder", hostFolderAbs, "/in", onStdout, onStderr, ct);
+     public Task<int> RunGroupFolderExtractorAsync(string actionsPath, string hostFolderAbs,
+        Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
+        => RunDockerAsync(actionsPath, "group_folder_extractor", hostFolderAbs, "/in", onStdout, onStderr, ct);
     
     public Task<int> RunEmbeddingDownloaderAsync(string actionsPath, string hostFolderAbs,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
