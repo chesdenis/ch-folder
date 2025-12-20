@@ -12,10 +12,30 @@ public class OpenAiEmbeddingDownloader(IFileSystem fileSystem)
     private const string model = "text-embedding-ada-002";
     private const string endpoint = "https://api.openai.com/v1/embeddings";
 
+    private static readonly List<string> filesToProcess = new List<string>();
+
     public async Task RunAsync(string[] args)
     {
         args = args.ValidateArgs();
-        await fileSystem.WalkThrough(args, ProcessSingleFile);
+        await fileSystem.WalkThrough(args, async s =>
+        {
+            filesToProcess.Add(s);
+            await Task.CompletedTask;
+        });
+       
+        
+        Console.WriteLine($"Found {filesToProcess.Count} files to process.");
+
+        int total = filesToProcess.Count;
+        int processed = 0;
+        
+        await fileSystem.WalkThrough(args, async(p)=>
+        {
+            await ProcessSingleFile(p);
+            Interlocked.Increment(ref processed);
+            
+            Console.WriteLine($"[{processed}/{total}] Downloaded embeddings for {p}");
+        });
     }
 
     private async Task ProcessSingleFile(string filePath)
@@ -56,8 +76,6 @@ public class OpenAiEmbeddingDownloader(IFileSystem fileSystem)
             
             await File.WriteAllTextAsync(embeddingConversationPath, sb.ToString());
             await File.WriteAllTextAsync(embeddingAnswerPath, response);
-
-            Console.WriteLine($"File {filePath} processed successfully.");
         }
         catch (Exception e)
         {

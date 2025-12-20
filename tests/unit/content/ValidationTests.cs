@@ -16,6 +16,7 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
 
     private static readonly string ContextPath = "/Volumes/AnnaX/PhotoHive-To-Embedding-Calc";
     //private static readonly string ContextPath = "/Volumes/AnnaB/PhotoHive";
+    // private static readonly string ContextPath = "/Volumes/AnnaX/PhotoHiveProd";
 
     public static readonly object[][] TestFilePaths = GetStorageFoldersForTests(ContextPath).ToArray();
 
@@ -601,10 +602,16 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
         var embeddingAnswer = await GetEmbAnswer(filePath);
         var embeddingConversation = await GetEmbConversation(filePath);
         
+        var descriptionAnswer = await GetDqAnswer(filePath);
+        
         Assert.True(embeddingConversation.Contains(embeddingAnswer), 
             $"'embeddingAnswer {ResolveEmbAnswer(filePath)}' does not have in conversation");
-    }
-
+        
+        Assert.True(embeddingConversation.Contains(descriptionAnswer), 
+            $"'descriptionAnswer {ResolveDqAnswerPath(filePath)}' does not have in conversation");
+    } 
+    
+     
     [Theory]
     [MemberData(nameof(GetTestingFiles))]
     public async Task AnswersMustBeInsideConversation(string filePath)
