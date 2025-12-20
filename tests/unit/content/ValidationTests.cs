@@ -442,44 +442,34 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
     [MemberData(nameof(GetTestingFiles))]
     public void ValidateFileNameHasMd5Prefix(string filePath)
     {
-        try
+        // Assert that the file has an MD5 hash prefix
+        var fileIdParts = Path.GetFileNameWithoutExtension(filePath).Split("_");
+        if (fileIdParts.Length == 4 && fileIdParts[0].Length == 4)
         {
-            // Assert that the file has an MD5 hash prefix
-            var fileIdParts = Path.GetFileNameWithoutExtension(filePath).Split("_");
-            if (fileIdParts.Length == 4 && fileIdParts[0].Length == 4)
-            {
-                // we assume that fileIdParts[0] is a group ID, 4 characters long
-                // then we assume that fileIdParts[3] is md5 hash
-                Assert.True(_md5PrefixRegex.IsMatch(fileIdParts[3]),
-                    $"File '{filePath}' does not contain md5 hash marker.");
-                return;
-            }
-
-            if (fileIdParts.Length == 3)
-            {
-                // we assume that fileIdParts[0..1] are preview hashes
-                // then we assume that fileIdParts[2] is md5 hash
-                Assert.True(_md5PrefixRegex.IsMatch(fileIdParts[2]),
-                    $"File '{filePath}' does not contain md5 hash marker.");
-                return;
-            }
-
-            if (fileIdParts.Length == 1)
-            {
-                Assert.True(_md5PrefixRegex.IsMatch(fileIdParts[0]),
-                    $"File '{filePath}' does not contain md5 hash marker.");
-                return;
-            }
-
-            Assert.Fail($"Wrong naming convention for file '{filePath}'");
+            // we assume that fileIdParts[0] is a group ID, 4 characters long
+            // then we assume that fileIdParts[3] is md5 hash
+            Assert.True(_md5PrefixRegex.IsMatch(fileIdParts[3]),
+                $"File '{filePath}' does not contain md5 hash marker.");
+            return;
         }
-        catch (Exception)
+
+        if (fileIdParts.Length == 3)
         {
-            Directory.CreateDirectory(Path.Combine(Path.GetDirectoryName(filePath), "bad_files"));
-            var destFileName = Path.Combine(Path.GetDirectoryName(filePath), "bad_files", Path.GetFileName(filePath));
-            File.Move(filePath, destFileName);
-            throw;
+            // we assume that fileIdParts[0..1] are preview hashes
+            // then we assume that fileIdParts[2] is md5 hash
+            Assert.True(_md5PrefixRegex.IsMatch(fileIdParts[2]),
+                $"File '{filePath}' does not contain md5 hash marker.");
+            return;
         }
+
+        if (fileIdParts.Length == 1)
+        {
+            Assert.True(_md5PrefixRegex.IsMatch(fileIdParts[0]),
+                $"File '{filePath}' does not contain md5 hash marker.");
+            return;
+        }
+
+        Assert.Fail($"Wrong naming convention for file '{filePath}'");
     }
 
     [Theory]
