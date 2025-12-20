@@ -141,10 +141,17 @@ public class HomeController(
         minScoreVal = Math.Max(0, Math.Min(1, minScoreVal));
         minScoreVal = Math.Round(minScoreVal, 2, MidpointRounding.AwayFromZero);
         route["minScore"] = minScoreVal.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        // Ordering normalization: score (default) or commerce
+        var orderByRaw = Request.Query["orderBy"].ToString();
+        var orderBy = string.Equals(orderByRaw, "commerce", StringComparison.OrdinalIgnoreCase)
+            ? ResultsOrderBy.CommerceDesc
+            : ResultsOrderBy.ScoreDesc;
+        route["orderBy"] = orderBy == ResultsOrderBy.CommerceDesc ? "commerce" : "score";
         var normalizedPageSize = route["pageSize"];
         logger.LogInformation(
-            "[Search] normalized state -> pageSize: {PageSize}, size: {Size}, page reset to 1",
-            normalizedPageSize, normalizedSize);
+            "[Search] normalized state -> pageSize: {PageSize}, size: {Size}, orderBy: {OrderBy}, page reset to 1",
+            normalizedPageSize, normalizedSize, route["orderBy"]);
 
         // Determine if a specific session is requested via query string
         var sessionIdStr = Request.Query["sessionId"].ToString();
@@ -159,7 +166,7 @@ public class HomeController(
             {
                 // Try to restore query text by session id
                 // Do NOT apply minScore here; we just need to restore the query for the session
-                var byId = await searchResultsRepo.GetResultsBySessionIdAsync(requestedSessionId, null, HttpContext.RequestAborted);
+                var byId = await searchResultsRepo.GetResultsBySessionIdAsync(requestedSessionId, null, orderBy, HttpContext.RequestAborted);
                 if (byId != null)
                 {
                     route["query"] = byId.QueryText;
@@ -192,7 +199,7 @@ public class HomeController(
         {
             // Try to stick with provided session id
             // IMPORTANT: don't use minScore for this validation; otherwise zero filtered results causes endless reruns
-            var byId = await searchResultsRepo.GetResultsBySessionIdAsync(requestedSessionId, null, HttpContext.RequestAborted);
+            var byId = await searchResultsRepo.GetResultsBySessionIdAsync(requestedSessionId, null, orderBy, HttpContext.RequestAborted);
             if (byId != null && string.Equals(byId.QueryText, queryText, StringComparison.Ordinal))
             {
                 sessionToUse = byId;
@@ -210,15 +217,15 @@ public class HomeController(
                     return RedirectToAction("Index", route);
                 }
 
-                var latestAfterRun = await searchResultsRepo.GetLatestResultsAsync(HttpContext.RequestAborted);
-                if (latestAfterRun is null || latestAfterRun.Results.Count == 0)
+                var latest = await searchResultsRepo.GetLatestResultsAsync(orderBy, HttpContext.RequestAborted);
+                if (latest is null || latest.Results.Count == 0)
                 {
                     TempData["SearchInfo"] = "No results found";
                     return RedirectToAction("Index", route);
                 }
 
                 // Redirect to same action but with new sessionId to stick
-                route["sessionId"] = latestAfterRun.SessionId;
+                route["sessionId"] = latest.SessionId;
                 return RedirectToAction("Search", route);
             }
         }
@@ -240,7 +247,7 @@ public class HomeController(
             }
 
             // Use the latest session and then stick to it by adding sessionId
-            var latest = await searchResultsRepo.GetLatestResultsAsync(HttpContext.RequestAborted);
+            var latest = await searchResultsRepo.GetLatestResultsAsync(orderBy, HttpContext.RequestAborted);
             if (latest is null || latest.Results.Count == 0)
             {
                 TempData["SearchInfo"] = "No results found";
@@ -309,6 +316,7 @@ public class HomeController(
         ViewBag.Query = queryText;
         ViewBag.SessionId = sessionToUse.SessionId;
         ViewBag.MinScore = minScoreVal;
+        ViewBag.OrderBy = route["orderBy"];
         return View("Index");
     }
 

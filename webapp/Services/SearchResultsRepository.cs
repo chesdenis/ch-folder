@@ -5,10 +5,16 @@ using webapp.Models;
 
 namespace webapp.Services;
 
+public enum ResultsOrderBy
+{
+    ScoreDesc,
+    CommerceDesc
+}
+
 public interface ISearchResultsRepository
 {
-    Task<SearchSessionResults?> GetLatestResultsAsync(CancellationToken ct = default);
-    Task<SearchSessionResults?> GetResultsBySessionIdAsync(Guid sessionId, float? minScore = null, CancellationToken ct = default);
+    Task<SearchSessionResults?> GetLatestResultsAsync(ResultsOrderBy orderBy = ResultsOrderBy.ScoreDesc, CancellationToken ct = default);
+    Task<SearchSessionResults?> GetResultsBySessionIdAsync(Guid sessionId, float? minScore = null, ResultsOrderBy orderBy = ResultsOrderBy.ScoreDesc, CancellationToken ct = default);
     Task<Photo?> GetPhotoInfoByMd5Async(string md5, CancellationToken ct = default);
     Task<int> GetPhotosCountAsync(CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, CancellationToken ct = default);
@@ -23,7 +29,7 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
     private NpgsqlConnection CreateConnection() =>
         new(_connectionStrings.PgPhMetaDb ?? throw new InvalidOperationException());
 
-    public async Task<SearchSessionResults?> GetLatestResultsAsync(CancellationToken ct = default)
+    public async Task<SearchSessionResults?> GetLatestResultsAsync(ResultsOrderBy orderBy = ResultsOrderBy.ScoreDesc, CancellationToken ct = default)
     {
         await using var conn = CreateConnection();
         await conn.OpenAsync(ct);
@@ -45,12 +51,14 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         if (sessionId is null) return null;
 
         var results = new List<SearchResultRow>();
-        await using (var cmd = new NpgsqlCommand(@"
-            SELECT r.score, r.path_md5
+        var orderSql = orderBy == ResultsOrderBy.CommerceDesc
+            ? "ORDER BY COALESCE(p.commerce_rate, 0) DESC, r.score DESC"
+            : "ORDER BY r.score DESC, COALESCE(p.commerce_rate, 0) DESC";
+        await using (var cmd = new NpgsqlCommand($@"
+            SELECT r.score, r.path_md5, p.commerce_rate
             FROM search_session_result r
             LEFT JOIN photo p ON p.md5_hash = r.path_md5
-            WHERE r.session_id = @sid
-            ORDER BY r.score DESC, r.path_md5 ASC", conn))
+            WHERE r.session_id = @sid {orderSql}", conn))
         {
             cmd.Parameters.AddWithValue("@sid", NpgsqlTypes.NpgsqlDbType.Uuid, sessionId.Value);
             await using var rdr = await cmd.ExecuteReaderAsync(ct);
@@ -59,7 +67,8 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
                 var row = new SearchResultRow
                 {
                     Score = rdr.GetFloat(0),
-                    Md5 = rdr.IsDBNull(1) ? null : rdr.GetString(1)
+                    Md5 = rdr.IsDBNull(1) ? null : rdr.GetString(1),
+                    CommerceRating = rdr.IsDBNull(2) ? 0 : rdr.GetInt32(2)
                 };
                 results.Add(row);
             }
@@ -68,7 +77,7 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         return new SearchSessionResults(sessionId.Value, queryText ?? string.Empty, results);
     }
 
-    public async Task<SearchSessionResults?> GetResultsBySessionIdAsync(Guid sessionId, float? minScore = null, CancellationToken ct = default)
+    public async Task<SearchSessionResults?> GetResultsBySessionIdAsync(Guid sessionId, float? minScore = null, ResultsOrderBy orderBy = ResultsOrderBy.ScoreDesc, CancellationToken ct = default)
     {
         await using var conn = CreateConnection();
         await conn.OpenAsync(ct);
@@ -85,7 +94,7 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         if (queryText is null) return null;
 
         var results = new List<SearchResultRow>();
-        var sql = @"SELECT r.score, r.path_md5
+        var sql = @"SELECT r.score, r.path_md5, p.commerce_rate
             FROM search_session_result r
             LEFT JOIN photo p ON p.md5_hash = r.path_md5
             WHERE r.session_id = @sid";
@@ -93,7 +102,9 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         {
             sql += " AND r.score >= @min";
         }
-        sql += " ORDER BY r.score DESC, r.path_md5 ASC";
+        sql += orderBy == ResultsOrderBy.CommerceDesc
+            ? " ORDER BY COALESCE(p.commerce_rate, 0) DESC, r.score DESC"
+            : " ORDER BY r.score DESC, COALESCE(p.commerce_rate, 0) DESC";
         await using (var cmd = new NpgsqlCommand(sql, conn))
         {
             cmd.Parameters.AddWithValue("@sid", NpgsqlTypes.NpgsqlDbType.Uuid, sessionId);
@@ -107,7 +118,8 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
                 var row = new SearchResultRow
                 {
                     Score = rdr.GetFloat(0),
-                    Md5 = rdr.IsDBNull(1) ? null : rdr.GetString(1)
+                    Md5 = rdr.IsDBNull(1) ? null : rdr.GetString(1),
+                    CommerceRating = rdr.IsDBNull(2) ? 0 : rdr.GetInt32(2)
                 };
                 results.Add(row);
             }
@@ -205,6 +217,7 @@ public sealed record SearchSessionResults(Guid SessionId, string QueryText, IRea
 public sealed record SearchResultRow
 {
     public float Score { get; init; }
+    public int CommerceRating { get; init; }
     public string? Md5 { get; init; }
 }
 

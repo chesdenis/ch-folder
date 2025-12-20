@@ -60,7 +60,7 @@ public class ImageEmbeddingUploader(IFileSystem fileSystem, IFileHasher fileHash
         
         var commerceRawContent = await File.ReadAllTextAsync(Path.Combine(commerceFolder, $"{groupName}.commerceMark.md.answer.md"));
         var eng30TagsRawContent = await File.ReadAllTextAsync(Path.Combine(eng30TagsFolder, $"{groupName}.eng30tags.md.answer.md"));
-        var commerceData = JsonSerializer.Deserialize<RateExplanation>(commerceRawContent);
+        var commerceData = JsonSerializer.Deserialize<ImageProcessingExtensions.RateExplanation>(commerceRawContent);
         var eng30TagsData = eng30TagsRawContent
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         
@@ -128,10 +128,5 @@ public class ImageEmbeddingUploader(IFileSystem fileSystem, IFileHasher fileHash
         [property: JsonPropertyName("id")] string Id,
         [property: JsonPropertyName("vector")] float[] Vector,
         [property: JsonPropertyName("payload")] Dictionary<string, object> Payload
-    );
-
-    record RateExplanation(
-        [property: JsonPropertyName("rate")] int rate,
-        [property: JsonPropertyName("rate-explanation")] string rateExplanation
     );
 }

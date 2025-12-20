@@ -5,7 +5,9 @@ CREATE TABLE IF NOT EXISTS photo (
     tags text[] NOT NULL DEFAULT '{}',
     short_details text NOT NULL CHECK (short_details <> ''),
     created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now()
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    -- Commercial potential rating: 0..100 (higher = more commercial)
+    commerce_rate integer NOT NULL DEFAULT 0 CHECK (commerce_rate >= 0 AND commerce_rate <= 5)
     );
 
 CREATE OR REPLACE FUNCTION set_updated_at()
@@ -25,6 +27,7 @@ CREATE TRIGGER trg_photo_updated_at
 CREATE INDEX IF NOT EXISTS ix_photo_created_at ON photo (created_at);
 CREATE INDEX IF NOT EXISTS ix_photo_tags_gin ON photo USING GIN (tags);
 CREATE INDEX IF NOT EXISTS ix_photo_extension ON photo (extension);
+CREATE INDEX IF NOT EXISTS ix_photo_commerce_rate ON photo (commerce_rate DESC);
 
 -- =============================================================
 -- Search sessions storage to persist vector search results

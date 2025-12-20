@@ -4,6 +4,11 @@
     var selectedTags = Context.Request.Query["tags"].ToArray();
     var filters = Context.Request.Query["filters"].ToArray();
     var sorting = Context.Request.Query["sorting"].ToArray();
+    // Ordering by score (default) or commerce
+    var qsOrderBy = Context.Request.Query["orderBy"].ToString();
+    var vbOrderBy = ViewBag.OrderBy != null ? ViewBag.OrderBy.ToString() : string.Empty;
+    var orderBy = string.IsNullOrWhiteSpace(qsOrderBy) ? vbOrderBy : qsOrderBy;
+    orderBy = string.Equals(orderBy, "commerce", StringComparison.OrdinalIgnoreCase) ? "commerce" : "score";
 
     // Paging and view options from query
     var currentPage = int.TryParse(Context.Request.Query["page"], out var p) ? p : 1;
@@ -97,11 +102,19 @@
                     </div>
                     <span class="ms-2 text-muted" id="rankValue">@minScore.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)</span>
                 </div>
+                <div class="toolbar-group" role="group" aria-label="Order by">
+                    <span class="toolbar-label">Order by</span>
+                    <div class="segmented">
+                        <button type="button" class="seg-btn order-by-btn @(orderBy=="score"?"active":"")" data-order="score">Score</button>
+                        <button type="button" class="seg-btn order-by-btn @(orderBy=="commerce"?"active":"")" data-order="commerce">Commerce</button>
+                    </div>
+                </div>
                 <div class="toolbar-spacer"></div>
                 <!-- Preserve current state on submit -->
                 <input type="hidden" name="size" value="@thumbSize" />
                 <input type="hidden" name="pageSize" value="@pageSize" />
                 <input type="hidden" name="minScore" id="minScoreInput" value="@minScore.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)" />
+                <input type="hidden" name="orderBy" value="@orderBy" />
                 @* Preserve any existing filters/sorting from the current query *@
                 @foreach (var f in filters)
                 {
@@ -256,6 +269,19 @@
             });
         }
 
+        function wireOrderByButtons() {
+            const buttons = document.querySelectorAll('.order-by-btn');
+            buttons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const val = btn.getAttribute('data-order');
+                    let url = window.location.href;
+                    url = setQueryParam(url, 'orderBy', val);
+                    url = setQueryParam(url, 'page', '1');
+                    window.location.href = url;
+                });
+            });
+        }
+
         // Two-button size control via URL param manipulation (no server action)
         function getCurrentSize() {
             const allowed = [16, 32, 64, 128, 256, 512, 2000];
@@ -311,7 +337,7 @@
             if (down) down.addEventListener('click', () => adjustMinScore(-0.01));
         }
 
-        document.addEventListener('DOMContentLoaded', () => { wirePageSizeButtons(); wireSizeButtons(); wireRankButtons(); });
+        document.addEventListener('DOMContentLoaded', () => { wirePageSizeButtons(); wireSizeButtons(); wireRankButtons(); wireOrderByButtons(); });
 
         // Server now provides real slide sizes via data-pswp-width/height
 

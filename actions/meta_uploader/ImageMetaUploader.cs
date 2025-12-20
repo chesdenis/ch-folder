@@ -68,12 +68,29 @@ public class ImageMetaUploader
                 return;
             }
 
+            // try read commerce rate explanation
+            int commerceRate = 0;
+            try
+            {
+                var rate = await ImageProcessingExtensions.GetRateExplanation(filePath);
+                if (rate != null)
+                {
+                    // DB constraint currently allows 0..5
+                    commerceRate = Math.Max(0, Math.Min(5, rate.rate));
+                }
+            }
+            catch
+            {
+                // ignore missing/invalid files, keep default 0
+            }
+
             var record = new PhotoRecord(
                 md5_hash: md5,
                 extension: extension,
                 size_bytes: sizeBytes,
                 tags: ImageProcessingExtensions.GetEng30TagsText(filePath),
-                short_details: ImageProcessingExtensions.GetEngShortText(filePath));
+                short_details: ImageProcessingExtensions.GetEngShortText(filePath),
+                commerce_rate: commerceRate);
 
             _buffer.Add(record);
             if (_buffer.Count >= BatchSize)
@@ -117,7 +134,8 @@ public class ImageMetaUploader
             .Append("extension, ")
             .Append("size_bytes, ")
             .Append("tags, ")
-            .Append("short_details) VALUES ");
+            .Append("short_details, ")
+            .Append("commerce_rate) VALUES ");
 
         var cmd = new NpgsqlCommand();
         cmd.Connection = conn;
@@ -131,7 +149,8 @@ public class ImageMetaUploader
                       $"@ext_{i}, " +
                       $"@sz_{i}, " +
                       $"@tags_{i}, " +
-                      $"@sd_{i})");
+                      $"@sd_{i}, " +
+                      $"@cr_{i})");
 
             cmd.Parameters.AddWithValue($"@md5_{i}", NpgsqlDbType.Text, r.md5_hash);
             cmd.Parameters.AddWithValue($"@ext_{i}", NpgsqlDbType.Text, r.extension);
@@ -139,13 +158,15 @@ public class ImageMetaUploader
             var pTags = new NpgsqlParameter<string[]>($"@tags_{i}", NpgsqlDbType.Array | NpgsqlDbType.Text) { TypedValue = r.tags };
             cmd.Parameters.Add(pTags);
             cmd.Parameters.AddWithValue($"@sd_{i}", NpgsqlDbType.Text, r.short_details);
+            cmd.Parameters.AddWithValue($"@cr_{i}", NpgsqlDbType.Integer, r.commerce_rate);
         }
 
         sb.Append(" ON CONFLICT (md5_hash) DO UPDATE SET ");
         sb.Append("extension = EXCLUDED.extension, ");
         sb.Append("size_bytes = EXCLUDED.size_bytes, ");
         sb.Append("tags = EXCLUDED.tags, ");
-        sb.Append("short_details = EXCLUDED.short_details;");
+        sb.Append("short_details = EXCLUDED.short_details, ");
+        sb.Append("commerce_rate = EXCLUDED.commerce_rate;");
 
         cmd.CommandText = sb.ToString();
         await cmd.ExecuteNonQueryAsync();
@@ -157,6 +178,7 @@ public class ImageMetaUploader
         string extension,
         long size_bytes,
         string[] tags,
-        string short_details
+        string short_details,
+        int commerce_rate
     );
 }

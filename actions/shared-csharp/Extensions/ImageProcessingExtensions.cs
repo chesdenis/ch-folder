@@ -1,3 +1,6 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace shared_csharp.Extensions;
 
 public static class ImageProcessingExtensions
@@ -12,6 +15,22 @@ public static class ImageProcessingExtensions
             if (Math.Abs(s - value) < Math.Abs(closest - value)) closest = s;
         }
         return closest;
+    }
+
+    public static async Task<RateExplanation?> GetRateExplanation(string filePath)
+    {
+        var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
+        var commerceFolder = Path.Combine(directoryName, "commerceMark");
+        var groupName = Path.GetFileNameWithoutExtension(filePath).Split("_")[0];
+        if (groupName.Length != 4)
+        {
+            groupName = Path.GetFileNameWithoutExtension(filePath);
+        }
+        
+        var commerceRawContent = await File.ReadAllTextAsync(Path.Combine(commerceFolder, $"{groupName}.commerceMark.md.answer.md"));
+        var commerceData = JsonSerializer.Deserialize<RateExplanation>(commerceRawContent);
+
+        return commerceData;
     }
     
     public static string GetEngShortText(string filePath)
@@ -67,4 +86,9 @@ public static class ImageProcessingExtensions
         }
         return false;
     }
+    
+    public record RateExplanation(
+        [property: JsonPropertyName("rate")] int rate,
+        [property: JsonPropertyName("rate-explanation")] string rateExplanation
+    );
 }
