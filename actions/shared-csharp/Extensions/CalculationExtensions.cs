@@ -19,11 +19,11 @@ public static class CalculationExtensions
         return sb.ToString();
     }
     
-    public static async Task<string> CalculateMd5Async(this string filePath)
+    public static async Task<string> CalculateMd5Async(this string filePath, bool force = false)
     {
         // check if file already has the md5 prefix,
         // this is because we want to avoid re-computing it
-        if (filePath.IsMd5InFileName())
+        if (filePath.IsMd5InFileName() && !force)
         {
             return filePath.GetMd5FromFileName();
         }

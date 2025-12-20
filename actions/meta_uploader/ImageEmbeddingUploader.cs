@@ -40,8 +40,11 @@ public class ImageEmbeddingUploader(IFileSystem fileSystem, IFileHasher fileHash
         var md5 = await fileHasher.ComputeMd5Async(filePath);
         
         var fileParentFolder = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
+        
+        var embeddingFolder = Path.Combine(fileParentFolder, "emb");
         var descriptionFolder = Path.Combine(fileParentFolder, "dq");
-        var embeddingPath = Path.Combine(descriptionFolder, $"{groupName}.dq.emb.json");
+        
+        var embeddingPath = Path.Combine(embeddingFolder, $"{groupName}.emb.md.answer.md");
         var descriptionPath = Path.Combine(descriptionFolder, $"{groupName}.dq.md.answer.md");
         
         var commerceFolder = Path.Combine(fileParentFolder, "commerceMark");

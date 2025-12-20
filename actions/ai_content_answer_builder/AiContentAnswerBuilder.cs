@@ -27,19 +27,20 @@ public class AiContentAnswerBuilder(IFileSystem fileSystem)
         int totalQueriesToProcess = queriesToProcess.Count;
         int processedQueries = 0;
         
-        await Parallel.ForEachAsync(queriesToProcess,
-            new ParallelOptions { MaxDegreeOfParallelism = 4 },
-            async (s, ct) =>
+        var options = new ParallelOptions { MaxDegreeOfParallelism = 12 };
+
+        await Parallel.ForEachAsync(queriesToProcess, options,
+            async (queryPath, ct) =>
             {
-                var results = await RunExternalAsync($"\"{s}\" gpt-5");
+                var results = await RunExternalAsync($"\"{queryPath}\" gpt-5");
                 if (results.ExitCode != 0)
                 {
-                    Console.WriteLine($"Error building description for {s}: {results.Stderr}");
+                    Console.WriteLine($"Error building description for {queryPath}: {results.Stderr}");
                 }
                 else
                 {
                     Interlocked.Increment(ref processedQueries);
-                    Console.WriteLine($"[{processedQueries}/{totalQueriesToProcess}] Built AI analysis for {s}");
+                    Console.WriteLine($"[{processedQueries}/{totalQueriesToProcess}] Built AI analysis for {queryPath}");
                 }
             });
     }

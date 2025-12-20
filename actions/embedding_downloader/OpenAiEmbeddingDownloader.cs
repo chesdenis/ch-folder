@@ -25,30 +25,44 @@ public class OpenAiEmbeddingDownloader(IFileSystem fileSystem)
             return;
         }
 
-        
-        // Extract description information
-        var groupName = filePath.GetGroupName();
-        var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
-        var descriptionFolder = Path.Combine(directoryName, "dq");
-        var descriptionPath = Path.Combine(descriptionFolder, $"{groupName}.dq.md.answer.md");
-        var descriptionText = await File.ReadAllTextAsync(descriptionPath);
-
-        var embeddingLocation = Path.Combine(descriptionFolder, $"{groupName}.dq.emb.json");
-
-        if (File.Exists(embeddingLocation))
+        try
         {
-            Console.WriteLine($"File {filePath} skipped because computed already.");
-            return;
+            // Extract description information
+            var groupName = filePath.GetGroupName();
+            var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
+            var descriptionFolder = Path.Combine(directoryName, "dq");
+            var descriptionPath = Path.Combine(descriptionFolder, $"{groupName}.dq.md.answer.md");
+            var descriptionText = await File.ReadAllTextAsync(descriptionPath);
+            
+            var embeddingFolder = Path.Combine(directoryName, "emb");
+            Directory.CreateDirectory(embeddingFolder);
+
+            var embeddingAnswerPath = Path.Combine(embeddingFolder, $"{groupName}.emb.md.answer.md");
+            var embeddingConversationPath = Path.Combine(embeddingFolder, $"{groupName}.emb.md.conversation.md");
+
+            if (File.Exists(embeddingAnswerPath))
+            {
+                Console.WriteLine($"File {filePath} skipped because computed already.");
+                return;
+            }
+            
+            // Call the OpenAI API
+            var response = await GetOpenAiEmbedding(_apiKey, descriptionText);
+            var sb = new StringBuilder();
+            sb.AppendLine("### user");
+            sb.AppendLine(descriptionText);
+            sb.AppendLine("### assistant");
+            sb.AppendLine(response);
+            
+            await File.WriteAllTextAsync(embeddingConversationPath, sb.ToString());
+            await File.WriteAllTextAsync(embeddingAnswerPath, response);
+
+            Console.WriteLine($"File {filePath} processed successfully.");
         }
-
-        string input = descriptionText;
-
-        // Call the OpenAI API
-        var response = await GetOpenAiEmbedding(_apiKey, input);
-        
-        await File.WriteAllTextAsync(embeddingLocation, response);
-                
-        Console.WriteLine($"File {filePath} processed successfully.");
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+        }
     }
 
     private static async Task<string> GetOpenAiEmbedding(string apiKey, string input)
