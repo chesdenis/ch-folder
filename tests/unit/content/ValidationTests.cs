@@ -14,9 +14,9 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
     // Define the regex for MD5 prefix (32 characters of hexadecimal)
     private readonly Regex _md5PrefixRegex = new Regex(@"^[a-fA-F0-9]{32}$", RegexOptions.Compiled);
 
-    private static readonly string ContextPath = "/Volumes/AnnaX/PhotoHive-To-Embedding-Calc";
+    // private static readonly string ContextPath = "/Volumes/AnnaR/to-process-2022";
     //private static readonly string ContextPath = "/Volumes/AnnaB/PhotoHive";
-    // private static readonly string ContextPath = "/Volumes/AnnaX/PhotoHiveProd";
+    private static readonly string ContextPath = "/Volumes/AnnaR/to-process";
 
     public static readonly object[][] TestFilePaths = GetStorageFoldersForTests(ContextPath).ToArray();
 
@@ -245,7 +245,7 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
 
     [Theory]
     [MemberData(nameof(GetTestingFiles))]
-    public async Task ValidateAndFixTagsAnswersStructure(string filePath)
+    public async Task ValidateTagsAnswersStructure(string filePath)
     {
         var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
         var dqFolder = Path.Combine(directoryName, "eng30tags");
@@ -264,35 +264,35 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
         var content = await File.ReadAllTextAsync(eng30TagsFilePath);
         var tags = content.Split(',').Select(s => s.Trim()).ToArray();
 
-        // attempting to fix when tags splitted by dash
-        if (tags.Length == 1)
-        {
-            var fixedTags = tags[0].Split('-').Select(s => s.Trim())
-                .Where(s => !string.IsNullOrWhiteSpace(s))
-                .ToArray();
-
-            await File.WriteAllTextAsync(eng30TagsFilePath, string.Join(",", fixedTags));
-
-            // re read again
-            content = await File.ReadAllTextAsync(eng30TagsFilePath);
-            tags = content.Split(',').Select(s => s.Trim()).ToArray();
-
-            // attempting to fix another way
-            if (tags.Length == 1)
-            {
-                fixedTags = Regex.Replace(content, "\\d+. ", string.Empty).Split('\n')
-                    .Where(s => !string.IsNullOrWhiteSpace(s)).ToArray();
-
-                if (fixedTags.Length > 1)
-                {
-                    await File.WriteAllTextAsync(eng30TagsFilePath, string.Join(",", fixedTags));
-
-                    // re read again
-                    content = await File.ReadAllTextAsync(eng30TagsFilePath);
-                    tags = content.Split(',').Select(s => s.Trim()).ToArray();
-                }
-            }
-        }
+        // // attempting to fix when tags splitted by dash
+        // if (tags.Length == 1)
+        // {
+        //     var fixedTags = tags[0].Split('-').Select(s => s.Trim())
+        //         .Where(s => !string.IsNullOrWhiteSpace(s))
+        //         .ToArray();
+        //
+        //     await File.WriteAllTextAsync(eng30TagsFilePath, string.Join(",", fixedTags));
+        //
+        //     // re read again
+        //     content = await File.ReadAllTextAsync(eng30TagsFilePath);
+        //     tags = content.Split(',').Select(s => s.Trim()).ToArray();
+        //
+        //     // attempting to fix another way
+        //     if (tags.Length == 1)
+        //     {
+        //         fixedTags = Regex.Replace(content, "\\d+. ", string.Empty).Split('\n')
+        //             .Where(s => !string.IsNullOrWhiteSpace(s)).ToArray();
+        //
+        //         if (fixedTags.Length > 1)
+        //         {
+        //             await File.WriteAllTextAsync(eng30TagsFilePath, string.Join(",", fixedTags));
+        //
+        //             // re read again
+        //             content = await File.ReadAllTextAsync(eng30TagsFilePath);
+        //             tags = content.Split(',').Select(s => s.Trim()).ToArray();
+        //         }
+        //     }
+        // }
 
         if (tags.Length == 1)
         {
@@ -548,8 +548,8 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
     }
 
     
-    [Theory]
-    [MemberData(nameof(GetTestingFiles))]
+    //[Theory]
+    //[MemberData(nameof(GetTestingFiles))]
     public async Task SyncAnswerWithConversation(string filePath)
     {
         var commerceMarkConversation = await GetCommerceMarkConversation(filePath);

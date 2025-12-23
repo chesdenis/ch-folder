@@ -23,7 +23,10 @@ public static class ArgsExtensions
         {
             if (fileSystem.DirectoryExists(arg))
             {
-                foreach (var filePath in fileSystem.EnumerateFiles(arg, "*", SearchOption.TopDirectoryOnly))
+                // evaluate query result to avoid processing files again during async run
+                var filesToProcess = fileSystem.EnumerateFiles(arg, "*", SearchOption.TopDirectoryOnly).ToArray();
+                    
+                foreach (var filePath in filesToProcess)
                 {
                     await processPath(filePath);
                 }
@@ -41,8 +44,9 @@ public static class ArgsExtensions
         foreach (var arg in args)
         {
             if (!fileSystem.DirectoryExists(arg)) continue;
-            
-            foreach (var filePath in fileSystem.EnumerateDirectories(arg, "*", SearchOption.TopDirectoryOnly))
+
+            var filesToProcess = fileSystem.EnumerateDirectories(arg, "*", SearchOption.TopDirectoryOnly).ToArray();
+            foreach (var filePath in filesToProcess)
             {
                 await processPath(filePath);
             }
