@@ -35,6 +35,9 @@ public interface IDockerFolderRunner
 
     Task<int> RunAverageImageMarkerAsync(string actionsPath, string hostFolderAbs,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
+
+    Task<int> RunContentValidatorAsync(string actionsPath, string hostFolderAbs, string testKind, string folderName,
+        Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
 }
 
 public class DockerFolderRunner : IDockerFolderRunner
@@ -74,6 +77,11 @@ public class DockerFolderRunner : IDockerFolderRunner
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
         => RunDockerAsync(actionsPath, "average_image_marker", hostFolderAbs, "/in", onStdout, onStderr, ct);
 
+    public Task<int> RunContentValidatorAsync(string actionsPath, string hostFolderAbs, string testKind, string folderName,
+        Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
+        => RunDockerAsync(actionsPath, "content_validator", hostFolderAbs, "/in", onStdout, onStderr, ct,
+            extraArgs: $"--test-kind {ToB64(testKind)} --folder-name {ToB64(folderName)}");
+
 
     private static Task<int> RunDockerAsync(
         string actionsPath,
@@ -82,11 +90,14 @@ public class DockerFolderRunner : IDockerFolderRunner
         string containerFolder,
         Action<string>? onStdout,
         Action<string>? onStderr,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? extraArgs = null)
     {
         var host = Path.GetFullPath(hostFolderAbs);
+        var envFile = Path.Combine(actionsPath, image, ".env");
+        var argsTail = string.IsNullOrWhiteSpace(extraArgs) ? string.Empty : $" {extraArgs}";
         var arguments =
-            $"run --env-file {Path.Combine(actionsPath, image)}/.env --rm -v \"{host}\":{containerFolder}:rw {image} {containerFolder}";
+            $"run --env-file {envFile} --rm -v \"{host}\":{containerFolder}:rw {image} {containerFolder}{argsTail}";
 
         var psi = new ProcessStartInfo
         {
@@ -148,5 +159,18 @@ public class DockerFolderRunner : IDockerFolderRunner
         }
 
         return tcs.Task;
+    }
+
+    private static string EscapeArg(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return "";
+        return value.Replace("\"", "\\\"");
+    }
+
+    private static string ToB64(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return string.Empty;
+        var bytes = System.Text.Encoding.UTF8.GetBytes(value);
+        return Convert.ToBase64String(bytes);
     }
 }

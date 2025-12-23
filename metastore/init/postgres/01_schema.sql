@@ -119,3 +119,24 @@ CREATE TRIGGER trg_image_location_updated_at
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 CREATE INDEX IF NOT EXISTS ix_image_location_created_at ON image_location (created_at);
+
+-- =============================================================
+-- Content validation results
+-- Stores per-folder validation status for different test kinds
+-- =============================================================
+
+CREATE TABLE IF NOT EXISTS content_validation_result (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_id uuid NOT NULL,
+    folder text NOT NULL,
+    test_kind text NOT NULL,
+    status text NOT NULL CHECK (status IN ('Passed','Failed','Error','Running')),
+    details jsonb NULL,
+    started_at timestamptz NOT NULL DEFAULT now(),
+    finished_at timestamptz NULL,
+    UNIQUE (job_id, folder, test_kind)
+);
+
+CREATE INDEX IF NOT EXISTS ix_content_validation_result_job ON content_validation_result (job_id);
+CREATE INDEX IF NOT EXISTS ix_content_validation_result_folder ON content_validation_result (folder);
+CREATE INDEX IF NOT EXISTS ix_content_validation_result_kind ON content_validation_result (test_kind);

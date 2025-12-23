@@ -17,7 +17,8 @@ public enum JobType
     DuplicateMarker,
     FaceHashBuilder,
     GroupFolderExtractor,
-    AverageImageMarker
+    AverageImageMarker,
+    ContentValidator
 }
 
 public interface IJobRunner
@@ -79,7 +80,7 @@ public class JobRunner : IJobRunner
                 });
 
                 // Map job to appropriate docker runner function (unify signatures via wrappers)
-                var jobFunc = BuildJobFunc(jobType);
+                var jobFunc = BuildJobFunc(jobType, id);
 
                 var errors = new ConcurrentBag<string>();
 
@@ -99,36 +100,77 @@ public class JobRunner : IJobRunner
                             message = $"Starting: {Path.GetRelativePath(rootPath, folderAbs)}"
                         }, cancellationToken: ct);
 
-                        var exit = await jobFunc(
-                            actionsPath,
-                            folderAbs,
-                            line =>
-                            {
-                                try
+                        int exit;
+                        if (jobType == JobType.ContentValidator)
+                        {
+                            // Pass the real folder name (relative segment) to the container
+                            var folderName = row;
+                            exit = await _dockerFolder.RunContentValidatorAsync(
+                                actionsPath,
+                                folderAbs,
+                                "file_has_correct_md5_prefix",
+                                folderName,
+                                line =>
                                 {
-                                    _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
+                                    try
                                     {
-                                        jobId = id,
-                                        percent = ComputeCompleted(total, ref completed),
-                                        message = line
-                                    }, cancellationToken: ct).GetAwaiter().GetResult();
-                                }
-                                catch { /* ignore hub send errors per-line */ }
-                            },
-                            line =>
-                            {
-                                try
+                                        _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
+                                        {
+                                            jobId = id,
+                                            percent = ComputeCompleted(total, ref completed),
+                                            message = line
+                                        }, cancellationToken: ct).GetAwaiter().GetResult();
+                                    }
+                                    catch { /* ignore hub send errors per-line */ }
+                                },
+                                line =>
                                 {
-                                    _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
+                                    try
                                     {
-                                        jobId = id,
-                                        percent = ComputeCompleted(total, ref completed),
-                                        message = $"[stderr] {line}"
-                                    }, cancellationToken: ct).GetAwaiter().GetResult();
-                                }
-                                catch { }
-                            },
-                            ct);
+                                        _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
+                                        {
+                                            jobId = id,
+                                            percent = ComputeCompleted(total, ref completed),
+                                            message = $"[stderr] {line}"
+                                        }, cancellationToken: ct).GetAwaiter().GetResult();
+                                    }
+                                    catch { }
+                                },
+                                ct);
+                        }
+                        else
+                        {
+                            exit = await jobFunc(
+                                actionsPath,
+                                folderAbs,
+                                line =>
+                                {
+                                    try
+                                    {
+                                        _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
+                                        {
+                                            jobId = id,
+                                            percent = ComputeCompleted(total, ref completed),
+                                            message = line
+                                        }, cancellationToken: ct).GetAwaiter().GetResult();
+                                    }
+                                    catch { /* ignore hub send errors per-line */ }
+                                },
+                                line =>
+                                {
+                                    try
+                                    {
+                                        _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
+                                        {
+                                            jobId = id,
+                                            percent = ComputeCompleted(total, ref completed),
+                                            message = $"[stderr] {line}"
+                                        }, cancellationToken: ct).GetAwaiter().GetResult();
+                                    }
+                                    catch { }
+                                },
+                                ct);
+                        }
 
                         Interlocked.Increment(ref completed);
                         if (exit != 0)
@@ -187,7 +229,7 @@ public class JobRunner : IJobRunner
         return Volatile.Read(ref completed) * 100 / Math.Max(1, total);
     }
 
-    private Func<string, string, Action<string>?, Action<string>?, CancellationToken, Task<int>> BuildJobFunc(JobType jobType)
+    private Func<string, string, Action<string>?, Action<string>?, CancellationToken, Task<int>> BuildJobFunc(JobType jobType, string jobId)
     {
         Func<string, string, Action<string>?, Action<string>?, CancellationToken, Task<int>> jobFunc = jobType switch
         {
@@ -200,6 +242,8 @@ public class JobRunner : IJobRunner
             JobType.FaceHashBuilder => (ap, hf, o, e, ct) => _dockerFolder.RunFaceHashBuilderAsync(ap, hf, o, e, ct),
             JobType.GroupFolderExtractor => (ap, hf, o, e, ct) => _dockerFolder.RunGroupFolderExtractorAsync(ap, hf, o, e, ct),
             JobType.AverageImageMarker => (ap, hf, o, e, ct) => _dockerFolder.RunAverageImageMarkerAsync(ap, hf, o, e, ct),
+            // Special-cased in the caller (we need 'folderName' separately). This mapping is unused.
+            JobType.ContentValidator => (ap, hf, o, e, ct) => Task.FromResult(0),
             _ => (ap, hf, o, e, ct) => _dockerFolder.RunMetaUploaderAsync(ap, hf, o, e, ct)
         };
         return jobFunc;

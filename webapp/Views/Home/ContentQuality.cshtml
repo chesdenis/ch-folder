@@ -1,0 +1,196 @@
+@{
+    ViewData["Title"] = "Content Quality";
+}
+
+<div class="row">
+    <div class="col-md-10 col-lg-8">
+        <h1 class="mb-3">Validate content quality (md5 prefix check)</h1>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row g-2 align-items-center">
+                    <div class="col-12 col-md-5">
+                        <label class="form-label">Storage path</label>
+                        <div class="form-control-plaintext" id="storagePath">@ViewBag.StoragePath</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label">Job</label>
+                        <select id="jobType" class="form-select">
+                            <option value="ContentValidator" selected>Content Validator</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label for="dop" class="form-label">Threads</label>
+                        <input id="dop" class="form-control" type="number" min="1" max="32" value="8" />
+                    </div>
+                    <div class="col-12 col-md-2">
+                        <label class="form-label">&nbsp;</label>
+                        <button id="startBtn" class="btn btn-primary w-100">Start</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <div>
+                        <strong>Progress:</strong>
+                        <span id="progressText">0%</span>
+                    </div>
+                    <div>
+                        <span class="badge bg-secondary" id="jobIdBadge" style="display:none"></span>
+                    </div>
+                </div>
+                <div class="progress" role="progressbar" aria-label="Job progress" aria-valuemin="0" aria-valuemax="100">
+                    <div id="progressBar" class="progress-bar progress-bar-striped" style="width: 0%">0%</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">Folders status</div>
+            <div class="card-body">
+                <div id="foldersGrid" class="d-flex flex-wrap gap-2"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">Live log</div>
+            <div class="card-body">
+                <pre id="log" class="mb-0" style="white-space: pre-wrap; max-height: 300px; overflow: auto"></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/lib/signalr/dist/browser/signalr.min.js"></script>
+    <script>
+        (function () {
+            const startBtn = document.getElementById('startBtn');
+            const bar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            const log = document.getElementById('log');
+            const jobIdBadge = document.getElementById('jobIdBadge');
+            const jobTypeEl = document.getElementById('jobType');
+            const dopEl = document.getElementById('dop');
+            const grid = document.getElementById('foldersGrid');
+
+            let currentJobId = null;
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl('/hubs/jobstatus')
+                .withAutomaticReconnect()
+                .build();
+
+            function setProgress(p) {
+                p = Math.max(0, Math.min(100, p|0));
+                bar.style.width = p + '%';
+                bar.textContent = p + '%';
+                progressText.textContent = p + '%';
+            }
+
+            function addLog(msg) {
+                const time = new Date().toLocaleTimeString();
+                log.textContent += `[${time}] ${msg}\n`;
+                log.scrollTop = log.scrollHeight;
+            }
+
+            function clearLogs() { log.textContent = ""; }
+
+            function setFolderStatus(folder, status) {
+                const id = 'f-' + btoa(folder).replace(/=/g,'');
+                let el = document.getElementById(id);
+                if (!el) {
+                    el = document.createElement('div');
+                    el.id = id;
+                    el.style.minWidth = '160px';
+                    el.style.border = '1px solid #ccc';
+                    el.style.padding = '6px 8px';
+                    el.style.borderRadius = '4px';
+                    el.style.fontSize = '12px';
+                    el.innerHTML = `<div style="font-weight:600">${folder}</div><div class="s"></div>`;
+                    grid.appendChild(el);
+                }
+                const s = el.querySelector('.s');
+                const color = status === 'Passed' ? '#28a745' : status === 'Failed' ? '#dc3545' : status === 'Running' ? '#ffc107' : '#6c757d';
+                s.textContent = `file_has_correct_md5_prefix: ${status}`;
+                s.style.color = color;
+            }
+
+            connection.on('ReceiveProgress', payload => {
+                if (!payload || !currentJobId || payload.jobId !== currentJobId) return;
+                setProgress(payload.percent || 0);
+                if (payload.message) addLog(payload.message);
+            });
+
+            connection.on('ReceiveCompleted', payload => {
+                if (!payload || !currentJobId || payload.jobId !== currentJobId) return;
+                setProgress(100);
+                addLog(payload.message || 'Completed');
+                startBtn.disabled = false;
+            });
+
+            connection.on('ReceiveError', payload => {
+                addLog('Error: ' + (payload?.message || 'Unknown error'));
+                startBtn.disabled = false;
+            });
+
+            (async () => {
+                try { await connection.start(); addLog('Connected to hub.'); } catch { }
+            })();
+
+            async function loadFolders() {
+                try {
+                    const resp = await fetch('/api/storage/folders');
+                    if (!resp.ok) return;
+                    const folders = await resp.json();
+                    folders.forEach(f => setFolderStatus(f, 'Unknown'));
+                } catch {}
+            }
+
+            async function pollStatuses() {
+                try {
+                    const resp = await fetch(`/api/validation/latest?testKind=file_has_correct_md5_prefix`);
+                    if (!resp.ok) return;
+                    const list = await resp.json();
+                    list.forEach(x => setFolderStatus(x.folder, x.status));
+                } catch {}
+            }
+
+            let pollHandle = null;
+            function startPolling() {
+                if (pollHandle) clearInterval(pollHandle);
+                pollHandle = setInterval(() => pollStatuses(), 1500);
+            }
+
+            async function startJob() {
+                setProgress(0);
+                clearLogs();
+                addLog('Starting job...');
+                startBtn.disabled = true;
+
+                const newJobId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID().replace(/-/g,'') : (Date.now().toString(36) + Math.random().toString(36).slice(2));
+                currentJobId = newJobId;
+                jobIdBadge.textContent = currentJobId;
+                jobIdBadge.style.display = '';
+
+                if (connection.state !== signalR.HubConnectionState.Connected) {
+                    try { await connection.start(); } catch { addLog('Hub connection failed'); startBtn.disabled=false; return; }
+                }
+                try { await connection.invoke('JoinJobGroup', currentJobId); } catch(e) { addLog('Join failed: '+e); startBtn.disabled=false; return; }
+
+                const body = new URLSearchParams({ jobId: currentJobId, type: jobTypeEl.value, dop: (dopEl.value||'').toString() });
+                const resp = await fetch('@Url.Action("IndexJob", "Home")', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+                if (!resp.ok) { addLog('Failed to start job: ' + resp.status); startBtn.disabled = false; return; }
+                addLog('Job started: ' + currentJobId);
+                startPolling();
+            }
+
+            startBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                startJob().catch(err => { addLog('Failed: ' + err); startBtn.disabled = false; });
+            });
+        })();
+    </script>
+}

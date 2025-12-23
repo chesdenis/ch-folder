@@ -438,6 +438,23 @@ public class HomeController(
         return View();
     }
 
+    public IActionResult ContentQuality()
+    {
+        ViewBag.StoragePath = _storage.RootPath ?? string.Empty;
+        return View();
+    }
+
+    [HttpGet("/api/storage/folders")]
+    public IActionResult GetStorageFolders()
+    {
+        var root = _storage.RootPath;
+        if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+            return Ok(Array.Empty<string>());
+
+        var folders = PathExtensions.GetStorageFolders(root).ToArray();
+        return Ok(folders);
+    }
+
     public IActionResult Images()
     {
         ViewBag.StoragePath = _storage.RootPath ?? string.Empty;
