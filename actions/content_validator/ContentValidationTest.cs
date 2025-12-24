@@ -13,7 +13,7 @@ internal abstract class ContentValidationTest(IFileSystem fs) : IContentValidati
         var details = new { total, mismatches, failures };
         return (exit, details);
     }
-
+     
     private async Task<(int ExitCode, int Total, int Mismatches, IReadOnlyList<object> Failures)> RunAsync(
         string folder,
         Func<dynamic, Task> log)

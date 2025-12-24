@@ -1,3 +1,4 @@
+@using shared_csharp
 @{
     ViewData["Title"] = "Content Quality Report";
 }
@@ -17,6 +18,15 @@
                         <label class="form-label">Job</label>
                         <select id="jobType" class="form-select">
                             <option value="ContentValidator" selected>Content Validator</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label">Test</label>
+                        <select id="testKind" class="form-select">
+                            @foreach (var contentValidationKey in ModelConstants.ContentValidationKeys)
+                            {
+                                <option value="@contentValidationKey.Item1">@contentValidationKey.Item2</option>
+                            }
                         </select>
                     </div>
                     <div class="col-6 col-md-2">
@@ -68,6 +78,7 @@
             const jobIdBadge = document.getElementById('jobIdBadge');
             const jobTypeEl = document.getElementById('jobType');
             const dopEl = document.getElementById('dop');
+            const testKindEl = document.getElementById('testKind');
 
             let currentJobId = null;
             const connection = new signalR.HubConnectionBuilder()
@@ -128,7 +139,7 @@
                 }
                 try { await connection.invoke('JoinJobGroup', currentJobId); } catch(e) { addLog('Join failed: '+e); startBtn.disabled=false; return; }
 
-                const body = new URLSearchParams({ jobId: currentJobId, type: jobTypeEl.value, dop: (dopEl.value||'').toString() });
+                const body = new URLSearchParams({ jobId: currentJobId, type: jobTypeEl.value, dop: (dopEl.value||'').toString(), testKind: (testKindEl?.value||'').toString() });
                 const resp = await fetch('@Url.Action("IndexJob", "Home")', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
                 if (!resp.ok) { addLog('Failed to start job: ' + resp.status); startBtn.disabled = false; return; }
                 addLog('Job started: ' + currentJobId);

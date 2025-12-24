@@ -1,3 +1,4 @@
+@using shared_csharp
 @model webapp.Models.ValidationStatusViewModel
 @{
     ViewData["Title"] = "Content Quality Status";
@@ -28,10 +29,9 @@
                         <thead>
                         <tr>
                             <th scope="col" style="width:60%">Folder</th>
-                            @foreach (var x in Model.Items.Select(s => s.TestKind)
-                                              .Distinct().OrderBy(x => x).ToList())
+                            @foreach (var x in ModelConstants.ContentValidationKeys)
                             {
-                                <th scope="col" style="width:40%">@x</th>
+                                <th scope="col">@x.Item2</th>
                             }
                         </tr>
                         </thead>
@@ -40,19 +40,28 @@
                         {
                             <tr>
                                 <td>
-                                    <a href="@Url.Action("ContentQualityDetails", new { folder = folderName })" title="View details">
+                                    <a href="@Url.Action("ContentQualityDetails", new { folder = folderName })"
+                                       title="View details">
                                         <code>@folderName</code>
                                     </a>
                                 </td>
-                                @foreach (var fs in Model.Items
-                                                  .Where(w => w.Folder.Equals(folderName))
-                                                  .OrderBy(o => o.TestKind).ToList())
+                                @foreach (var fs in ModelConstants.ContentValidationKeys)
                                 {
-                                    var color = fs.Status == "Passed" ? "#28a745" : fs.Status == "Failed" ? "#dc3545" : fs.Status == "Running" ? "#ffc107" : "#6c757d";
-                                    
-                                    <td>
-                                        <span style="color:@color">@fs.Status</span>
-                                    </td>
+                                    var test = Model.Items.FirstOrDefault(f => f.Folder.Equals(folderName) && f.TestKind.Equals(fs.Item1));
+                                    if (test == null)
+                                    {
+                                        <td>
+                                            <span>Missing</span>
+                                        </td>
+                                    }
+                                    else
+                                    {
+                                        var color = test.Status == "Passed" ? "#28a745" : test.Status == "Failed" ? "#dc3545" : test.Status == "Running" ? "#ffc107" : "#6c757d";
+
+                                        <td>
+                                            <span style="color:@color">@test.Status</span>
+                                        </td>
+                                    }
                                 }
 
                             </tr>

@@ -3,7 +3,9 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using shared_csharp;
+using shared_csharp.Abstractions;
 using shared_csharp.Extensions;
+using shared_csharp.Infrastructure;
 using Xunit.Abstractions;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
@@ -13,6 +15,8 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
 {
     // Define the regex for MD5 prefix (32 characters of hexadecimal)
     private readonly Regex _md5PrefixRegex = new Regex(@"^[a-fA-F0-9]{32}$", RegexOptions.Compiled);
+
+    private readonly IFileSystem _fileSystem = new PhysicalFileSystem();
 
     // private static readonly string ContextPath = "/Volumes/AnnaR/to-process-2022";
     //private static readonly string ContextPath = "/Volumes/AnnaB/PhotoHive";
@@ -97,14 +101,10 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
     }
 
     [Theory]
-    [MemberData(nameof(TestFilePaths))]
-    public void ValidateFolder(string folderPath) => Assert.NotEmpty(folderPath);
-
-    [Theory]
     [MemberData(nameof(GetTestingFiles))]
     public async Task ValidateEmbeddingsResult(string filePath)
     {
-        var embeddingContent = await GetEmbAnswer(filePath);
+        var embeddingContent = await _fileSystem.GetEmbAnswer(filePath);
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         var item = JsonSerializer.Deserialize<EmbeddingFile>(embeddingContent, options);
         if (item?.data == null || item.data.Count == 0)
@@ -118,6 +118,7 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
         }
     }
 
+    // done
     [Theory]
     [MemberData(nameof(GetTestingFiles))]
     public void ValidateDescriptionQueries(string filePath)
@@ -135,6 +136,7 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
             $"Query file '{Path.Combine(dqFolder, groupName + ".dq.md")}' does not exist.");
     }
 
+    // done
     [Theory]
     [MemberData(nameof(GetTestingFiles))]
     public void ValidateEnglish10WordsQueries(string filePath)
@@ -152,6 +154,7 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
             $"Query file '{Path.Combine(dqFolder, groupName + ".engShort.md")}' does not exist.");
     }
 
+    // done
     [Theory]
     [MemberData(nameof(GetTestingFiles))]
     public void ValidateTagsQueries(string filePath)
@@ -169,6 +172,7 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
             $"Query file '{Path.Combine(dqFolder, groupName + ".eng30tags.md")}' does not exist.");
     }
 
+    // done 
     [Theory]
     [MemberData(nameof(GetTestingFiles))]
     public void ValidateCommerceMarkQueries(string filePath)
@@ -186,6 +190,7 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
             $"Query file '{Path.Combine(dqFolder, groupName + ".commerceMark.md")}' does not exist.");
     }
 
+    // done
     [Theory]
     [MemberData(nameof(GetTestingFiles))]
     public void ValidateDescriptionAnswers(string filePath)
@@ -205,6 +210,7 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
             $"Answer file '{Path.Combine(dqFolder, groupName + ".dq.md.answer.md")}' does not exist.");
     }
 
+    // done
     [Theory]
     [MemberData(nameof(GetTestingFiles))]
     public void ValidateEnglish10WordsAnswers(string filePath)
@@ -224,6 +230,7 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
             $"Answer file '{Path.Combine(dqFolder, groupName + ".engShort.md.answer.md")}' does not exist.");
     }
 
+    // done
     [Theory]
     [MemberData(nameof(GetTestingFiles))]
     public void ValidateTagsAnswers(string filePath)
@@ -264,36 +271,6 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
         var content = await File.ReadAllTextAsync(eng30TagsFilePath);
         var tags = content.Split(',').Select(s => s.Trim()).ToArray();
 
-        // // attempting to fix when tags splitted by dash
-        // if (tags.Length == 1)
-        // {
-        //     var fixedTags = tags[0].Split('-').Select(s => s.Trim())
-        //         .Where(s => !string.IsNullOrWhiteSpace(s))
-        //         .ToArray();
-        //
-        //     await File.WriteAllTextAsync(eng30TagsFilePath, string.Join(",", fixedTags));
-        //
-        //     // re read again
-        //     content = await File.ReadAllTextAsync(eng30TagsFilePath);
-        //     tags = content.Split(',').Select(s => s.Trim()).ToArray();
-        //
-        //     // attempting to fix another way
-        //     if (tags.Length == 1)
-        //     {
-        //         fixedTags = Regex.Replace(content, "\\d+. ", string.Empty).Split('\n')
-        //             .Where(s => !string.IsNullOrWhiteSpace(s)).ToArray();
-        //
-        //         if (fixedTags.Length > 1)
-        //         {
-        //             await File.WriteAllTextAsync(eng30TagsFilePath, string.Join(",", fixedTags));
-        //
-        //             // re read again
-        //             content = await File.ReadAllTextAsync(eng30TagsFilePath);
-        //             tags = content.Split(',').Select(s => s.Trim()).ToArray();
-        //         }
-        //     }
-        // }
-
         if (tags.Length == 1)
         {
             testOutputHelper.WriteLine(eng30TagsFilePath);
@@ -302,6 +279,7 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
         Assert.True(tags.Length > 5);
     }
 
+    // done
     [Theory]
     [MemberData(nameof(GetTestingFiles))]
     public void ValidateCommerceAnswers(string filePath)
@@ -353,19 +331,7 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
             Assert.Fail($"Cant read {answerFile}");
         }
     }
-
-    /*
-     * {
-         "rate" : 2,
-         "rate-explanation" : "Good resolution... ."
-       }
-     */
-    public record CommerceJson(
-        [property: JsonProperty("rate")] int Rate,
-        [property: JsonProperty("rate-explanation")]
-        string RateExplanation
-    );
-
+ 
     [Theory]
     [MemberData(nameof(GetTestingFiles))]
     public async Task CheckThatEachAnswerMustHaveMultipleSentences(string filePath)
@@ -391,13 +357,13 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
 
     [Theory]
     [MemberData(nameof(GetTestingFiles))]
-    public void ValidateEmbeddings(string filePath)
+    public void ValidateEmbeddingsExistance(string filePath)
     {
-        Assert.True(File.Exists(ResolveEmbAnswer(filePath)),
-            $"Embeddings file answer '{ResolveEmbAnswer(filePath)}' does not exist.");
+        Assert.True(File.Exists(PathExtensions.ResolveEmbAnswer(filePath)),
+            $"Embeddings file answer '{PathExtensions.ResolveEmbAnswer(filePath)}' does not exist.");
         
-        Assert.True(File.Exists(ResolveEmbAnswer(filePath)),
-            $"Embeddings file conversation '{ResolveEmbConversation(filePath)}' does not exist.");
+        Assert.True(File.Exists(PathExtensions.ResolveEmbAnswer(filePath)),
+            $"Embeddings file conversation '{PathExtensions.ResolveEmbConversation(filePath)}' does not exist.");
     }
 
     [Theory]
@@ -413,6 +379,7 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
         Assert.True(File.Exists(previewPath), $"Preview file '{previewPath}' does not exist.");
     }
 
+    // done
     [Theory]
     [MemberData(nameof(GetTestingFiles))]
     public void ValidateFileNamesConvention(string filePath)
@@ -438,6 +405,7 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
         Assert.Fail($"Wrong naming convention for file '{filePath}'");
     }
 
+    // done
     [Theory]
     [MemberData(nameof(GetTestingFiles))]
     public void ValidateFileNameHasMd5Prefix(string filePath)
@@ -507,14 +475,14 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
 
     [Theory]
     [MemberData(nameof(GetTestingFiles))]
-    public async Task QuestionMustContainFileKey(string filePath)
+    public async Task QuestionsMustHaveFileKey(string filePath)
     {
-        var fileKey = ResolveFileKey(filePath);
+        var fileKey = PathExtensions.ResolveFileKey(filePath);
 
-        var commerceMarkQuestion = await GetCommerceMarkQuestion(filePath);
-        var engShortQuestion = await GetEngShortQuestion(filePath);
-        var eng30TagsQuestion = await GetEng30TagsQuestion(filePath);
-        var dqQuestion = await GetDqQuestion(filePath);
+        var commerceMarkQuestion = await _fileSystem.GetCommerceMarkQuestion(filePath);
+        var engShortQuestion = await _fileSystem.GetEngShortQuestion(filePath);
+        var eng30TagsQuestion = await  _fileSystem.GetEng30TagsQuestion(filePath);
+        var dqQuestion = await  _fileSystem.GetDqQuestion(filePath);
 
         // file key must be inside question and inside conversation. This is because we pass preview for each input. 
         Assert.True(commerceMarkQuestion.Contains(fileKey),
@@ -527,14 +495,14 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
 
     [Theory]
     [MemberData(nameof(GetTestingFiles))]
-    public async Task ConversationMustContainFileKey(string filePath)
+    public async Task ConversationsMustHaveFileKey(string filePath)
     {
-        var fileKey = ResolveFileKey(filePath);
+        var fileKey = PathExtensions.ResolveFileKey(filePath);
 
-        var commerceMarkConversation = await GetCommerceMarkConversation(filePath);
-        var engShortConversation = await GetEngShortConversation(filePath);
-        var eng30TagsConversation = await GetEng30TagsConversation(filePath);
-        var dqConversation = await GetDqConversation(filePath);
+        var commerceMarkConversation = await _fileSystem.GetCommerceMarkConversation(filePath);
+        var engShortConversation = await _fileSystem.GetEngShortConversation(filePath);
+        var eng30TagsConversation = await _fileSystem.GetEng30TagsConversation(filePath);
+        var dqConversation = await _fileSystem.GetDqConversation(filePath);
 
         // file key must be inside question and inside conversation. This is because we pass preview for each input. 
         Assert.True(commerceMarkConversation.Contains(fileKey),
@@ -552,20 +520,20 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
     //[MemberData(nameof(GetTestingFiles))]
     public async Task SyncAnswerWithConversation(string filePath)
     {
-        var commerceMarkConversation = await GetCommerceMarkConversation(filePath);
-        var engShortConversation = await GetEngShortConversation(filePath);
-        var eng30TagsConversation = await GetEng30TagsConversation(filePath);
-        var dqConversation = await GetDqConversation(filePath);
+        var commerceMarkConversation = await _fileSystem.GetCommerceMarkConversation(filePath);
+        var engShortConversation = await _fileSystem.GetEngShortConversation(filePath);
+        var eng30TagsConversation = await _fileSystem.GetEng30TagsConversation(filePath);
+        var dqConversation = await _fileSystem.GetDqConversation(filePath);
         
-        var commerceMarkAnswer = await GetCommerceMarkAnswer(filePath);
-        var engShortAnswer = await GetEngShortAnswer(filePath);
-        var eng30TagsAnswer = await GetEng30TagsAnswer(filePath);
-        var dqAnswer = await GetDqAnswer(filePath);
+        var commerceMarkAnswer = await _fileSystem.GetCommerceMarkAnswer(filePath);
+        var engShortAnswer = await _fileSystem.GetEngShortAnswer(filePath);
+        var eng30TagsAnswer = await _fileSystem.GetEng30TagsAnswer(filePath);
+        var dqAnswer = await _fileSystem.GetDqAnswer(filePath);
     
-        await UpdateAnswerWithConversation(commerceMarkConversation, commerceMarkAnswer, ResolveCommerceMarkAnswerPath(filePath));
-        await UpdateAnswerWithConversation(engShortConversation, engShortAnswer, ResolveEngShortAnswerPath(filePath));
-        await UpdateAnswerWithConversation(eng30TagsConversation, eng30TagsAnswer, ResolveEng30TagsAnswerPath(filePath));
-        await UpdateAnswerWithConversation(dqConversation, dqAnswer, ResolveDqAnswerPath(filePath));
+        await UpdateAnswerWithConversation(commerceMarkConversation, commerceMarkAnswer, PathExtensions.ResolveCommerceMarkAnswerPath(filePath));
+        await UpdateAnswerWithConversation(engShortConversation, engShortAnswer, PathExtensions.ResolveEngShortAnswerPath(filePath));
+        await UpdateAnswerWithConversation(eng30TagsConversation, eng30TagsAnswer, PathExtensions.ResolveEng30TagsAnswerPath(filePath));
+        await UpdateAnswerWithConversation(dqConversation, dqAnswer, PathExtensions.ResolveDqAnswerPath(filePath));
     
         await Task.CompletedTask;
     }
@@ -589,16 +557,16 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
     [MemberData(nameof(GetTestingFiles))]
     public async Task EmbeddingAnswersMustBeInsideConversation(string filePath)
     {
-        var embeddingAnswer = await GetEmbAnswer(filePath);
-        var embeddingConversation = await GetEmbConversation(filePath);
+        var embeddingAnswer = await _fileSystem.GetEmbAnswer(filePath);
+        var embeddingConversation = await _fileSystem.GetEmbConversation(filePath);
         
-        var descriptionAnswer = await GetDqAnswer(filePath);
+        var descriptionAnswer = await _fileSystem.GetDqAnswer(filePath);
         
         Assert.True(embeddingConversation.Contains(embeddingAnswer), 
-            $"'embeddingAnswer {ResolveEmbAnswer(filePath)}' does not have in conversation");
+            $"'embeddingAnswer {PathExtensions.ResolveEmbAnswer(filePath)}' does not have in conversation");
         
         Assert.True(embeddingConversation.Contains(descriptionAnswer), 
-            $"'descriptionAnswer {ResolveDqAnswerPath(filePath)}' does not have in conversation");
+            $"'descriptionAnswer {PathExtensions.ResolveDqAnswerPath(filePath)}' does not have in conversation");
     } 
     
      
@@ -606,25 +574,25 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
     [MemberData(nameof(GetTestingFiles))]
     public async Task AnswersMustBeInsideConversation(string filePath)
     {
-        var commerceMarkConversation = await GetCommerceMarkConversation(filePath);
-        var engShortConversation = await GetEngShortConversation(filePath);
-        var eng30TagsConversation = await GetEng30TagsConversation(filePath);
-        var dqConversation = await GetDqConversation(filePath);
+        var commerceMarkConversation = await _fileSystem.GetCommerceMarkConversation(filePath);
+        var engShortConversation = await _fileSystem.GetEngShortConversation(filePath);
+        var eng30TagsConversation = await _fileSystem.GetEng30TagsConversation(filePath);
+        var dqConversation = await _fileSystem.GetDqConversation(filePath);
 
-        var commerceMarkAnswer = await GetCommerceMarkAnswer(filePath);
-        var engShortAnswer = await GetEngShortAnswer(filePath);
-        var eng30TagsAnswer = await GetEng30TagsAnswer(filePath);
-        var dqAnswer = await GetDqAnswer(filePath);
+        var commerceMarkAnswer = await _fileSystem.GetCommerceMarkAnswer(filePath);
+        var engShortAnswer = await _fileSystem.GetEngShortAnswer(filePath);
+        var eng30TagsAnswer = await _fileSystem.GetEng30TagsAnswer(filePath);
+        var dqAnswer = await _fileSystem.GetDqAnswer(filePath);
 
         // each answer must be inside conversation:
         Assert.True(commerceMarkConversation.Contains(commerceMarkAnswer), 
-            $"'commerceMarkAnswer {ResolveCommerceMarkAnswerPath(filePath)}' does not have in conversation");
+            $"'commerceMarkAnswer {PathExtensions.ResolveCommerceMarkAnswerPath(filePath)}' does not have in conversation");
         Assert.True(engShortConversation.Contains(engShortAnswer),
-            $"'engShortAnswer {ResolveEngShortConversationPath(filePath)}' does not exist in conversation");
+            $"'engShortAnswer {PathExtensions.ResolveEngShortConversationPath(filePath)}' does not exist in conversation");
         Assert.True(eng30TagsConversation.Contains(eng30TagsAnswer),
-            $"'eng30TagsAnswer {ResolveEng30TagsConversationPath(filePath)}' does not exist in conversation");
+            $"'eng30TagsAnswer {PathExtensions.ResolveEng30TagsConversationPath(filePath)}' does not exist in conversation");
         Assert.True(dqConversation.Contains(dqAnswer),
-            $"'dqAnswer {ResolveDqConversationPath(filePath)}' does not exist in conversation");
+            $"'dqAnswer {PathExtensions.ResolveDqConversationPath(filePath)}' does not exist in conversation");
     }
 
 
@@ -676,63 +644,5 @@ public class ValidationTests(ITestOutputHelper testOutputHelper)
             onFolderProcessed?.Invoke(arg);
         }
     }
-    private string ResolveFileKey(string filePath)
-    {
-        // optional group name 
-        var groupName = Path.GetFileNameWithoutExtension(filePath).Split("_")[0];
-        if (groupName.Length != 4)
-        {
-            groupName = Path.GetFileNameWithoutExtension(filePath);
-        }
-
-        return groupName;
-    }
-
-    private string ResolveAiPath(string filePath, string sectionKey, string kindKey)
-    {
-        var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
-        var sectionFolder = Path.Combine(directoryName, sectionKey);
-        var groupName = ResolveFileKey(filePath);
-
-        if (kindKey == "question")
-        {
-            return Path.Combine(sectionFolder, groupName + $".{sectionKey}.md");
-        }
-
-        return Path.Combine(sectionFolder, groupName + $".{sectionKey}.md.{kindKey}.md");
-    }
     
-    private string ResolveEmbAnswer(string filePath) => ResolveAiPath(filePath, "emb", "answer");
-    private string ResolveEmbConversation(string filePath) => ResolveAiPath(filePath, "emb", "conversation");
-
-    private string ResolveDqQuestionPath(string filePath) => ResolveAiPath(filePath, "dq", "question");
-    private string ResolveCommerceMarkQuestionPath(string filePath) => ResolveAiPath(filePath, "commerceMark", "question");
-    private string ResolveEng30TagsQuestionPath(string filePath) => ResolveAiPath(filePath, "eng30Tags", "question");
-    private string ResolveEngShortQuestionPath(string filePath) => ResolveAiPath(filePath, "engShort", "question");
-
-    private string ResolveDqConversationPath(string filePath) => ResolveAiPath(filePath, "dq", "conversation");
-    private string ResolveCommerceMarkConversationPath(string filePath) => ResolveAiPath(filePath, "commerceMark", "conversation");
-    private string ResolveEng30TagsConversationPath(string filePath) => ResolveAiPath(filePath, "eng30Tags", "conversation");
-    private string ResolveEngShortConversationPath(string filePath) => ResolveAiPath(filePath, "engShort", "conversation");
-
-    private string ResolveDqAnswerPath(string filePath) => ResolveAiPath(filePath, "dq", "answer");
-    private string ResolveCommerceMarkAnswerPath(string filePath) => ResolveAiPath(filePath, "commerceMark", "answer");
-    private string ResolveEng30TagsAnswerPath(string filePath) => ResolveAiPath(filePath, "eng30Tags", "answer");
-    private string ResolveEngShortAnswerPath(string filePath) => ResolveAiPath(filePath, "engShort", "answer");
-
-    
-    private async Task<string> GetEmbAnswer(string filePath) => await File.ReadAllTextAsync(ResolveEmbAnswer(filePath));
-    private async Task<string> GetEmbConversation(string filePath) => await File.ReadAllTextAsync(ResolveEmbConversation(filePath));
-    private async Task<string> GetDqQuestion(string filePath) => await File.ReadAllTextAsync(ResolveDqQuestionPath(filePath));
-    private async Task<string> GetCommerceMarkQuestion(string filePath) => await File.ReadAllTextAsync(ResolveCommerceMarkQuestionPath(filePath));
-    private async Task<string> GetEng30TagsQuestion(string filePath) => await File.ReadAllTextAsync(ResolveEng30TagsQuestionPath(filePath));
-    private async Task<string> GetEngShortQuestion(string filePath) => await File.ReadAllTextAsync(ResolveEngShortQuestionPath(filePath));
-    private async Task<string> GetDqAnswer(string filePath) => await File.ReadAllTextAsync(ResolveDqAnswerPath(filePath));
-    private async Task<string> GetCommerceMarkAnswer(string filePath) => await File.ReadAllTextAsync(ResolveCommerceMarkAnswerPath(filePath));
-    private async Task<string> GetEng30TagsAnswer(string filePath) => await File.ReadAllTextAsync(ResolveEng30TagsAnswerPath(filePath));
-    private async Task<string> GetEngShortAnswer(string filePath) => await File.ReadAllTextAsync(ResolveEngShortAnswerPath(filePath));
-    private async Task<string> GetDqConversation(string filePath) => await File.ReadAllTextAsync(ResolveDqConversationPath(filePath));
-    private async Task<string> GetCommerceMarkConversation(string filePath) => await File.ReadAllTextAsync(ResolveCommerceMarkConversationPath(filePath));
-    private async Task<string> GetEng30TagsConversation(string filePath) => await File.ReadAllTextAsync(ResolveEng30TagsConversationPath(filePath));
-    private async Task<string> GetEngShortConversation(string filePath) => await File.ReadAllTextAsync(ResolveEngShortConversationPath(filePath));
 }

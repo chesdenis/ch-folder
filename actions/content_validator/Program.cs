@@ -4,6 +4,7 @@ using System.Text.Json;
 using shared_csharp.Abstractions;
 using shared_csharp.Infrastructure;
 using System.Linq;
+using content_validator.ContentTests;
 
 namespace content_validator;
 
@@ -37,7 +38,17 @@ internal static class Program
             services.AddSingleton<IFileSystem, PhysicalFileSystem>();
             services.AddSingleton<IFileHasher, FileHasher>();
             // Register validation strategies
-            services.AddSingleton<IContentValidationTest, FileHasCorrectMd5PrefixTest>();
+            services.AddSingleton<IContentValidationTest, ValidateMd5Prefix>();
+            services.AddSingleton<IContentValidationTest, ValidateFileNameConvention>();
+            
+            services.AddSingleton<IContentValidationTest, ValidateDescriptionQuery>();
+            services.AddSingleton<IContentValidationTest, ValidateEngShortQuery>();
+            services.AddSingleton<IContentValidationTest, ValidateCommerceMarkQuery>();
+            services.AddSingleton<IContentValidationTest, ValidateTagsQuery>();
+
+            services.AddSingleton<IContentValidationTest, CheckCommerceJsonInAnswers>();
+            services.AddSingleton<IContentValidationTest, ValidateDescriptionAnswerMustHaveMultipleSentences>();
+            
             await using var provider = services.BuildServiceProvider();
 
             var strategies = provider.GetServices<IContentValidationTest>();

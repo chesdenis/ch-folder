@@ -42,3 +42,16 @@ body {
     box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.5);
     transform: scale(1.05);
 }
+
+.rotated-text {
+    transform: rotate(-90deg);
+    display: inline-block;
+    transform-origin: center;
+}
+
+.vertical-text {
+    writing-mode: vertical-lr;  
+    text-orientation: upright;  
+    height: 150px;
+    vertical-align: bottom;  
+}

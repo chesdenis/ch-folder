@@ -23,7 +23,7 @@ public enum JobType
 
 public interface IJobRunner
 {
-    string StartJob(string jobId, JobType jobType, string workingFolder, int? degreeOfParallelism = null);
+    string StartJob(string jobId, JobType jobType, string workingFolder, int? degreeOfParallelism = null, string? testKind = null);
 }
 
 
@@ -44,7 +44,7 @@ public class JobRunner : IJobRunner
         _dockerFolder = dockerFolder;
     }
 
-    public string StartJob(string jobId, JobType jobType, string workingFolder, int? degreeOfParallelism = null)
+    public string StartJob(string jobId, JobType jobType, string workingFolder, int? degreeOfParallelism = null, string? testKind = null)
     {
         var group = JobStatusHub.GroupName(jobId);
 
@@ -117,10 +117,11 @@ public class JobRunner : IJobRunner
                             {
                                 // Pass the real folder name (relative segment) to the container
                                 var folderName = row;
+                                var tk = testKind;
                                 exit = await _dockerFolder.RunContentValidatorAsync(
                                     actionsPath,
                                     folderAbs,
-                                    "file_has_correct_md5_prefix",
+                                    tk!,
                                     folderName,
                                     line => ReportProgress(jobId, group, total, completed,
                                         line, ct).GetAwaiter().GetResult(),
