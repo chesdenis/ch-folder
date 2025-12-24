@@ -16,9 +16,7 @@ internal sealed class CheckCommerceJsonInAnswers(IFileSystem fs) : ContentValida
         if (!pathExist)
         {
             var s = $"Commerce mark file does not exist: {Path.GetFileName(filePath)}";
-            await log(new { message = s });
             failures.Add(new { file = filePath, reason = s });
-            
             return false;
         }
 
@@ -32,15 +30,12 @@ internal sealed class CheckCommerceJsonInAnswers(IFileSystem fs) : ContentValida
             if (data == null || data.Rate == null || data.RateExplanation == null)
             {
                 var s = $"CommerceJson is null in: {Path.GetFileName(path)}";
-                await log(new { message = s });
                 failures.Add(new { file = filePath, reason = s });
-
                 return false;
             }
         }
         catch (Exception e)
         {
-            await log(new { message = $"Fatal error for '{filePath}': {e.Message}" });
             failures.Add(new { file = filePath, reason = $"Fatal error for '{filePath}': {e.Message}" });
             return false;
         }

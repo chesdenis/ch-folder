@@ -54,6 +54,7 @@ internal static class Program
             services.AddSingleton<IContentValidationTest, ValidateAnswersMustBeInsideConversation>();
             services.AddSingleton<IContentValidationTest, ValidateEmbeddingsResults>();
             services.AddSingleton<IContentValidationTest, ValidatePreviews>();
+            services.AddSingleton<IContentValidationTest, ValidateTagsAnswersStructure>();
             
             await using var provider = services.BuildServiceProvider();
 

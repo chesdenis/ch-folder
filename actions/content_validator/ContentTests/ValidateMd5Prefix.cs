@@ -40,7 +40,6 @@ internal sealed class ValidateMd5Prefix(IFileSystem fs) : ContentValidationTest(
 
             if (!result)
             {
-                await log(new { message = $"MD5 hash is incorrect: {Path.GetFileName(filePath)}" });
                 failures.Add(new { file = filePath, reason = "MD5 hash is incorrect" });
             }
 
@@ -48,7 +47,6 @@ internal sealed class ValidateMd5Prefix(IFileSystem fs) : ContentValidationTest(
         }
         catch (Exception e)
         {
-            await log(new { message = $"Fatal error for '{filePath}': {e.Message}" });
             failures.Add(new { file = filePath, reason = $"Fatal error for '{filePath}': {e.Message}" });
             return false;
         }

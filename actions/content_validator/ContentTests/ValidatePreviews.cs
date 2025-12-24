@@ -21,11 +21,9 @@ internal sealed class ValidatePreviews(IFileSystem fs) : ContentValidationTest(f
                 var previewPath = Path.Combine(previewFolder, previewFileName);
 
                 var fileExist = fs.FileExists(previewPath);
-
                 if (!fileExist)
                 {
                     var s = $"Preview file '{previewPath}' does not exist.";
-                    await log(new { message = s });
                     failures.Add(new { file = filePath, reason = s });
                     return false;
                 }
@@ -35,7 +33,6 @@ internal sealed class ValidatePreviews(IFileSystem fs) : ContentValidationTest(f
         }
         catch (Exception e)
         {
-            await log(new { message = $"Fatal error for '{filePath}': {e.Message}" });
             failures.Add(new { file = filePath, reason = $"Fatal error for '{filePath}': {e.Message}" });
             return false;
         }

@@ -5,7 +5,7 @@ namespace content_validator.ContentTests;
 
 internal sealed class QuestionsMustHaveFileKey(IFileSystem fs) : ContentValidationTest(fs)
 {
-    public override string Key => "KEY_IN_QUESTIONS";
+    public override string Key => "KEY_IN_Q";
 
     protected override async Task<bool> Validate(Func<dynamic, Task> log, string filePath, List<object> failures)
     {
@@ -21,7 +21,6 @@ internal sealed class QuestionsMustHaveFileKey(IFileSystem fs) : ContentValidati
             if (!commerceMarkQuestion.Contains(fileKey))
             {
                 var s = $"Commerce mark question '{filePath}' does not contain '{fileKey}'";
-                await log(new { message = s });
                 failures.Add(new { file = filePath, reason = s });
                 return false;
             }
@@ -29,7 +28,6 @@ internal sealed class QuestionsMustHaveFileKey(IFileSystem fs) : ContentValidati
             if (!engShortQuestion.Contains(fileKey))
             {
                 var s = $"Eng short question '{filePath}' does not contain '{fileKey}'";
-                await log(new { message = s });
                 failures.Add(new { file = filePath, reason = s });
                 return false;
             }
@@ -37,7 +35,6 @@ internal sealed class QuestionsMustHaveFileKey(IFileSystem fs) : ContentValidati
             if (!eng30TagsQuestion.Contains(fileKey))
             {
                 var s = $"Eng 30 tags question '{filePath}' does not contain '{fileKey}'";
-                await log(new { message = s });
                 failures.Add(new { file = filePath, reason = s });
                 return false;
             }
@@ -45,7 +42,6 @@ internal sealed class QuestionsMustHaveFileKey(IFileSystem fs) : ContentValidati
             if (!dqQuestion.Contains(fileKey))
             {
                 var s = $"Description question '{filePath}' does not contain '{fileKey}'";
-                await log(new { message = s });
                 failures.Add(new { file = filePath, reason = s });
                 return false;
             }
@@ -53,7 +49,6 @@ internal sealed class QuestionsMustHaveFileKey(IFileSystem fs) : ContentValidati
         }
         catch (Exception e)
         {
-            await log(new { message = $"Fatal error for '{filePath}': {e.Message}" });
             failures.Add(new { file = filePath, reason = $"Fatal error for '{filePath}': {e.Message}" });
             return false;
         }

@@ -32,7 +32,6 @@ internal sealed class ValidateFileNameConvention(IFileSystem fs) : ContentValida
 
                 if (!result)
                 {
-                    await log(new { message = $"File format is incorrect: {Path.GetFileName(filePath)}" });
                     failures.Add(
                         new { file = filePath, reason = $"File format is incorrect: {Path.GetFileName(filePath)}" });
                 }
@@ -46,7 +45,6 @@ internal sealed class ValidateFileNameConvention(IFileSystem fs) : ContentValida
         }
         catch (Exception e)
         {
-            await log(new { message = $"Fatal error for '{filePath}': {e.Message}" });
             failures.Add(new { file = filePath, reason = $"Fatal error for '{filePath}': {e.Message}" });
             return false;
         }

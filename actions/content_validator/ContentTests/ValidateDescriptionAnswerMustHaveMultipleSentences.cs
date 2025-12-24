@@ -16,7 +16,6 @@ internal sealed class ValidateDescriptionAnswerMustHaveMultipleSentences(IFileSy
             if (!pathExist)
             {
                 var s = $"Description does not exist: {Path.GetFileName(filePath)}";
-                await log(new { message = s });
                 failures.Add(new { file = filePath, reason = s });
 
                 return false;
@@ -28,13 +27,11 @@ internal sealed class ValidateDescriptionAnswerMustHaveMultipleSentences(IFileSy
             if (sentences.Length < 3)
             {
                 var s = $"Answer file '{path}' must have multiple sentences.";
-                await log(new { message = s });
                 failures.Add(new { file = filePath, reason = s });
             }
         }
         catch (Exception e)
         {
-            await log(new { message = $"Fatal error for '{filePath}': {e.Message}" });
             failures.Add(new { file = filePath, reason = $"Fatal error for '{filePath}': {e.Message}" });
             return false;
         }

@@ -17,7 +17,6 @@ internal sealed class ValidateEmbeddingsResults(IFileSystem fs) : ContentValidat
             if (!embAnswerExists)
             {
                 var s = $"Embeddings file does not exist: {Path.GetFileName(filePath)}";
-                await log(new { message = s });
                 failures.Add(new { file = filePath, reason = s });
                 return false;
             }
@@ -25,14 +24,12 @@ internal sealed class ValidateEmbeddingsResults(IFileSystem fs) : ContentValidat
             if (!embConversationExists)
             {
                 var s = $"Embeddings conversation does not exist: {Path.GetFileName(filePath)}";
-                await log(new { message = s });
                 failures.Add(new { file = filePath, reason = s });
                 return false;
             }
         }
         catch (Exception e)
         {
-            await log(new { message = $"Fatal error for '{filePath}': {e.Message}" });
             failures.Add(new { file = filePath, reason = $"Fatal error for '{filePath}': {e.Message}" });
             return false;
         }

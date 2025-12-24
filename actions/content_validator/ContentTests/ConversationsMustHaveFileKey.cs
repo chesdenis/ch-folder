@@ -23,7 +23,6 @@ internal sealed class ConversationsMustHaveFileKey(IFileSystem fs) : ContentVali
             if (!commerceMarkConversation.Contains(fileKey))
             {
                 var s = $"Commerce mark file '{filePath}' does not contain '{fileKey}'";
-                await log(new { message = s });
                 failures.Add(new { file = filePath, reason = s });
                 isOk = false;
             }
@@ -31,7 +30,6 @@ internal sealed class ConversationsMustHaveFileKey(IFileSystem fs) : ContentVali
             if (!engShortConversation.Contains(fileKey))
             {
                 var s = $"Eng short file '{filePath}' does not contain '{fileKey}'";
-                await log(new { message = s });
                 failures.Add(new { file = filePath, reason = s });
                 isOk = false;
             }
@@ -39,7 +37,6 @@ internal sealed class ConversationsMustHaveFileKey(IFileSystem fs) : ContentVali
             if (!eng30TagsConversation.Contains(fileKey))
             {
                 var s = $"Eng 30 tags file '{filePath}' does not contain '{fileKey}'";
-                await log(new { message = s });
                 failures.Add(new { file = filePath, reason = s });
                 isOk = false;
             }
@@ -47,7 +44,6 @@ internal sealed class ConversationsMustHaveFileKey(IFileSystem fs) : ContentVali
             if (!dqConversation.Contains(fileKey))
             {
                 var s = $"DQ file '{filePath}' does not contain '{fileKey}'";
-                await log(new { message = s });
                 failures.Add(new { file = filePath, reason = s });
                 isOk = false;
             }

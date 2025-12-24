@@ -5,7 +5,7 @@ namespace content_validator.ContentTests;
 
 internal sealed class ValidateAnswersMustBeInsideConversation(IFileSystem fs) : ContentValidationTest(fs)
 {
-    public override string Key => "ANS_INSIDE_CONV";
+    public override string Key => "ANS_IN_CONV";
 
     protected override async Task<bool> Validate(Func<dynamic, Task> log, string filePath, List<object> failures)
     {
@@ -25,7 +25,6 @@ internal sealed class ValidateAnswersMustBeInsideConversation(IFileSystem fs) : 
             {
                 var s =
                     $"CommerceMark answer '{PathExtensions.ResolveCommerceMarkAnswerPath(filePath)}' does not have in conversation.";
-                await log(new { message = s });
                 failures.Add(new { file = filePath, reason = s });
                 return false;
             }
@@ -34,7 +33,6 @@ internal sealed class ValidateAnswersMustBeInsideConversation(IFileSystem fs) : 
             {
                 var s =
                     $"EngShort answer '{PathExtensions.ResolveEngShortConversationPath(filePath)}' does not exist in conversation.";
-                await log(new { message = s });
                 failures.Add(new { file = filePath, reason = s });
                 return false;
             }
@@ -43,7 +41,6 @@ internal sealed class ValidateAnswersMustBeInsideConversation(IFileSystem fs) : 
             {
                 var s =
                     $"Eng30Tags answer '{PathExtensions.ResolveEng30TagsConversationPath(filePath)}' does not exist in conversation.";
-                await log(new { message = s });
                 failures.Add(new { file = filePath, reason = s });
                 return false;
             }
@@ -52,7 +49,6 @@ internal sealed class ValidateAnswersMustBeInsideConversation(IFileSystem fs) : 
             {
                 var s =
                     $"DQ answer '{PathExtensions.ResolveDqConversationPath(filePath)}' does not exist in conversation.";
-                await log(new { message = s });
                 failures.Add(new { file = filePath, reason = s });
                 return false;
             }
@@ -61,7 +57,6 @@ internal sealed class ValidateAnswersMustBeInsideConversation(IFileSystem fs) : 
         }
         catch (Exception e)
         {
-            await log(new { message = $"Fatal error for '{filePath}': {e.Message}" });
             failures.Add(new { file = filePath, reason = $"Fatal error for '{filePath}': {e.Message}" });
             return false;
         }

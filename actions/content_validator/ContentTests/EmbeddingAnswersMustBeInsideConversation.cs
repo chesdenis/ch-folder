@@ -5,7 +5,7 @@ namespace content_validator.ContentTests;
 
 internal sealed class EmbeddingAnswersMustBeInsideConversation(IFileSystem fs) : ContentValidationTest(fs)
 {
-    public override string Key => "EMB_ANS_INSIDE_CONV";
+    public override string Key => "EMB_ANS_IN_CONV";
 
     protected override async Task<bool> Validate(Func<dynamic, Task> log, string filePath, List<object> failures)
     {
@@ -20,7 +20,6 @@ internal sealed class EmbeddingAnswersMustBeInsideConversation(IFileSystem fs) :
             {
                 var s =
                     $"Embedding answer '{PathExtensions.ResolveEmbAnswer(filePath)}' does not have in conversation '{filePath}'";
-                await log(new { message = s });
                 failures.Add(new { file = filePath, reason = s });
                 isOk = false;
             }
@@ -29,7 +28,6 @@ internal sealed class EmbeddingAnswersMustBeInsideConversation(IFileSystem fs) :
             {
                 var s =
                     $"'DescriptionAnswer {PathExtensions.ResolveDqAnswerPath(filePath)}' does not have in conversation";
-                await log(new { message = s });
                 failures.Add(new { file = filePath, reason = s });
                 isOk = false;
             }
@@ -38,7 +36,6 @@ internal sealed class EmbeddingAnswersMustBeInsideConversation(IFileSystem fs) :
         }
         catch (Exception e)
         {
-            await log(new { message = $"Fatal error for '{filePath}': {e.Message}" });
             failures.Add(new { file = filePath, reason = $"Fatal error for '{filePath}': {e.Message}" });
             return false;
         }

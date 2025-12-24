@@ -28,7 +28,6 @@ internal abstract class QuestionAndAnswerValidation(IFileSystem fs) : ContentVal
         }
         catch (Exception e)
         {
-            await log(new { message = $"Fatal error for '{filePath}': {e.Message}" });
             failures.Add(new { file = filePath, reason = $"Fatal error for '{filePath}': {e.Message}" });
             return false;
         }
@@ -43,7 +42,6 @@ internal abstract class QuestionAndAnswerValidation(IFileSystem fs) : ContentVal
             if (isEmpty)
             {
                 var m = $"Question file '{path}' is empty.";
-                await log(new { message = m });
                 failures.Add(new { file = filePath, reason = m });
                 return false;
             }
@@ -51,8 +49,6 @@ internal abstract class QuestionAndAnswerValidation(IFileSystem fs) : ContentVal
         catch (Exception e)
         {
             var s = $"Error reading question file '{path}': {e.Message}";
-                
-            await log(new { message = s });
             failures.Add(new { file = filePath, reason = s });
             return false;
         }
@@ -69,7 +65,6 @@ internal abstract class QuestionAndAnswerValidation(IFileSystem fs) : ContentVal
             if (isEmpty)
             {
                 var m = $"Answer file '{path}' is empty.";
-                await log(new { message = m });
                 failures.Add(new { file = filePath, reason = m });
                 return false;
             }
@@ -77,8 +72,6 @@ internal abstract class QuestionAndAnswerValidation(IFileSystem fs) : ContentVal
         catch (Exception e)
         {
             var s = $"Error reading answer file '{path}': {e.Message}";
-                
-            await log(new { message = s });
             failures.Add(new { file = filePath, reason = s });
             return false;
         }
@@ -91,7 +84,6 @@ internal abstract class QuestionAndAnswerValidation(IFileSystem fs) : ContentVal
         if (!pathExist)
         {
             var m = $"File '{path}' does not exist.";
-            await log(new { message = m });
             failures.Add(new { file = filePath, reason = m });
             return false;
         }

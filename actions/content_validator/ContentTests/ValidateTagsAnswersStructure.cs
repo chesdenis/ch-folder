@@ -1,36 +1,42 @@
 using shared_csharp.Abstractions;
+using shared_csharp.Extensions;
 
 namespace content_validator.ContentTests;
 
 internal sealed class ValidateTagsAnswersStructure(IFileSystem fs) : ContentValidationTest(fs)
 {
-    // var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
-// var dqFolder = Path.Combine(directoryName, "eng30tags");
-//
-// var groupName = Path.GetFileNameWithoutExtension(filePath).Split("_")[0];
-// if (groupName.Length != 4)
-// {
-//     groupName = Path.GetFileNameWithoutExtension(filePath);
-// }
-//
-// var eng30TagsFilePath = Path.Combine(dqFolder, groupName + ".eng30tags.md.answer.md");
-//
-// Assert.True(File.Exists(eng30TagsFilePath),
-//     $"Answer file '{eng30TagsFilePath}' does not exist.");
-//
-// var content = await File.ReadAllTextAsync(eng30TagsFilePath);
-// var tags = content.Split(',').Select(s => s.Trim()).ToArray();
-//
-// if (tags.Length == 1)
-// {
-//     testOutputHelper.WriteLine(eng30TagsFilePath);
-// }
-//
-// Assert.True(tags.Length > 5);
-    public override string Key { get; }
+    public override string Key => "TAGS_OK";
 
-    protected override Task<bool> Validate(Func<dynamic, Task> log, string filePath, List<object> failures)
+    protected override async Task<bool> Validate(Func<dynamic, Task> log, string filePath, List<object> failures)
     {
-        throw new NotImplementedException();
+        try
+        {
+            var tagsPath = PathExtensions.ResolveEng30TagsAnswerPath(filePath);
+            var tagsExist = fs.FileExists(tagsPath);
+
+            if (!tagsExist)
+            {
+                var s = $"Eng30Tags answer does not exist: {Path.GetFileName(filePath)}";
+                failures.Add(new { file = filePath, reason = s });
+                return false;
+            }
+
+            var tagsContent = await fs.GetEng30TagsAnswer(filePath);
+            var tags = tagsContent.Split(',').Select(s => s.Trim()).ToArray();
+
+            if (tags.Length < 6)
+            {
+                var s =
+                    $"Eng30Tags answer '{PathExtensions.ResolveEng30TagsAnswerPath(filePath)}' must have at least 6 tags.";
+                failures.Add(new { file = filePath, reason = s });
+            }
+
+            return true;
+        }
+        catch (Exception e)
+        {
+            failures.Add(new { file = filePath, reason = $"Fatal error for '{filePath}': {e.Message}" });
+            return false;
+        }
     }
 }
