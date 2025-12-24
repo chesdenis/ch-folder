@@ -3,7 +3,7 @@ using Npgsql;
 using System.Text.Json;
 using shared_csharp.Abstractions;
 using shared_csharp.Infrastructure;
-using shared_csharp.Extensions;
+using System.Linq;
 
 namespace content_validator;
 
@@ -20,7 +20,7 @@ internal static class Program
             }
 
             var folder = args[0]; // container-mounted path (e.g., /in)
-            string testKind = DecodeB64(GetArgValue(args, "--test-kind")) ?? "file_has_correct_md5_prefix";
+            string testKind = DecodeB64(GetArgValue(args, "--test-kind")) ?? throw new Exception("Missing --test-kind");
             var folderName = DecodeB64(GetArgValue(args, "--folder-name"));
             if (string.IsNullOrWhiteSpace(folderName))
             {
@@ -36,9 +36,12 @@ internal static class Program
             var services = new ServiceCollection();
             services.AddSingleton<IFileSystem, PhysicalFileSystem>();
             services.AddSingleton<IFileHasher, FileHasher>();
+            // Register validation strategies
+            services.AddSingleton<IContentValidationTest, FileHasCorrectMd5PrefixTest>();
             await using var provider = services.BuildServiceProvider();
 
-            var fs = provider.GetRequiredService<IFileSystem>();
+            var strategies = provider.GetServices<IContentValidationTest>();
+            var strategy = strategies.FirstOrDefault(s => string.Equals(s.Key, testKind, StringComparison.OrdinalIgnoreCase));
 
             var connString = string.Join(";",
                 $"Host={Environment.GetEnvironmentVariable("PG_HOST")}",
@@ -60,23 +63,16 @@ internal static class Program
             object? finalDetails = null;
             try
             {
-                switch (testKind)
+                if (strategy is null)
                 {
-                    case "file_has_correct_md5_prefix":
-                        var res = await RunFileHasCorrectMd5PrefixAsync(fs, folder,
-                            async details => { Console.WriteLine(details.message); });
-                        exitCode = res.ExitCode;
-                        finalDetails = new
-                        {
-                            total = res.Total,
-                            mismatches = res.Mismatches,
-                            failures = res.Failures
-                        };
-                        break;
-                    default:
-                        Console.WriteLine($"Unknown test kind: {testKind}");
-                        exitCode = 3;
-                        break;
+                    Console.WriteLine($"Unknown test kind: {testKind}");
+                    exitCode = 3;
+                }
+                else
+                {
+                    var result = await strategy.ExecuteAsync(folder, async details => { Console.WriteLine(details.message); });
+                    exitCode = result.ExitCode;
+                    finalDetails = result.Details;
                 }
             }
             catch (Exception ex)
@@ -99,67 +95,7 @@ internal static class Program
         }
     }
 
-    private sealed record Md5PrefixResult(int ExitCode, int Total, int Mismatches, IReadOnlyList<object> Failures);
-
-    private static async Task<Md5PrefixResult> RunFileHasCorrectMd5PrefixAsync(IFileSystem fs, string folder,
-        Func<dynamic, Task> log)
-    {
-        if (!fs.DirectoryExists(folder))
-        {
-            await log(new { message = $"Folder does not exist: {folder}" });
-            return new Md5PrefixResult(2, 0, 0, Array.Empty<object>());
-        }
-
-        var files = fs.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly).ToArray();
-        int total = files.Length;
-        int mismatches = 0;
-        var failures = new List<object>();
-        await log(new { message = $"Checking {total} files..." });
-
-        foreach (var filePath in files)
-        {
-            if (!filePath.AllowImageToProcess())
-                continue;
-
-            var fileIdParts = Path.GetFileNameWithoutExtension(filePath).Split("_");
-            string md5Hash = string.Empty;
-
-            if (fileIdParts.Length == 4 && fileIdParts[0].Length == 4)
-            {
-                // we assume that fileIdParts[0] is a group ID, 4 characters long
-                // then we assume that fileIdParts[3] is md5 hash
-                md5Hash = fileIdParts[3];
-            }
-
-            if (fileIdParts.Length == 3)
-            {
-                // we assume that fileIdParts[0..1] are preview hashes
-                // then we assume that fileIdParts[2] is md5 hash
-                md5Hash = fileIdParts[2];
-            }
-
-            if (fileIdParts.Length == 1)
-            {
-                md5Hash = fileIdParts[0];
-            }
-
-            string actualHash = await filePath.CalculateMd5Async(force:true);
-
-            var result = md5Hash.Equals(actualHash, StringComparison.InvariantCultureIgnoreCase);
-
-            if (!result)
-            {
-                mismatches++;
-                
-                await log(new { message = $"MD5 hash is incorrect: {Path.GetFileName(filePath)}" });
-                failures.Add(new { file = filePath, reason = "MD5 hash is incorrect" });
-            }
-        }
-
-        await log(new { message = $"Done. Mismatches: {mismatches} of {total}" });
-        var code = mismatches == 0 ? 0 : 4;
-        return new Md5PrefixResult(code, total, mismatches, failures);
-    }
+    // Strategy-specific code moved into FileHasCorrectMd5PrefixTest
 
     private static string? GetArgValue(string[] args, string key)
     {

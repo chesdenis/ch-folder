@@ -26,6 +26,8 @@ public interface IJobRunner
     string StartJob(string jobId, JobType jobType, string workingFolder, int? degreeOfParallelism = null);
 }
 
+
+
 public class JobRunner : IJobRunner
 {
     private readonly IHubContext<JobStatusHub> _hub;
@@ -44,8 +46,7 @@ public class JobRunner : IJobRunner
 
     public string StartJob(string jobId, JobType jobType, string workingFolder, int? degreeOfParallelism = null)
     {
-        var id = string.IsNullOrWhiteSpace(jobId) ? Guid.NewGuid().ToString("N") : jobId;
-        var group = JobStatusHub.GroupName(id);
+        var group = JobStatusHub.GroupName(jobId);
 
         // Fire-and-forget background task
         _ = Task.Run((Func<Task>)(async () =>
@@ -53,34 +54,25 @@ public class JobRunner : IJobRunner
             try
             {
                 var rootPath = workingFolder ?? throw new InvalidOperationException("Working folder was not provided");
-                var actionsPath =_storage.ActionsPath ?? throw new InvalidOperationException("Actions root not specified in settings");
-                    
-                await _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
-                {
-                    jobId = id,
-                    percent = 0,
-                    message = $"Job '{jobType}' started. Root: '{rootPath}'"
-                });
-
                 if (!Directory.Exists(rootPath))
                 {
                     throw new DirectoryNotFoundException($"Working folder '{rootPath}' does not exist");
                 }
                 
+                var actionsPath =_storage.ActionsPath ?? throw new InvalidOperationException("Actions root not specified in settings");
+                    
                 var storageFolders = PathExtensions.GetStorageFolders(rootPath).ToArray();
                 var total = storageFolders.Length;
                 var completed = 0;
+                
                 var dop = Math.Max(1, degreeOfParallelism ?? Math.Min(Environment.ProcessorCount, 4));
 
-                await _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
-                {
-                    jobId = id,
-                    percent = ComputeCompleted(total, ref completed),
-                    message = $"Discovered {total} folder(s). Starting '{jobType}' with DOP={dop}..."
-                });
+                await ReportProgress(jobId, group, total, completed, $"Job '{jobType}' started. Root: '{rootPath}'");
+                
+                await ReportProgress(jobId, group, total, completed,
+                    $"Discovered {total} folder(s). Starting '{jobType}' with DOP={dop}...");
 
-                // Map job to appropriate docker runner function (unify signatures via wrappers)
-                var jobFunc = BuildJobFunc(jobType, id);
+              
 
                 var errors = new ConcurrentBag<string>();
 
@@ -93,108 +85,71 @@ public class JobRunner : IJobRunner
                         var folderAbs = Path.GetFullPath(Path.Combine(rootPath, row));
                         if (!Directory.Exists(folderAbs)) return;
 
-                        await _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
-                        {
-                            jobId = id,
-                            percent = ComputeCompleted(total, ref completed),
-                            message = $"Starting: {Path.GetRelativePath(rootPath, folderAbs)}"
-                        }, cancellationToken: ct);
+                        await ReportProgress(jobId, group, total, completed,
+                            $"Starting: {Path.GetRelativePath(rootPath, folderAbs)}", ct);
 
                         int exit;
-                        if (jobType == JobType.ContentValidator)
+                        switch (jobType)
                         {
-                            // Pass the real folder name (relative segment) to the container
-                            var folderName = row;
-                            exit = await _dockerFolder.RunContentValidatorAsync(
-                                actionsPath,
-                                folderAbs,
-                                "file_has_correct_md5_prefix",
-                                folderName,
-                                line =>
-                                {
-                                    try
-                                    {
-                                        _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
-                                        {
-                                            jobId = id,
-                                            percent = ComputeCompleted(total, ref completed),
-                                            message = line
-                                        }, cancellationToken: ct).GetAwaiter().GetResult();
-                                    }
-                                    catch { /* ignore hub send errors per-line */ }
-                                },
-                                line =>
-                                {
-                                    try
-                                    {
-                                        _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
-                                        {
-                                            jobId = id,
-                                            percent = ComputeCompleted(total, ref completed),
-                                            message = $"[stderr] {line}"
-                                        }, cancellationToken: ct).GetAwaiter().GetResult();
-                                    }
-                                    catch { }
-                                },
-                                ct);
-                        }
-                        else
-                        {
-                            exit = await jobFunc(
-                                actionsPath,
-                                folderAbs,
-                                line =>
-                                {
-                                    try
-                                    {
-                                        _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
-                                        {
-                                            jobId = id,
-                                            percent = ComputeCompleted(total, ref completed),
-                                            message = line
-                                        }, cancellationToken: ct).GetAwaiter().GetResult();
-                                    }
-                                    catch { /* ignore hub send errors per-line */ }
-                                },
-                                line =>
-                                {
-                                    try
-                                    {
-                                        _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
-                                        {
-                                            jobId = id,
-                                            percent = ComputeCompleted(total, ref completed),
-                                            message = $"[stderr] {line}"
-                                        }, cancellationToken: ct).GetAwaiter().GetResult();
-                                    }
-                                    catch { }
-                                },
-                                ct);
+                            case JobType.MetaUploader:
+                            case JobType.AiContentQueryBuilder:
+                            case JobType.AiContentAnswerBuilder:
+                            case JobType.EmbeddingDownloader:
+                            case JobType.Md5ImageMarker:
+                            case JobType.DuplicateMarker:
+                            case JobType.FaceHashBuilder:
+                            case JobType.GroupFolderExtractor:
+                            case JobType.AverageImageMarker:
+                            {
+                                // Map job to appropriate docker runner function (unify signatures via wrappers)
+                                var jobFunc = BuildJobFunc(jobType, jobId);
+                                
+                                exit = await jobFunc(
+                                    actionsPath,
+                                    folderAbs,
+                                    line => ReportProgress(jobId, group, total, completed,
+                                        line, ct).GetAwaiter().GetResult(),
+                                    line => ReportProgress(jobId, group, total, completed,
+                                        $"[stderr] {line}", ct).GetAwaiter().GetResult(), ct);
+                            }
+                                break;
+                            case JobType.ContentValidator:
+                            {
+                                // Pass the real folder name (relative segment) to the container
+                                var folderName = row;
+                                exit = await _dockerFolder.RunContentValidatorAsync(
+                                    actionsPath,
+                                    folderAbs,
+                                    "file_has_correct_md5_prefix",
+                                    folderName,
+                                    line => ReportProgress(jobId, group, total, completed,
+                                        line, ct).GetAwaiter().GetResult(),
+                                    line => ReportProgress(jobId, group, total, completed,
+                                        $"[stderr] {line}", ct).GetAwaiter().GetResult(), ct);
+                            }
+                                break;
+                            default:
+                                throw new ArgumentOutOfRangeException(nameof(jobType), jobType, null);
                         }
 
+                        
                         Interlocked.Increment(ref completed);
                         if (exit != 0)
                         {
                             errors.Add($"{jobType} failed for '{row}' with exit code {exit}");
                         }
 
-                        await _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
-                        {
-                            jobId = id,
-                            percent = ComputeCompleted(total, ref completed),
-                            message = $"Processed {completed}/{total} -> {Path.GetRelativePath(rootPath, folderAbs)}"
-                        }, cancellationToken: ct);
+                        ReportProgress(jobId, group, total, completed,
+                            $"Processed {completed}/{total} -> {Path.GetRelativePath(rootPath, folderAbs)}", ct).GetAwaiter().GetResult();
                     }
                     catch (Exception e)
                     {
                         errors.Add(e.Message);
                         Interlocked.Increment(ref completed);
-                        await _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
-                        {
-                            jobId = id,
-                            percent = ComputeCompleted(total, ref completed),
-                            message = $"Error: {e.Message}"
-                        }, cancellationToken: ct);
+                        
+                        ReportProgress(jobId, group, total, completed,
+                            $"Error: {e.Message}", ct).GetAwaiter().GetResult();
+                        
                     }
                 });
 
@@ -205,28 +160,45 @@ public class JobRunner : IJobRunner
   
                 await _hub.Clients.Group(group).SendAsync("ReceiveCompleted", new
                 {
-                    jobId = id,
-                    percent = ComputeCompleted(total, ref completed),
+                    jobId = jobId,
+                    percent = ComputeCompleted(total, completed),
                     message = $"Job '{jobType}' completed. Processed {total} folders."
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during job {JobId}", id);
+                _logger.LogError(ex, "Error during job {JobId}", jobId);
                 await _hub.Clients.Group(group).SendAsync("ReceiveError", new
                 {
-                    jobId = id,
+                    jobId = jobId,
                     message = ex.Message
                 });
             }
         }));
 
-        return id;
+        return jobId;
     }
 
-    private static int ComputeCompleted(int total, ref int completed)
+    private async Task ReportProgress(string jobId, string group, int total, int completed, string message, CancellationToken ct = default)
     {
-        return Volatile.Read(ref completed) * 100 / Math.Max(1, total);
+        try
+        {
+            await _hub.Clients.Group(group).SendAsync("ReceiveProgress", new
+            {
+                jobId,
+                percent = ComputeCompleted(total, completed),
+                message = message
+            }, ct);
+        }
+        catch
+        {
+            // ignored
+        }
+    }
+
+    private static int ComputeCompleted(int total, int completed)
+    {
+        return completed * 100 / Math.Max(1, total);
     }
 
     private Func<string, string, Action<string>?, Action<string>?, CancellationToken, Task<int>> BuildJobFunc(JobType jobType, string jobId)
@@ -242,8 +214,6 @@ public class JobRunner : IJobRunner
             JobType.FaceHashBuilder => (ap, hf, o, e, ct) => _dockerFolder.RunFaceHashBuilderAsync(ap, hf, o, e, ct),
             JobType.GroupFolderExtractor => (ap, hf, o, e, ct) => _dockerFolder.RunGroupFolderExtractorAsync(ap, hf, o, e, ct),
             JobType.AverageImageMarker => (ap, hf, o, e, ct) => _dockerFolder.RunAverageImageMarkerAsync(ap, hf, o, e, ct),
-            // Special-cased in the caller (we need 'folderName' separately). This mapping is unused.
-            JobType.ContentValidator => (ap, hf, o, e, ct) => Task.FromResult(0),
             _ => (ap, hf, o, e, ct) => _dockerFolder.RunMetaUploaderAsync(ap, hf, o, e, ct)
         };
         return jobFunc;
