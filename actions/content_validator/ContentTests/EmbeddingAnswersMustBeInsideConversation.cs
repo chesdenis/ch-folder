@@ -1,25 +1,46 @@
 using shared_csharp.Abstractions;
+using shared_csharp.Extensions;
 
 namespace content_validator.ContentTests;
 
 internal sealed class EmbeddingAnswersMustBeInsideConversation(IFileSystem fs) : ContentValidationTest(fs)
 {
-    // var embeddingAnswer = await _fileSystem.GetEmbAnswer(filePath);
-// var embeddingConversation = await _fileSystem.GetEmbConversation(filePath);
-//         
-// var descriptionAnswer = await _fileSystem.GetDqAnswer(filePath);
-//         
-// Assert.True(embeddingConversation.Contains(embeddingAnswer), 
-//     $"'embeddingAnswer {PathExtensions.ResolveEmbAnswer(filePath)}' does not have in conversation");
-//         
-// Assert.True(embeddingConversation.Contains(descriptionAnswer), 
-//     $"'descriptionAnswer {PathExtensions.ResolveDqAnswerPath(filePath)}' does not have in conversation");
+    public override string Key => "EMB_ANS_INSIDE_CONV";
 
-
-    public override string Key { get; }
-
-    protected override Task<bool> Validate(Func<dynamic, Task> log, string filePath, List<object> failures)
+    protected override async Task<bool> Validate(Func<dynamic, Task> log, string filePath, List<object> failures)
     {
-        throw new NotImplementedException();
+        try
+        {
+            var embeddingAnswer = await fs.GetEmbAnswer(filePath);
+            var embeddingConversation = await fs.GetEmbConversation(filePath);
+            var descriptionAnswer = await fs.GetDqAnswer(filePath);
+            var isOk = true;
+            
+            if (!embeddingConversation.Contains(embeddingAnswer))
+            {
+                var s =
+                    $"Embedding answer '{PathExtensions.ResolveEmbAnswer(filePath)}' does not have in conversation '{filePath}'";
+                await log(new { message = s });
+                failures.Add(new { file = filePath, reason = s });
+                isOk = false;
+            }
+
+            if (!embeddingConversation.Contains(descriptionAnswer))
+            {
+                var s =
+                    $"'DescriptionAnswer {PathExtensions.ResolveDqAnswerPath(filePath)}' does not have in conversation";
+                await log(new { message = s });
+                failures.Add(new { file = filePath, reason = s });
+                isOk = false;
+            }
+            
+            return isOk;
+        }
+        catch (Exception e)
+        {
+            await log(new { message = $"Fatal error for '{filePath}': {e.Message}" });
+            failures.Add(new { file = filePath, reason = $"Fatal error for '{filePath}': {e.Message}" });
+            return false;
+        }
     }
 }

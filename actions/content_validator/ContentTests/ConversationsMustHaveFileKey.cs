@@ -7,24 +7,58 @@ internal sealed class ConversationsMustHaveFileKey(IFileSystem fs) : ContentVali
 {
     public override string Key => "KEY_IN_CONVS";
 
-    protected override Task<bool> Validate(Func<dynamic, Task> log, string filePath, List<object> failures)
+    protected override async Task<bool> Validate(Func<dynamic, Task> log, string filePath, List<object> failures)
     {
-        throw new NotImplementedException();
+        try
+        {
+            var fileKey = PathExtensions.ResolveFileKey(filePath);
+
+            var commerceMarkConversation = await fs.GetCommerceMarkConversation(filePath);
+            var engShortConversation = await fs.GetEngShortConversation(filePath);
+            var eng30TagsConversation = await fs.GetEng30TagsConversation(filePath);
+            var dqConversation = await fs.GetDqConversation(filePath);
+
+            var isOk = true;
+
+            if (!commerceMarkConversation.Contains(fileKey))
+            {
+                var s = $"Commerce mark file '{filePath}' does not contain '{fileKey}'";
+                await log(new { message = s });
+                failures.Add(new { file = filePath, reason = s });
+                isOk = false;
+            }
+
+            if (!engShortConversation.Contains(fileKey))
+            {
+                var s = $"Eng short file '{filePath}' does not contain '{fileKey}'";
+                await log(new { message = s });
+                failures.Add(new { file = filePath, reason = s });
+                isOk = false;
+            }
+
+            if (!eng30TagsConversation.Contains(fileKey))
+            {
+                var s = $"Eng 30 tags file '{filePath}' does not contain '{fileKey}'";
+                await log(new { message = s });
+                failures.Add(new { file = filePath, reason = s });
+                isOk = false;
+            }
+
+            if (!dqConversation.Contains(fileKey))
+            {
+                var s = $"DQ file '{filePath}' does not contain '{fileKey}'";
+                await log(new { message = s });
+                failures.Add(new { file = filePath, reason = s });
+                isOk = false;
+            }
+            
+            return isOk;
+        }
+        catch (Exception e)
+        {
+            await log(new { message = $"Fatal error for '{filePath}': {e.Message}" });
+            failures.Add(new { file = filePath, reason = $"Fatal error for '{filePath}': {e.Message}" });
+            return false;
+        }
     }
-    // var fileKey = PathExtensions.ResolveFileKey(filePath);
-//
-// var commerceMarkConversation = await _fileSystem.GetCommerceMarkConversation(filePath);
-// var engShortConversation = await _fileSystem.GetEngShortConversation(filePath);
-// var eng30TagsConversation = await _fileSystem.GetEng30TagsConversation(filePath);
-// var dqConversation = await _fileSystem.GetDqConversation(filePath);
-//
-// // file key must be inside question and inside conversation. This is because we pass preview for each input. 
-// Assert.True(commerceMarkConversation.Contains(fileKey),
-//     $"'commerceMarkConversation {filePath}' does not contain '{fileKey}'");
-// Assert.True(engShortConversation.Contains(fileKey),
-//     $"'engShortConversation {filePath}' does not contain '{fileKey}'");
-// Assert.True(eng30TagsConversation.Contains(fileKey),
-//     $"'eng30TagsConversation {filePath}' does not contain '{fileKey}'");
-// Assert.True(dqConversation.Contains(fileKey),
-//     $"'dqConversation {filePath}' does not contain '{fileKey}'");
 }

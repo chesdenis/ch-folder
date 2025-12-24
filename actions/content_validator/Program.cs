@@ -48,6 +48,12 @@ internal static class Program
 
             services.AddSingleton<IContentValidationTest, CheckCommerceJsonInAnswers>();
             services.AddSingleton<IContentValidationTest, ValidateDescriptionAnswerMustHaveMultipleSentences>();
+            services.AddSingleton<IContentValidationTest, ConversationsMustHaveFileKey>();
+            services.AddSingleton<IContentValidationTest, EmbeddingAnswersMustBeInsideConversation>();
+            services.AddSingleton<IContentValidationTest, QuestionsMustHaveFileKey>();
+            services.AddSingleton<IContentValidationTest, ValidateAnswersMustBeInsideConversation>();
+            services.AddSingleton<IContentValidationTest, ValidateEmbeddingsResults>();
+            services.AddSingleton<IContentValidationTest, ValidatePreviews>();
             
             await using var provider = services.BuildServiceProvider();
 
