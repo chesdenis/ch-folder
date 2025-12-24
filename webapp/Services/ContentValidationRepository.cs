@@ -8,7 +8,7 @@ namespace webapp.Services;
 public interface IContentValidationRepository
 {
     Task<IReadOnlyList<ValidationRow>> GetByJobAsync(Guid jobId, CancellationToken ct = default);
-    Task<IReadOnlyList<ValidationRow>> GetLatestByTestKindAsync(string testKind, CancellationToken ct = default);
+    Task<IReadOnlyList<ValidationRow>> GetLatestAsync(CancellationToken ct = default);
 }
 
 public sealed class ContentValidationRepository(IOptions<ConnectionStringOptions> connectionStrings)
@@ -35,7 +35,7 @@ public sealed class ContentValidationRepository(IOptions<ConnectionStringOptions
         return list;
     }
 
-    public async Task<IReadOnlyList<ValidationRow>> GetLatestByTestKindAsync(string testKind, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ValidationRow>> GetLatestAsync(CancellationToken ct = default)
     {
         var list = new List<ValidationRow>();
         await using var conn = Create();
@@ -45,12 +45,8 @@ public sealed class ContentValidationRepository(IOptions<ConnectionStringOptions
             SELECT DISTINCT ON (folder, test_kind)
                    folder, test_kind, status
             FROM content_validation_result
-            WHERE test_kind = @kind
             ORDER BY folder, test_kind, COALESCE(finished_at, started_at) DESC;";
         await using var cmd = new NpgsqlCommand(sql, conn);
-        if (string.IsNullOrWhiteSpace(testKind)) testKind = "file_has_correct_md5_prefix";
-        var p = cmd.Parameters.Add("@kind", NpgsqlDbType.Text);
-        p.Value = testKind;
         await using var rdr = await cmd.ExecuteReaderAsync(ct);
         while (await rdr.ReadAsync(ct))
         {

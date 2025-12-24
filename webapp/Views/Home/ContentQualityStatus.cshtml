@@ -14,24 +14,47 @@
                         <div class="form-control-plaintext">Storage: @ViewBag.StoragePath</div>
                     </div>
                     <div class="col-12 col-md-4 text-md-end">
-                        <a class="btn btn-outline-secondary" href="@Url.Action("ContentQualityStatus", new { testKind = Model.TestKind })">Refresh</a>
+                        <a class="btn btn-outline-secondary" href="@Url.Action("ContentQualityStatus")">Refresh</a>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="card">
-            <div class="card-header">Latest by folder (@Model.TestKind)</div>
+            <div class="card-header">Folder health and data consistency</div>
             <div class="card-body">
-                <div class="d-flex flex-wrap gap-2">
-                    @foreach (var x in Model.Items)
-                    {
-                        var color = x.Status == "Passed" ? "#28a745" : x.Status == "Failed" ? "#dc3545" : x.Status == "Running" ? "#ffc107" : "#6c757d";
-                        <div style="min-width: 180px; border: 1px solid #ccc; border-radius: 4px; padding: 6px 8px; font-size: 12px;">
-                            <div style="font-weight:600">@x.Folder</div>
-                            <div style="color:@color">file_has_correct_md5_prefix: @x.Status</div>
-                        </div>
-                    }
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                        <tr>
+                            <th scope="col" style="width:60%">Folder</th>
+                            @foreach (var x in Model.Items.Select(s => s.TestKind)
+                                              .Distinct().OrderBy(x => x).ToList())
+                            {
+                                <th scope="col" style="width:40%">@x</th>
+                            }
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var folderName in Model.Items.Select(s => s.Folder).Distinct().OrderBy(x => x).ToList())
+                        {
+                            <tr>
+                                <td><code>@folderName</code></td>
+                                @foreach (var fs in Model.Items
+                                                  .Where(w => w.Folder.Equals(folderName))
+                                                  .OrderBy(o => o.TestKind).ToList())
+                                {
+                                    var color = fs.Status == "Passed" ? "#28a745" : fs.Status == "Failed" ? "#dc3545" : fs.Status == "Running" ? "#ffc107" : "#6c757d";
+                                    
+                                    <td>
+                                        <span style="color:@color">@fs.Status</span>
+                                    </td>
+                                }
+
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

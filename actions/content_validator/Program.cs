@@ -28,6 +28,7 @@ internal static class Program
                 folderName = Path.GetFileName(Path.TrimEndingDirectorySeparator(folder));
                 if (string.IsNullOrWhiteSpace(folderName)) folderName = folder;
             }
+
             // Generate internal job id per container run
             var jobGuid = Guid.NewGuid();
             var jobId = jobGuid.ToString("N");
@@ -49,9 +50,11 @@ internal static class Program
                 "Trust Server Certificate=true",
                 "Include Error Detail=true");
 
-            Console.WriteLine($"Job {jobId}: Content validation started for folder '{folderName}' with test '{testKind}'");
+            Console.WriteLine(
+                $"Job {jobId}: Content validation started for folder '{folderName}' with test '{testKind}'");
 
-            await UpsertStatusAsync(connString, jobGuid, folderName, testKind, "Running", new { message = "started" }, startedAtOnly: true);
+            await UpsertStatusAsync(connString, jobGuid, folderName, testKind, "Running", new { message = "started" },
+                startedAtOnly: true);
 
             int exitCode = 0;
             object? finalDetails = null;
@@ -60,10 +63,8 @@ internal static class Program
                 switch (testKind)
                 {
                     case "file_has_correct_md5_prefix":
-                        var res = await RunFileHasCorrectMd5PrefixAsync(fs, folder, async details =>
-                        {
-                            Console.WriteLine(details.message);
-                        });
+                        var res = await RunFileHasCorrectMd5PrefixAsync(fs, folder,
+                            async details => { Console.WriteLine(details.message); });
                         exitCode = res.ExitCode;
                         finalDetails = new
                         {
@@ -86,7 +87,8 @@ internal static class Program
             }
 
             var finalStatus = exitCode == 0 ? "Passed" : "Failed";
-            await UpsertStatusAsync(connString, jobGuid, folderName, testKind, finalStatus, finalDetails ?? new { exitCode });
+            await UpsertStatusAsync(connString, jobGuid, folderName, testKind, finalStatus,
+                finalDetails ?? new { exitCode });
             Console.WriteLine($"Job {jobId}: Completed with status {finalStatus}");
             return exitCode;
         }
@@ -99,7 +101,8 @@ internal static class Program
 
     private sealed record Md5PrefixResult(int ExitCode, int Total, int Mismatches, IReadOnlyList<object> Failures);
 
-    private static async Task<Md5PrefixResult> RunFileHasCorrectMd5PrefixAsync(IFileSystem fs, string folder, Func<dynamic, Task> log)
+    private static async Task<Md5PrefixResult> RunFileHasCorrectMd5PrefixAsync(IFileSystem fs, string folder,
+        Func<dynamic, Task> log)
     {
         if (!fs.DirectoryExists(folder))
         {
@@ -113,43 +116,49 @@ internal static class Program
         var failures = new List<object>();
         await log(new { message = $"Checking {total} files..." });
 
-        foreach (var file in files)
+        foreach (var filePath in files)
         {
-            if (!file.AllowImageToProcess())
+            if (!filePath.AllowImageToProcess())
                 continue;
 
-            // var name = Path.GetFileNameWithoutExtension(file);
-            // if (name.Length < 32)
-            // {
-            //     mismatches++;
-            //     await log(new { message = $"[BAD] Missing md5 prefix: {Path.GetFileName(file)}" });
-            //     failures.Add(new { file = Path.GetFileName(file), reason = "missing_md5_prefix" });
-            //     continue;
-            // }
-            //
-            // var prefix = name.Substring(0, 32);
-            // if (!System.Text.RegularExpressions.Regex.IsMatch(prefix, "^[a-f0-9]{32}$"))
-            // {
-            //     mismatches++;
-            //     await log(new { message = $"[BAD] Invalid md5 prefix format: {Path.GetFileName(file)}" });
-            //     failures.Add(new { file = Path.GetFileName(file), reason = "invalid_md5_prefix_format", prefix });
-            //     continue;
-            // }
-            //
-            // string actualHash = await file.CalculateMd5Async();
-            // if (!string.Equals(actualHash, prefix, StringComparison.OrdinalIgnoreCase))
-            // {
-            //     mismatches++;
-            //     await log(new { message = $"[BAD] Hash mismatch: {Path.GetFileName(file)} expected {prefix} actual {actualHash}" });
-            //     failures.Add(new { file = Path.GetFileName(file), reason = "hash_mismatch", expected = prefix, actual = actualHash });
-            // }
+            var fileIdParts = Path.GetFileNameWithoutExtension(filePath).Split("_");
+            string md5Hash = string.Empty;
+
+            if (fileIdParts.Length == 4 && fileIdParts[0].Length == 4)
+            {
+                // we assume that fileIdParts[0] is a group ID, 4 characters long
+                // then we assume that fileIdParts[3] is md5 hash
+                md5Hash = fileIdParts[3];
+            }
+
+            if (fileIdParts.Length == 3)
+            {
+                // we assume that fileIdParts[0..1] are preview hashes
+                // then we assume that fileIdParts[2] is md5 hash
+                md5Hash = fileIdParts[2];
+            }
+
+            if (fileIdParts.Length == 1)
+            {
+                md5Hash = fileIdParts[0];
+            }
+
+            string actualHash = await filePath.CalculateMd5Async(force:true);
+
+            var result = md5Hash.Equals(actualHash, StringComparison.InvariantCultureIgnoreCase);
+
+            if (!result)
+            {
+                mismatches++;
+                
+                await log(new { message = $"MD5 hash is incorrect: {Path.GetFileName(filePath)}" });
+                failures.Add(new { file = filePath, reason = "MD5 hash is incorrect" });
+            }
         }
 
         await log(new { message = $"Done. Mismatches: {mismatches} of {total}" });
         var code = mismatches == 0 ? 0 : 4;
-        // Cap failures list length to avoid oversized rows; store first 500 items
-        var capped = failures.Count > 500 ? failures.Take(500).ToList() : failures;
-        return new Md5PrefixResult(code, total, mismatches, capped);
+        return new Md5PrefixResult(code, total, mismatches, failures);
     }
 
     private static string? GetArgValue(string[] args, string key)
@@ -162,6 +171,7 @@ internal static class Program
                 return null;
             }
         }
+
         return null;
     }
 
@@ -180,7 +190,8 @@ internal static class Program
         }
     }
 
-    private static async Task UpsertStatusAsync(string conn, Guid jobId, string folder, string testKind, string status, object details, bool startedAtOnly = false)
+    private static async Task UpsertStatusAsync(string conn, Guid jobId, string folder, string testKind, string status,
+        object details, bool startedAtOnly = false)
     {
         await using var npg = new NpgsqlConnection(conn);
         await npg.OpenAsync();

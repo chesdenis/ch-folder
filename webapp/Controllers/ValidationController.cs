@@ -16,10 +16,9 @@ public class ValidationController(IContentValidationRepository repo) : Controlle
     }
 
     [HttpGet("latest")]
-    public async Task<IActionResult> GetLatest([FromQuery] string testKind = "file_has_correct_md5_prefix", CancellationToken ct = default)
+    public async Task<IActionResult> GetLatest(CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(testKind)) testKind = "file_has_correct_md5_prefix";
-        var rows = await repo.GetLatestByTestKindAsync(testKind, ct);
+        var rows = await repo.GetLatestAsync(ct);
         return Ok(rows.Select(r => new { folder = r.Folder, testKind = r.TestKind, status = r.Status }));
     }
 }

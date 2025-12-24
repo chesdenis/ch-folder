@@ -446,25 +446,26 @@ public class HomeController(
         return View();
     }
 
-    public async Task<IActionResult> ContentQualityStatus([FromQuery] string? testKind)
+    public async Task<IActionResult> ContentQualityStatus()
     {
-        var kind = testKind!;
         var root = _storage.RootPath;
         var folders = (!string.IsNullOrWhiteSpace(root) && Directory.Exists(root))
             ? PathExtensions.GetStorageFolders(root).ToArray()
             : Array.Empty<string>();
 
-        var latest = await _contentRepo.GetLatestByTestKindAsync(kind, HttpContext.RequestAborted);
-        var map = latest.ToDictionary(x => x.Folder, x => x.Status, StringComparer.OrdinalIgnoreCase);
-        var items = folders.Select(f => new FolderStatus { Folder = f, Status = map.TryGetValue(f, out var s) ? s : "Unknown" }).ToList();
-
-        var vm = new ValidationStatusViewModel
-        {
-            TestKind = kind,
-            Items = items
-        };
-
+        var latest = await _contentRepo.GetLatestAsync(HttpContext.RequestAborted);
+        
         ViewBag.StoragePath = root ?? string.Empty;
+
+        var vm = new ValidationStatusViewModel()
+        {
+            Items = latest.Select(s => new FolderStatus
+            {
+                Folder = s.Folder,
+                TestKind = s.TestKind,
+                Status = s.Status
+            }).ToArray()
+        };
         return View(vm);
     }
 
