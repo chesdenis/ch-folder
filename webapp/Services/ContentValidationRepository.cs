@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using Npgsql;
 using webapp.Models;
+using NpgsqlTypes;
 
 namespace webapp.Services;
 
@@ -47,7 +48,9 @@ public sealed class ContentValidationRepository(IOptions<ConnectionStringOptions
             WHERE test_kind = @kind
             ORDER BY folder, test_kind, COALESCE(finished_at, started_at) DESC;";
         await using var cmd = new NpgsqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@kind", testKind);
+        if (string.IsNullOrWhiteSpace(testKind)) testKind = "file_has_correct_md5_prefix";
+        var p = cmd.Parameters.Add("@kind", NpgsqlDbType.Text);
+        p.Value = testKind;
         await using var rdr = await cmd.ExecuteReaderAsync(ct);
         while (await rdr.ReadAsync(ct))
         {

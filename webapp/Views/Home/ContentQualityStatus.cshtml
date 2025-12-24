@@ -1,0 +1,39 @@
+@model webapp.Models.ValidationStatusViewModel
+@{
+    ViewData["Title"] = "Content Quality Status";
+}
+
+<div class="row">
+    <div class="col-md-10 col-lg-8">
+        <h1 class="mb-3">Content quality status</h1>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row g-2 align-items-center">
+                    <div class="col-12 col-md-8">
+                        <div class="form-control-plaintext">Storage: @ViewBag.StoragePath</div>
+                    </div>
+                    <div class="col-12 col-md-4 text-md-end">
+                        <a class="btn btn-outline-secondary" href="@Url.Action("ContentQualityStatus", new { testKind = Model.TestKind })">Refresh</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">Latest by folder (@Model.TestKind)</div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2">
+                    @foreach (var x in Model.Items)
+                    {
+                        var color = x.Status == "Passed" ? "#28a745" : x.Status == "Failed" ? "#dc3545" : x.Status == "Running" ? "#ffc107" : "#6c757d";
+                        <div style="min-width: 180px; border: 1px solid #ccc; border-radius: 4px; padding: 6px 8px; font-size: 12px;">
+                            <div style="font-weight:600">@x.Folder</div>
+                            <div style="color:@color">file_has_correct_md5_prefix: @x.Status</div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

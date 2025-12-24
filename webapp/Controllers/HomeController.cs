@@ -16,10 +16,12 @@ public class HomeController(
     ISearchResultsRepository searchResultsRepo,
     ISearchSessionRepository sessionsRepo,
     ISearchSessionSelectionRepository selectionRepo,
-    IImageLocator imageLocator) : Controller
+    IImageLocator imageLocator,
+    IContentValidationRepository contentValidationRepository) : Controller
 {
     private readonly StorageOptions _storage = storageOptions.Value;
     private readonly IImageLocator _imageLocator = imageLocator;
+    private readonly IContentValidationRepository _contentRepo = contentValidationRepository;
 
     public async Task<IActionResult> Index([FromQuery] string[]? tags)
     {
@@ -438,10 +440,32 @@ public class HomeController(
         return View();
     }
 
-    public IActionResult ContentQuality()
+    public IActionResult ContentQualityReport()
     {
         ViewBag.StoragePath = _storage.RootPath ?? string.Empty;
         return View();
+    }
+
+    public async Task<IActionResult> ContentQualityStatus([FromQuery] string? testKind)
+    {
+        var kind = testKind!;
+        var root = _storage.RootPath;
+        var folders = (!string.IsNullOrWhiteSpace(root) && Directory.Exists(root))
+            ? PathExtensions.GetStorageFolders(root).ToArray()
+            : Array.Empty<string>();
+
+        var latest = await _contentRepo.GetLatestByTestKindAsync(kind, HttpContext.RequestAborted);
+        var map = latest.ToDictionary(x => x.Folder, x => x.Status, StringComparer.OrdinalIgnoreCase);
+        var items = folders.Select(f => new FolderStatus { Folder = f, Status = map.TryGetValue(f, out var s) ? s : "Unknown" }).ToList();
+
+        var vm = new ValidationStatusViewModel
+        {
+            TestKind = kind,
+            Items = items
+        };
+
+        ViewBag.StoragePath = root ?? string.Empty;
+        return View(vm);
     }
 
     [HttpGet("/api/storage/folders")]
