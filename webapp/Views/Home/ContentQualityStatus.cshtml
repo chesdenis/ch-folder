@@ -39,7 +39,11 @@
                         @foreach (var folderName in Model.Items.Select(s => s.Folder).Distinct().OrderBy(x => x).ToList())
                         {
                             <tr>
-                                <td><code>@folderName</code></td>
+                                <td>
+                                    <a href="@Url.Action("ContentQualityDetails", new { folder = folderName })" title="View details">
+                                        <code>@folderName</code>
+                                    </a>
+                                </td>
                                 @foreach (var fs in Model.Items
                                                   .Where(w => w.Folder.Equals(folderName))
                                                   .OrderBy(o => o.TestKind).ToList())

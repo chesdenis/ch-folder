@@ -5,6 +5,7 @@ using webapp.Models;
 using Microsoft.Extensions.Options;
 using shared_csharp.Extensions;
 using webapp.Services;
+using System.Text.Json;
 
 namespace webapp.Controllers;
 
@@ -466,6 +467,72 @@ public class HomeController(
                 Status = s.Status
             }).ToArray()
         };
+        return View(vm);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ContentQualityDetails([FromQuery] string folder)
+    {
+        if (string.IsNullOrWhiteSpace(folder))
+            return BadRequest("folder is required");
+
+        ViewBag.StoragePath = _storage.RootPath ?? string.Empty;
+
+        var rows = await _contentRepo.GetLatestDetailsByFolderAsync(folder, HttpContext.RequestAborted);
+
+        // Prepare pretty JSON once on server side
+        static string? Pretty(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return null;
+            try
+            {
+                using var doc = JsonDocument.Parse(json);
+                return JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
+            }
+            catch
+            {
+                return json; // fallback to raw
+            }
+        }
+
+        static ValidationDetailPayload? Parse(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return null;
+            try
+            {
+                var opts = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                };
+                var payload = JsonSerializer.Deserialize<ValidationDetailPayload>(json, opts);
+                if (payload == null) return null;
+                // Normalize null arrays to empty for easier rendering
+                payload = new ValidationDetailPayload
+                {
+                    Total = payload.Total,
+                    Mismatches = payload.Mismatches,
+                    Failures = payload.Failures ?? Array.Empty<FailureItem>()
+                };
+                return payload;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        var vm = new ValidationDetailsViewModel
+        {
+            Folder = folder,
+            Items = rows.Select(r => new ValidationDetailItem
+            {
+                TestKind = r.TestKind,
+                Status = r.Status,
+                Details = Pretty(r.DetailsJson),
+                Parsed = Parse(r.DetailsJson)
+            }).OrderBy(i => i.TestKind).ToList()
+        };
+
         return View(vm);
     }
 

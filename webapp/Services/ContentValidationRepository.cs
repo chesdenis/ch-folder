@@ -9,6 +9,7 @@ public interface IContentValidationRepository
 {
     Task<IReadOnlyList<ValidationRow>> GetByJobAsync(Guid jobId, CancellationToken ct = default);
     Task<IReadOnlyList<ValidationRow>> GetLatestAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<ValidationDetailRow>> GetLatestDetailsByFolderAsync(string folder, CancellationToken ct = default);
 }
 
 public sealed class ContentValidationRepository(IOptions<ConnectionStringOptions> connectionStrings)
@@ -54,6 +55,31 @@ public sealed class ContentValidationRepository(IOptions<ConnectionStringOptions
         }
         return list;
     }
+
+    public async Task<IReadOnlyList<ValidationDetailRow>> GetLatestDetailsByFolderAsync(string folder, CancellationToken ct = default)
+    {
+        var list = new List<ValidationDetailRow>();
+        await using var conn = Create();
+        await conn.OpenAsync(ct);
+        const string sql = @"
+            SELECT DISTINCT ON (folder, test_kind)
+                   test_kind, status, details::text
+            FROM content_validation_result
+            WHERE folder = @folder
+            ORDER BY folder, test_kind, COALESCE(finished_at, started_at) DESC;";
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@folder", folder);
+        await using var rdr = await cmd.ExecuteReaderAsync(ct);
+        while (await rdr.ReadAsync(ct))
+        {
+            var testKind = rdr.GetString(0);
+            var status = rdr.GetString(1);
+            var details = rdr.IsDBNull(2) ? null : rdr.GetString(2);
+            list.Add(new ValidationDetailRow(testKind, status, details));
+        }
+        return list;
+    }
 }
 
 public sealed record ValidationRow(string Folder, string TestKind, string Status);
+public sealed record ValidationDetailRow(string TestKind, string Status, string? DetailsJson);
