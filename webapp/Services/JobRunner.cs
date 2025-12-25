@@ -32,16 +32,16 @@ public class JobRunner : IJobRunner
 {
     private readonly IHubContext<JobStatusHub> _hub;
     private readonly ILogger<JobRunner> _logger;
-    private readonly StorageOptions _storage;
-    private readonly IDockerFolderRunner _dockerFolder;
+    private readonly StorageOptions _storageOptions;
+    private readonly IDockerFolderRunner _dockerFolderRunner;
 
     public JobRunner(
-        IHubContext<JobStatusHub> hub, ILogger<JobRunner> logger, IOptions<StorageOptions> storage, IDockerFolderRunner dockerFolder, IImageLocator imageLocator)
+        IHubContext<JobStatusHub> hub, ILogger<JobRunner> logger, IOptions<StorageOptions> storage, IDockerFolderRunner dockerFolderRunner, IImageLocator imageLocator)
     {
         _hub = hub;
         _logger = logger;
-        _storage = storage.Value;
-        _dockerFolder = dockerFolder;
+        _storageOptions = storage.Value;
+        _dockerFolderRunner = dockerFolderRunner;
     }
 
     public string StartJob(string jobId, JobType jobType, string workingFolder, int? degreeOfParallelism = null, string? testKind = null)
@@ -59,7 +59,7 @@ public class JobRunner : IJobRunner
                     throw new DirectoryNotFoundException($"Working folder '{rootPath}' does not exist");
                 }
                 
-                var actionsPath =_storage.ActionsPath ?? throw new InvalidOperationException("Actions root not specified in settings");
+                var actionsPath =_storageOptions.ActionsPath ?? throw new InvalidOperationException("Actions root not specified in settings");
                     
                 var storageFolders = PathExtensions.GetStorageFolders(rootPath).ToArray();
                 var total = storageFolders.Length;
@@ -118,7 +118,7 @@ public class JobRunner : IJobRunner
                                 // Pass the real folder name (relative segment) to the container
                                 var folderName = row;
                                 var tk = testKind;
-                                exit = await _dockerFolder.RunContentValidatorAsync(
+                                exit = await _dockerFolderRunner.RunContentValidatorAsync(
                                     actionsPath,
                                     folderAbs,
                                     tk!,
@@ -206,16 +206,16 @@ public class JobRunner : IJobRunner
     {
         Func<string, string, Action<string>?, Action<string>?, CancellationToken, Task<int>> jobFunc = jobType switch
         {
-            JobType.MetaUploader => (ap, hf, o, e, ct) => _dockerFolder.RunMetaUploaderAsync(ap, hf, o, e, ct),
-            JobType.AiContentQueryBuilder => (ap, hf, o, e, ct) => _dockerFolder.RunAiContentQueryBuilderAsync(ap, hf, o, e, ct),
-            JobType.AiContentAnswerBuilder => (ap, hf, o, e, ct) => _dockerFolder.RunAiContentAnswerBuilderAsync(ap, hf, o, e, ct),
-            JobType.EmbeddingDownloader => (ap, hf, o, e, ct) => _dockerFolder.RunEmbeddingDownloaderAsync(ap, hf, o, e, ct),
-            JobType.Md5ImageMarker => (ap, hf, o, e, ct) => _dockerFolder.RunMd5ImageMarkerAsync(ap, hf, o, e, ct),
-            JobType.DuplicateMarker => (ap, hf, o, e, ct) => _dockerFolder.RunDuplicateMarkerAsync(ap, hf, o, e, ct),
-            JobType.FaceHashBuilder => (ap, hf, o, e, ct) => _dockerFolder.RunFaceHashBuilderAsync(ap, hf, o, e, ct),
-            JobType.GroupFolderExtractor => (ap, hf, o, e, ct) => _dockerFolder.RunGroupFolderExtractorAsync(ap, hf, o, e, ct),
-            JobType.AverageImageMarker => (ap, hf, o, e, ct) => _dockerFolder.RunAverageImageMarkerAsync(ap, hf, o, e, ct),
-            _ => (ap, hf, o, e, ct) => _dockerFolder.RunMetaUploaderAsync(ap, hf, o, e, ct)
+            JobType.MetaUploader => (ap, hf, o, e, ct) => _dockerFolderRunner.RunMetaUploaderAsync(ap, hf, o, e, ct),
+            JobType.AiContentQueryBuilder => (ap, hf, o, e, ct) => _dockerFolderRunner.RunAiContentQueryBuilderAsync(ap, hf, o, e, ct),
+            JobType.AiContentAnswerBuilder => (ap, hf, o, e, ct) => _dockerFolderRunner.RunAiContentAnswerBuilderAsync(ap, hf, o, e, ct),
+            JobType.EmbeddingDownloader => (ap, hf, o, e, ct) => _dockerFolderRunner.RunEmbeddingDownloaderAsync(ap, hf, o, e, ct),
+            JobType.Md5ImageMarker => (ap, hf, o, e, ct) => _dockerFolderRunner.RunMd5ImageMarkerAsync(ap, hf, o, e, ct),
+            JobType.DuplicateMarker => (ap, hf, o, e, ct) => _dockerFolderRunner.RunDuplicateMarkerAsync(ap, hf, o, e, ct),
+            JobType.FaceHashBuilder => (ap, hf, o, e, ct) => _dockerFolderRunner.RunFaceHashBuilderAsync(ap, hf, o, e, ct),
+            JobType.GroupFolderExtractor => (ap, hf, o, e, ct) => _dockerFolderRunner.RunGroupFolderExtractorAsync(ap, hf, o, e, ct),
+            JobType.AverageImageMarker => (ap, hf, o, e, ct) => _dockerFolderRunner.RunAverageImageMarkerAsync(ap, hf, o, e, ct),
+            _ => (ap, hf, o, e, ct) => _dockerFolderRunner.RunMetaUploaderAsync(ap, hf, o, e, ct)
         };
         return jobFunc;
     }
