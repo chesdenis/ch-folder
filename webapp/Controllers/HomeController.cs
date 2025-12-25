@@ -464,7 +464,8 @@ public class HomeController(
             {
                 Folder = s.Folder,
                 TestKind = s.TestKind,
-                Status = s.Status
+                Status = s.Status,
+                TotalFailures = s.TotalFailures
             }).ToArray()
         };
         return View(vm);

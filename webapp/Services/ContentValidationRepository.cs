@@ -26,12 +26,13 @@ public sealed class ContentValidationRepository(IOptions<ConnectionStringOptions
         await using var conn = Create();
         await conn.OpenAsync(ct);
         await using var cmd = new NpgsqlCommand(
-            "select folder, test_kind, status from content_validation_result where job_id = @job order by folder", conn);
+            "select folder, test_kind, status, (details->>'total')::int as total from content_validation_result where job_id = @job order by folder", conn);
         cmd.Parameters.AddWithValue("@job", jobId);
         await using var rdr = await cmd.ExecuteReaderAsync(ct);
         while (await rdr.ReadAsync(ct))
         {
-            list.Add(new ValidationRow(rdr.GetString(0), rdr.GetString(1), rdr.GetString(2)));
+            var total = rdr.IsDBNull(3) ? (int?)null : rdr.GetInt32(3);
+            list.Add(new ValidationRow(rdr.GetString(0), rdr.GetString(1), rdr.GetString(2), total));
         }
         return list;
     }
@@ -44,14 +45,15 @@ public sealed class ContentValidationRepository(IOptions<ConnectionStringOptions
         // pick the latest row per (folder, test_kind) by finished_at/started_at
         const string sql = @"
             SELECT DISTINCT ON (folder, test_kind)
-                   folder, test_kind, status
+                   folder, test_kind, status, (details->>'total')::int as total
             FROM content_validation_result
             ORDER BY folder, test_kind, COALESCE(finished_at, started_at) DESC;";
         await using var cmd = new NpgsqlCommand(sql, conn);
         await using var rdr = await cmd.ExecuteReaderAsync(ct);
         while (await rdr.ReadAsync(ct))
         {
-            list.Add(new ValidationRow(rdr.GetString(0), rdr.GetString(1), rdr.GetString(2)));
+            var total = rdr.IsDBNull(3) ? (int?)null : rdr.GetInt32(3);
+            list.Add(new ValidationRow(rdr.GetString(0), rdr.GetString(1), rdr.GetString(2), total));
         }
         return list;
     }
@@ -81,5 +83,5 @@ public sealed class ContentValidationRepository(IOptions<ConnectionStringOptions
     }
 }
 
-public sealed record ValidationRow(string Folder, string TestKind, string Status);
+public sealed record ValidationRow(string Folder, string TestKind, string Status, int? TotalFailures);
 public sealed record ValidationDetailRow(string TestKind, string Status, string? DetailsJson);

@@ -10,6 +10,5 @@ public sealed class FolderStatus
     public required string Folder { get; init; }
     public required string TestKind { get; init; }
     public required string Status { get; init; }
+    public int? TotalFailures { get; init; }
 }
-
-public record FolderAndTestKind(string Folder, string TestKind);

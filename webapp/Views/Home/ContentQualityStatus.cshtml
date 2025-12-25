@@ -57,9 +57,12 @@
                                     else
                                     {
                                         var color = test.Status == "Passed" ? "#28a745" : test.Status == "Failed" ? "#dc3545" : test.Status == "Running" ? "#ffc107" : "#6c757d";
+                                        var text = (test.Status == "Failed" && test.TotalFailures.HasValue)
+                                            ? $"Failed ({test.TotalFailures.Value})"
+                                            : test.Status;
 
                                         <td>
-                                            <span style="color:@color">@test.Status</span>
+                                            <span style="color:@color">@text</span>
                                         </td>
                                     }
                                 }
