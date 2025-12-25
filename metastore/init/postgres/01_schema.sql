@@ -6,7 +6,6 @@ CREATE TABLE IF NOT EXISTS photo (
     short_details text NOT NULL CHECK (short_details <> ''),
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
-    -- Commercial potential rating: 0..100 (higher = more commercial)
     commerce_rate integer NOT NULL DEFAULT 0 CHECK (commerce_rate >= 0 AND commerce_rate <= 5)
     );
 

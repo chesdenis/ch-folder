@@ -83,6 +83,17 @@ public class ImageMetaUploader
             {
                 // ignore missing/invalid files, keep default 0
             }
+            
+            // try read faces information
+            string[] persons = Array.Empty<string>();
+            try
+            {
+                persons = ImageProcessingExtensions.GetFacesOnPhotos(filePath);
+            }
+            catch  
+            {
+                // ignore missing/invalid files
+            }
 
             var record = new PhotoRecord(
                 md5_hash: md5,

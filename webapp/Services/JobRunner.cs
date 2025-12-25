@@ -72,8 +72,6 @@ public class JobRunner : IJobRunner
                 await ReportProgress(jobId, group, total, completed,
                     $"Discovered {total} folder(s). Starting '{jobType}' with DOP={dop}...");
 
-              
-
                 var errors = new ConcurrentBag<string>();
 
                 await Parallel.ForEachAsync(storageFolders, new ParallelOptions { MaxDegreeOfParallelism = dop }, async (row, ct) =>

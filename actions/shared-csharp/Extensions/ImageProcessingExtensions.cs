@@ -64,6 +64,19 @@ public static class ImageProcessingExtensions
         var dqAnswerPath = Path.Combine(dqFolder, groupName + ".eng30tags.md.answer.md");
         return File.ReadAllText(dqAnswerPath).Split(',').Select(s => s.Trim()).ToArray();
     }
+
+    public static string[] GetFacesOnPhotos(string filePath)
+    {
+        var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
+        var fvFolder = Path.Combine(directoryName, "fv");
+
+        var groupName = filePath.GetGroupName();
+        var fvAnswerPath = Path.Combine(fvFolder, groupName + ".fv.md.answer.md");
+
+        var rawText = File.ReadAllText(fvAnswerPath);
+        var d = JsonSerializer.Deserialize<FaceEncoding>(rawText);
+        return d?.detected_faces ?? [];
+    }
     
     public static readonly HashSet<string> IgnoredExtensions =
         new(StringComparer.OrdinalIgnoreCase)
@@ -91,4 +104,13 @@ public static class ImageProcessingExtensions
         [property: JsonPropertyName("rate")] int rate,
         [property: JsonPropertyName("rate-explanation")] string rateExplanation
     );
+    
+    public record FaceEncoding(
+    string[] detected_faces,
+    int rotation,
+    int[][] face_locations,
+    double[][] face_encodings
+);
+
+
 }
