@@ -29,13 +29,14 @@ def get_face_vectors(file_path):
     preview_path = os.path.join(preview_dir, preview_name)
 
     image = Image.open(preview_path)
-    for angle in [90, 180, 270]:
+    for angle in [0, 90, 180, 270]:
         # Find all face locations and their encodings in the image
         face_locations = face_recognition.face_locations(np.array(image))
         face_encodings = face_recognition.face_encodings(np.array(image), face_locations)
 
         if len(face_locations) > 0:
             return {
+                "rotation":angle,
                 "face_locations":face_locations,
                 "face_encodings":[encoding.tolist() for encoding in face_encodings]
             }
@@ -98,13 +99,13 @@ def main(argv:list[str]) -> int:
 
                 base_dir = os.path.dirname(path)
                 file_name = os.path.basename(path)
-                face_vectors_dir = os.path.join(base_dir, "face_vectors")
+                face_vectors_dir = os.path.join(base_dir, "fv")
 
                 # Create face_vectors directory if it doesn't exist
                 os.makedirs(face_vectors_dir, exist_ok=True)
 
                 # Write to file with .face_vectors extension
-                output_path = os.path.join(face_vectors_dir, file_name + '.face_vectors.json')
+                output_path = os.path.join(face_vectors_dir, file_name + '.fv.md.answer.md')
                 with open(output_path, 'w') as f: f.write(face_vectors_as_json)
                 logging.info(f'Written face vectors to {output_path}')
 
