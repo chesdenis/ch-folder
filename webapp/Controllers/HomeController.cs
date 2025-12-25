@@ -184,6 +184,8 @@ public class HomeController(
         
         var tagsValues = Request.Query["tags"].ToString();
         var tags = tagsValues.Split(',', StringSplitOptions.RemoveEmptyEntries);
+        var personsValues = Request.Query["persons"].ToString();
+        var persons = personsValues.Split(',', StringSplitOptions.RemoveEmptyEntries);
 
         var actionsPath = _storage.ActionsPath ?? string.Empty;
         if (string.IsNullOrWhiteSpace(actionsPath))
@@ -210,7 +212,7 @@ public class HomeController(
             else
             {
                 // Provided session is missing or belongs to a different query -> run a new search and stick to new latest
-                int exitCode = await dockerSearchRunner.RunImageSearcherAsync(actionsPath, queryText, tags,
+                int exitCode = await dockerSearchRunner.RunImageSearcherAsync(actionsPath, queryText, tags, persons,
                     onStdout: s => logger.LogInformation("[image_searcher][stdout] {Line}", s),
                     onStderr: s => logger.LogWarning("[image_searcher][stderr] {Line}", s));
                 if (exitCode != 0)
@@ -238,7 +240,7 @@ public class HomeController(
             // No specific session requested; optionally run search on non-paging request
             if (!isPagingRequest)
             {
-                int exitCode = await dockerSearchRunner.RunImageSearcherAsync(actionsPath, queryText, tags,
+                int exitCode = await dockerSearchRunner.RunImageSearcherAsync(actionsPath, queryText, tags, persons,
                     onStdout: s => logger.LogInformation("[image_searcher][stdout] {Line}", s),
                     onStderr: s => logger.LogWarning("[image_searcher][stderr] {Line}", s));
                 if (exitCode != 0)
@@ -311,6 +313,17 @@ public class HomeController(
         {
             logger.LogWarning(ex, "[Search] Failed to load available tags for session {SessionId}", sessionToUse.SessionId);
             ViewBag.AvailableTags = Array.Empty<string>();
+        }
+        // Load distinct persons for this session to populate persons selector
+        try
+        {
+            var availablePersons = await searchResultsRepo.GetDistinctPersonsForSessionAsync(sessionToUse.SessionId, HttpContext.RequestAborted);
+            ViewBag.AvailablePersons = availablePersons;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[Search] Failed to load available persons for session {SessionId}", sessionToUse.SessionId);
+            ViewBag.AvailablePersons = Array.Empty<string>();
         }
         ViewBag.Total = filteredResults.Count;
         ViewBag.Page = pageFromQuery; // reflect requested page

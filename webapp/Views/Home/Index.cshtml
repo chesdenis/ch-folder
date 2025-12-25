@@ -2,6 +2,7 @@
     ViewData["Title"] = "Ch Photo Gallery";
     var queryText = Context.Request.Query["query"].ToString();
     var selectedTags = Context.Request.Query["tags"].ToArray();
+    var selectedPersons = Context.Request.Query["persons"].ToArray();
     var filters = Context.Request.Query["filters"].ToArray();
     var sorting = Context.Request.Query["sorting"].ToArray();
     // Ordering by score (default) or commerce
@@ -86,6 +87,33 @@
                         availableTags = (ViewBag.AvailableTags as IEnumerable<string> ?? Array.Empty<string>()).Take(10),
                         selectedTags = ViewBag.SelectedTags as IEnumerable<string>
                     })
+                </div>
+                <!-- Persons selector placed inline in the toolbar, similar to tags -->
+                <div class="toolbar-group" role="group" aria-label="Persons selector">
+                    <span class="toolbar-label">Persons</span>
+                    <div class="tags-selector" role="group" aria-label="Persons">
+                        @{
+                            var availablePersons = ViewBag.AvailablePersons as IEnumerable<string> ?? Array.Empty<string>();
+                            var personsToShow = availablePersons.Take(10).OrderBy(p => p, StringComparer.OrdinalIgnoreCase).ToArray();
+                            var selectedPersonsSet = new HashSet<string>(selectedPersons ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+                        }
+                        @if (personsToShow.Any())
+                        {
+                            foreach (var person in personsToShow)
+                            {
+                                var inputId = $"person_{person.Replace(" ", "_")}";
+                                <span class="tag-item">
+                                    <input class="tag-checkbox" type="checkbox" name="persons" value="@person" id="@inputId"
+                                           @(selectedPersonsSet.Contains(person) ? "checked" : null) />
+                                    <label class="tag-chip" for="@inputId">@person</label>
+                                </span>
+                            }
+                        }
+                        else
+                        {
+                            <span class="text-muted">No persons available</span>
+                        }
+                    </div>
                 </div>
                 <div class="toolbar-group" role="group" aria-label="Thumbnail size">
                     <span class="toolbar-label">Thumb size</span>

@@ -19,6 +19,7 @@ public interface ISearchResultsRepository
     Task<int> GetPhotosCountAsync(CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetDistinctTagsForSessionAsync(Guid sessionId, CancellationToken ct = default);
+    Task<IReadOnlyList<string>> GetDistinctPersonsForSessionAsync(Guid sessionId, CancellationToken ct = default);
 }
 
 public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> connectionStringsOptions)
@@ -209,6 +210,30 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
                 tags.Add(val);
         }
         return tags;
+    }
+
+    public async Task<IReadOnlyList<string>> GetDistinctPersonsForSessionAsync(Guid sessionId, CancellationToken ct = default)
+    {
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(ct);
+        var persons = new List<string>();
+        await using var cmd = new NpgsqlCommand(@"
+            SELECT p_name AS person
+            FROM search_session_result r
+            JOIN photo p ON p.md5_hash = r.path_md5
+            CROSS JOIN LATERAL unnest(p.persons) AS p_name
+            WHERE r.session_id = @sid AND p_name IS NOT NULL AND length(trim(p_name)) > 0
+            GROUP BY p_name
+            ORDER BY SUM(r.score) DESC, COUNT(*) DESC, p_name ASC", conn);
+        cmd.Parameters.AddWithValue("@sid", NpgsqlTypes.NpgsqlDbType.Uuid, sessionId);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            var val = reader.GetString(0);
+            if (!string.IsNullOrWhiteSpace(val))
+                persons.Add(val);
+        }
+        return persons;
     }
 }
 

@@ -100,6 +100,7 @@ public class ImageMetaUploader
                 extension: extension,
                 size_bytes: sizeBytes,
                 tags: ImageProcessingExtensions.GetEng30TagsText(filePath),
+                persons: persons,
                 short_details: ImageProcessingExtensions.GetEngShortText(filePath),
                 commerce_rate: commerceRate);
 
@@ -145,6 +146,7 @@ public class ImageMetaUploader
             .Append("extension, ")
             .Append("size_bytes, ")
             .Append("tags, ")
+            .Append("persons, ")
             .Append("short_details, ")
             .Append("commerce_rate) VALUES ");
 
@@ -160,6 +162,7 @@ public class ImageMetaUploader
                       $"@ext_{i}, " +
                       $"@sz_{i}, " +
                       $"@tags_{i}, " +
+                      $"@persons_{i}, " +
                       $"@sd_{i}, " +
                       $"@cr_{i})");
 
@@ -168,6 +171,8 @@ public class ImageMetaUploader
             cmd.Parameters.AddWithValue($"@sz_{i}", NpgsqlDbType.Bigint, r.size_bytes);
             var pTags = new NpgsqlParameter<string[]>($"@tags_{i}", NpgsqlDbType.Array | NpgsqlDbType.Text) { TypedValue = r.tags };
             cmd.Parameters.Add(pTags);
+            var pPersons = new NpgsqlParameter<string[]>($"@persons_{i}", NpgsqlDbType.Array | NpgsqlDbType.Text) { TypedValue = r.persons };
+            cmd.Parameters.Add(pPersons);
             cmd.Parameters.AddWithValue($"@sd_{i}", NpgsqlDbType.Text, r.short_details);
             cmd.Parameters.AddWithValue($"@cr_{i}", NpgsqlDbType.Integer, r.commerce_rate);
         }
@@ -176,6 +181,7 @@ public class ImageMetaUploader
         sb.Append("extension = EXCLUDED.extension, ");
         sb.Append("size_bytes = EXCLUDED.size_bytes, ");
         sb.Append("tags = EXCLUDED.tags, ");
+        sb.Append("persons = EXCLUDED.persons, ");
         sb.Append("short_details = EXCLUDED.short_details, ");
         sb.Append("commerce_rate = EXCLUDED.commerce_rate;");
 
@@ -189,6 +195,7 @@ public class ImageMetaUploader
         string extension,
         long size_bytes,
         string[] tags,
+        string[] persons,
         string short_details,
         int commerce_rate
     );

@@ -49,6 +49,7 @@ public class ImageEmbeddingUploader(IFileSystem fileSystem, IFileHasher fileHash
         
         var commerceFolder = Path.Combine(fileParentFolder, "commerceMark");
         var eng30TagsFolder = Path.Combine(fileParentFolder, "eng30tags");
+        var facesFolder = Path.Combine(fileParentFolder, "fv");
         
        
         //'/commerceMark/*.commerceMark.md.answer.md' - to get commerce mark with this format {rate, rate-explanation}
@@ -63,6 +64,15 @@ public class ImageEmbeddingUploader(IFileSystem fileSystem, IFileHasher fileHash
         var commerceData = JsonSerializer.Deserialize<ImageProcessingExtensions.RateExplanation>(commerceRawContent);
         var eng30TagsData = eng30TagsRawContent
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        string[] persons = Array.Empty<string>();
+        try
+        {
+            persons = ImageProcessingExtensions.GetFacesOnPhotos(filePath);
+        }
+        catch
+        {
+            // ignore faces extraction errors
+        }
         
         var eventName = Path.GetFileName(fileParentFolder);
         var yearName = Path.GetFileName(Directory.GetParent(fileParentFolder)?.FullName);
@@ -94,6 +104,7 @@ public class ImageEmbeddingUploader(IFileSystem fileSystem, IFileHasher fileHash
             ["commerceRate"] = commerceData?.rate ?? 0,
             ["commerceRateExplanation"] = commerceData?.rateExplanation ?? string.Empty,
             ["tags"] = eng30TagsData,
+            ["persons"] = persons,
             ["eventName"] = eventName ?? string.Empty,
             ["yearName"] = yearName ?? string.Empty
         };

@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS photo (
     extension text NOT NULL,
     size_bytes bigint NOT NULL CHECK (size_bytes >= 0),
     tags text[] NOT NULL DEFAULT '{}',
+    persons text[] NOT NULL DEFAULT '{}',
     short_details text NOT NULL CHECK (short_details <> ''),
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
@@ -25,6 +26,7 @@ CREATE TRIGGER trg_photo_updated_at
 
 CREATE INDEX IF NOT EXISTS ix_photo_created_at ON photo (created_at);
 CREATE INDEX IF NOT EXISTS ix_photo_tags_gin ON photo USING GIN (tags);
+CREATE INDEX IF NOT EXISTS ix_photo_persons_gin ON photo USING GIN (persons);
 CREATE INDEX IF NOT EXISTS ix_photo_extension ON photo (extension);
 CREATE INDEX IF NOT EXISTS ix_photo_commerce_rate ON photo (commerce_rate DESC);
 
