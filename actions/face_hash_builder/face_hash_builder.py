@@ -132,13 +132,14 @@ def main(argv:list[str]) -> int:
 
                 base_dir = os.path.dirname(path)
                 file_name = os.path.basename(path)
+                name_without_ext = os.path.splitext(filename)[0]
                 face_vectors_dir = os.path.join(base_dir, "fv")
 
                 # Create face_vectors directory if it doesn't exist
                 os.makedirs(face_vectors_dir, exist_ok=True)
 
                 # Write to file with .face_vectors extension
-                output_path = os.path.join(face_vectors_dir, file_name + '.fv.md.answer.md')
+                output_path = os.path.join(face_vectors_dir, name_without_ext + '.fv.md.answer.md')
                 with open(output_path, 'w') as f: f.write(face_vectors_as_json)
                 logging.info(f'Written face vectors to {output_path}')
 

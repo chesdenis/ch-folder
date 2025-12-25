@@ -23,7 +23,14 @@ public enum JobType
 
 public interface IJobRunner
 {
-    string StartJob(string jobId, JobType jobType, string workingFolder, int? degreeOfParallelism = null, string? testKind = null);
+    string StartJob(
+        string jobId,
+        JobType jobType,
+        string workingFolder,
+        int? degreeOfParallelism = null,
+        string? testKind = null,
+        string? level1 = null,
+        string? level2 = null);
 }
 
 
@@ -44,7 +51,14 @@ public class JobRunner : IJobRunner
         _dockerFolderRunner = dockerFolderRunner;
     }
 
-    public string StartJob(string jobId, JobType jobType, string workingFolder, int? degreeOfParallelism = null, string? testKind = null)
+    public string StartJob(
+        string jobId,
+        JobType jobType,
+        string workingFolder,
+        int? degreeOfParallelism = null,
+        string? testKind = null,
+        string? level1 = null,
+        string? level2 = null)
     {
         var group = JobStatusHub.GroupName(jobId);
 
@@ -61,7 +75,42 @@ public class JobRunner : IJobRunner
                 
                 var actionsPath =_storageOptions.ActionsPath ?? throw new InvalidOperationException("Actions root not specified in settings");
                     
-                var storageFolders = PathExtensions.GetStorageFolders(rootPath).ToArray();
+                IEnumerable<string> storageFoldersEnum = PathExtensions.GetStorageFolders(rootPath);
+
+                // Optional filtering by level1/level2 folder names
+                var l1 = string.IsNullOrWhiteSpace(level1) ? null : level1.Trim();
+                var l2 = string.IsNullOrWhiteSpace(level2) ? null : level2.Trim();
+                if (l1 != null || l2 != null)
+                {
+                    static string[] SplitParts(string s)
+                    {
+                        var norm = s.Replace('\\', '/');
+                        return norm.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                    }
+
+                    storageFoldersEnum = storageFoldersEnum.Where(s =>
+                    {
+                        var parts = SplitParts(s);
+                        if (l1 == null && l2 == null) return true;
+                        if (l1 != null && l2 == null)
+                        {
+                            // include first-level folder itself and its second-levels
+                            return parts.Length >= 1 && string.Equals(parts[0], l1, StringComparison.OrdinalIgnoreCase);
+                        }
+                        if (l1 == null && l2 != null)
+                        {
+                            // any second-level with matching name
+                            return parts.Length >= 2 && string.Equals(parts[1], l2, StringComparison.OrdinalIgnoreCase);
+                        }
+
+                        // both provided
+                        return parts.Length >= 2
+                               && string.Equals(parts[0], l1, StringComparison.OrdinalIgnoreCase)
+                               && string.Equals(parts[1], l2, StringComparison.OrdinalIgnoreCase);
+                    });
+                }
+
+                var storageFolders = storageFoldersEnum.ToArray();
                 var total = storageFolders.Length;
                 var completed = 0;
                 

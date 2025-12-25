@@ -26,8 +26,12 @@ public static class ImageProcessingExtensions
         {
             groupName = Path.GetFileNameWithoutExtension(filePath);
         }
+
+
+        var commerceMarkPath = Path.Combine(commerceFolder, $"{groupName}.commerceMark.md.answer.md");
+        if(!File.Exists(commerceMarkPath)) return null;
         
-        var commerceRawContent = await File.ReadAllTextAsync(Path.Combine(commerceFolder, $"{groupName}.commerceMark.md.answer.md"));
+        var commerceRawContent = await File.ReadAllTextAsync(commerceMarkPath);
         var commerceData = JsonSerializer.Deserialize<RateExplanation>(commerceRawContent);
 
         return commerceData;
@@ -46,6 +50,8 @@ public static class ImageProcessingExtensions
 
         var dqQuestionPath = Path.Combine(dqFolder, groupName + ".engShort.md");
         var dqAnswerPath = Path.Combine(dqFolder, groupName + ".engShort.md.answer.md");
+        
+        if (!File.Exists(dqAnswerPath)) return string.Empty;
 
         return File.ReadAllText(dqAnswerPath);
     } 
@@ -62,6 +68,8 @@ public static class ImageProcessingExtensions
         }
         
         var dqAnswerPath = Path.Combine(dqFolder, groupName + ".eng30tags.md.answer.md");
+        if(!File.Exists(dqAnswerPath)) return Array.Empty<string>();
+        
         return File.ReadAllText(dqAnswerPath).Split(',').Select(s => s.Trim()).ToArray();
     }
 
@@ -73,7 +81,13 @@ public static class ImageProcessingExtensions
         var groupName = filePath.GetGroupName();
         var fvAnswerPath = Path.Combine(fvFolder, groupName + ".fv.md.answer.md");
 
+        if (!File.Exists(fvAnswerPath))
+        {
+            Console.WriteLine($"Cant find {fvAnswerPath}");
+        }
+
         var rawText = File.ReadAllText(fvAnswerPath);
+        Console.WriteLine(rawText);
         var d = JsonSerializer.Deserialize<FaceEncoding>(rawText);
         return d?.detected_faces ?? [];
     }

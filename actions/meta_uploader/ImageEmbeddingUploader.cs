@@ -36,34 +36,25 @@ public class ImageEmbeddingUploader(IFileSystem fileSystem, IFileHasher fileHash
             return;
         }
         
-        var groupName = filePath.GetGroupName();
         var md5 = await fileHasher.ComputeMd5Async(filePath);
         
         var fileParentFolder = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
         
-        var embeddingFolder = Path.Combine(fileParentFolder, "emb");
-        var descriptionFolder = Path.Combine(fileParentFolder, "dq");
-        
-        var embeddingPath = Path.Combine(embeddingFolder, $"{groupName}.emb.md.answer.md");
-        var descriptionPath = Path.Combine(descriptionFolder, $"{groupName}.dq.md.answer.md");
-        
-        var commerceFolder = Path.Combine(fileParentFolder, "commerceMark");
-        var eng30TagsFolder = Path.Combine(fileParentFolder, "eng30tags");
-        var facesFolder = Path.Combine(fileParentFolder, "fv");
-        
-       
         //'/commerceMark/*.commerceMark.md.answer.md' - to get commerce mark with this format {rate, rate-explanation}
         //'/eng30tags/*.eng30tags.md.answer.md' - to get tags with this format tag1, tag2, tag3, ..
         // file location - first 2 folders, ... 
 
-        var embeddingContent = await File.ReadAllTextAsync(embeddingPath);
-        var descriptionContent = await File.ReadAllTextAsync(descriptionPath);
+        if (!fileSystem.FileExists(PathExtensions.ResolveEmbAnswer(filePath))) return;
+        if (!fileSystem.FileExists(PathExtensions.ResolveEngShortAnswerPath(filePath))) return;
+        if (!fileSystem.FileExists(PathExtensions.ResolveDqAnswerPath(filePath))) return;
+        if (!fileSystem.FileExists(PathExtensions.ResolveCommerceMarkAnswerPath(filePath))) return;
+        if (!fileSystem.FileExists(PathExtensions.ResolveEng30TagsAnswerPath(filePath))) return;
+
+        var embeddingContent = await fileSystem.GetEmbAnswer(filePath);
+        var descriptionContent = await fileSystem.GetDqAnswer(filePath);
         
-        var commerceRawContent = await File.ReadAllTextAsync(Path.Combine(commerceFolder, $"{groupName}.commerceMark.md.answer.md"));
-        var eng30TagsRawContent = await File.ReadAllTextAsync(Path.Combine(eng30TagsFolder, $"{groupName}.eng30tags.md.answer.md"));
-        var commerceData = JsonSerializer.Deserialize<ImageProcessingExtensions.RateExplanation>(commerceRawContent);
-        var eng30TagsData = eng30TagsRawContent
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var commerceData = await ImageProcessingExtensions.GetRateExplanation(filePath);
+        var eng30TagsData = ImageProcessingExtensions.GetEng30TagsText(filePath);
         string[] persons = Array.Empty<string>();
         try
         {

@@ -67,6 +67,13 @@ public class ImageMetaUploader
             {
                 return;
             }
+            
+            if (!_fileSystem.FileExists(PathExtensions.ResolveEmbAnswer(filePath))) return;
+            if (!_fileSystem.FileExists(PathExtensions.ResolveDqAnswerPath(filePath))) return;
+            if (!_fileSystem.FileExists(PathExtensions.ResolveEngShortAnswerPath(filePath))) return;
+            if (!_fileSystem.FileExists(PathExtensions.ResolveCommerceMarkAnswerPath(filePath))) return;
+            if (!_fileSystem.FileExists(PathExtensions.ResolveEng30TagsAnswerPath(filePath))) return;
+
 
             // try read commerce rate explanation
             int commerceRate = 0;
@@ -95,13 +102,16 @@ public class ImageMetaUploader
                 // ignore missing/invalid files
             }
 
+            var eng30TagsText = ImageProcessingExtensions.GetEng30TagsText(filePath);
+            var shortDetails = ImageProcessingExtensions.GetEngShortText(filePath);
+            
             var record = new PhotoRecord(
                 md5_hash: md5,
                 extension: extension,
                 size_bytes: sizeBytes,
-                tags: ImageProcessingExtensions.GetEng30TagsText(filePath),
+                tags: eng30TagsText,
                 persons: persons,
-                short_details: ImageProcessingExtensions.GetEngShortText(filePath),
+                short_details:  shortDetails,
                 commerce_rate: commerceRate);
 
             _buffer.Add(record);

@@ -597,12 +597,18 @@ public class HomeController(
     }
 
     [HttpPost]
-    public IActionResult IndexJob([FromForm] string jobId, [FromForm] JobType type, [FromForm] int? dop, [FromForm] string? testKind)
+    public IActionResult IndexJob(
+        [FromForm] string jobId,
+        [FromForm] JobType type,
+        [FromForm] int? dop,
+        [FromForm] string? testKind,
+        [FromForm] string? level1,
+        [FromForm] string? level2)
     {
         if (string.IsNullOrWhiteSpace(jobId)) return BadRequest("jobId is required");
         var rootPath = _storage.RootPath;
         if (string.IsNullOrWhiteSpace(rootPath)) return BadRequest("Storage root path is not configured");
-        var id = jobRunner.StartJob(jobId, type, rootPath, dop, testKind);
+        var id = jobRunner.StartJob(jobId, type, rootPath, dop, testKind, level1, level2);
         return Ok(new { jobId = id });
     }
 
