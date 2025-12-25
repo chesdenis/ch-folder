@@ -7,6 +7,7 @@ import numpy as np
 import face_recognition
 import logging
 import json
+import base64
 from typing import Iterable
 
 logging.basicConfig(
@@ -19,6 +20,20 @@ def _split_name(name_wo_ext: str):
     parts = name_wo_ext.split('_') if name_wo_ext else []
     return parts
 
+def from_b64_answer(data):
+    base64_encoded_data = data.encode('utf-8')
+    decoded_bytes = base64.b64decode(base64_encoded_data)
+    decoded_string = decoded_bytes.decode('utf-8')
+    python_object = json.loads(decoded_string)
+    face_encodings = np.array(python_object["face_encodings"][0])
+    return face_encodings
+
+def get_known_faces():
+    return [
+        {"Name": "DENISC","Encodings": from_b64_answer(os.environ.get('DENISC'))},
+        {"Name": "ANNAC","Encodings": from_b64_answer(os.environ.get('ANNAC'))}
+    ]
+
 def get_face_vectors(file_path):
     base_dir = os.path.dirname(file_path)
     file_name = os.path.basename(file_path)
@@ -27,15 +42,33 @@ def get_face_vectors(file_path):
     preview_dir = os.path.join(base_dir, "preview")
     preview_name = f"{name_wo_ext}_p2000.jpg"
     preview_path = os.path.join(preview_dir, preview_name)
+    
+    known_faces = get_known_faces()
 
     image = Image.open(preview_path)
-    for angle in [0, 90, 180, 270]:
+    for angle in [90, 180, 270]:
         # Find all face locations and their encodings in the image
         face_locations = face_recognition.face_locations(np.array(image))
         face_encodings = face_recognition.face_encodings(np.array(image), face_locations)
 
         if len(face_locations) > 0:
+            detected_faces = []
+            
+            print(f"Detected {len(face_encodings)} faces. Looking for known faces:")
+            
+            for known_face in known_faces:
+                known_face_name = known_face["Name"]
+                known_face_encodings = known_face["Encodings"]
+                
+                for face_encoding in face_encodings:
+                    results = face_recognition.compare_faces([known_face_encodings], face_encoding)
+    
+                    if results[0]:
+                        print(f"Found known face {known_face_name}")
+                        detected_faces.append(known_face_name)
+            
             return {
+                "detected_faces": detected_faces,
                 "rotation":angle,
                 "face_locations":face_locations,
                 "face_encodings":[encoding.tolist() for encoding in face_encodings]
