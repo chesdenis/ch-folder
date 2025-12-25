@@ -124,22 +124,20 @@ def main(argv:list[str]) -> int:
     errors = 0
 
     for path in targets:
+        
+        base_dir = os.path.dirname(path)
+        file_name = os.path.basename(path)
+        name_without_ext = os.path.splitext(file_name)[0]
+        face_vectors_dir = os.path.join(base_dir, "fv")
+        os.makedirs(face_vectors_dir, exist_ok=True)
+        # Write to file with .face_vectors extension
+        output_path = os.path.join(face_vectors_dir, name_without_ext + '.fv.md.answer.md')
+        
         try:
             face_vectors = get_face_vectors(path)
             if face_vectors is not None:
                 face_vectors_as_json = json.dumps(face_vectors)
                 logging.info(f'Serialized face vectors for {path}')
-
-                base_dir = os.path.dirname(path)
-                file_name = os.path.basename(path)
-                name_without_ext = os.path.splitext(filename)[0]
-                face_vectors_dir = os.path.join(base_dir, "fv")
-
-                # Create face_vectors directory if it doesn't exist
-                os.makedirs(face_vectors_dir, exist_ok=True)
-
-                # Write to file with .face_vectors extension
-                output_path = os.path.join(face_vectors_dir, name_without_ext + '.fv.md.answer.md')
                 with open(output_path, 'w') as f: f.write(face_vectors_as_json)
                 logging.info(f'Written face vectors to {output_path}')
 
@@ -147,6 +145,8 @@ def main(argv:list[str]) -> int:
         except Exception as e:
             logging.exception(f"Failed processing {path}: {e}")
             errors += 1
+            
+        logging.info(f"Processed {processed}/{len(targets)}")
 
     logging.info(f"Done. Processed: {processed}, Errors: {errors}")
     return 0 if errors == 0 else 1

@@ -27,7 +27,7 @@ internal sealed class EmbeddingAnswersMustBeInsideConversation(IFileSystem fs) :
             if (!embeddingConversation.Contains(descriptionAnswer))
             {
                 var s =
-                    $"'DescriptionAnswer {PathExtensions.ResolveDqAnswerPath(filePath)}' does not have in conversation";
+                    $"'DescriptionAnswer {PathExtensions.ResolveDqAnswerPath(filePath)}' does not have in embedding conversation";
                 failures.Add(new { file = filePath, reason = s });
                 isOk = false;
             }

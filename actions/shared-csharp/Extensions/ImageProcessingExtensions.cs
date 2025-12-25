@@ -83,11 +83,16 @@ public static class ImageProcessingExtensions
 
         if (!File.Exists(fvAnswerPath))
         {
-            Console.WriteLine($"Cant find {fvAnswerPath}");
+            // attempting 2nd case, because this is python generated file, can be not aligned with general flow
+            fvAnswerPath = Path.Combine(fvFolder, Path.GetFileNameWithoutExtension(filePath) + ".fv.md.answer.md");
+
+            if (!File.Exists(fvAnswerPath))
+            {
+                return Array.Empty<string>();
+            }
         }
 
         var rawText = File.ReadAllText(fvAnswerPath);
-        Console.WriteLine(rawText);
         var d = JsonSerializer.Deserialize<FaceEncoding>(rawText);
         return d?.detected_faces ?? [];
     }

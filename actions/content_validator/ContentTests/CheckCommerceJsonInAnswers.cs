@@ -20,12 +20,10 @@ internal sealed class CheckCommerceJsonInAnswers(IFileSystem fs) : ContentValida
             return false;
         }
 
-        var commerceJson = await fs.GetCommerceMarkAnswer(filePath);
-
         try
         {
-            var fileContent = await File.ReadAllTextAsync(commerceJson);
-            var data = JsonConvert.DeserializeObject<CommerceJson>(fileContent);
+            var commerceJson = await fs.GetCommerceMarkAnswer(filePath);
+            var data = JsonConvert.DeserializeObject<CommerceJson>(commerceJson);
 
             if (data == null || data.Rate == null || data.RateExplanation == null)
             {

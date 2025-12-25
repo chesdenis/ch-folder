@@ -81,6 +81,21 @@ internal static class Program
             object? finalDetails = null;
             try
             {
+                if (testKind.Equals("All"))
+                {
+                    foreach (var test in strategies)
+                    {
+                        var result = await test.ExecuteAsync(folder, async details => { Console.WriteLine(details.message); });
+                        
+                        exitCode = result.ExitCode;
+                        finalDetails = result.Details;
+                        
+                        await UpsertStatusAsync(connString, jobGuid, folderName, testKind,  exitCode == 0 ? "Passed" : "Failed",
+                            finalDetails ?? new { exitCode });
+                        Console.WriteLine($"Job {jobId}: Completed.");
+                    }
+                }
+                else
                 if (strategy is null)
                 {
                     Console.WriteLine($"Unknown test kind: {testKind}");

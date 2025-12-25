@@ -150,6 +150,16 @@ public class ImageSearcher
             if (tags.Length > 0)
                 must.Add(new Condition("tags", new Match(Value: null, Any: tags.Cast<object>().ToArray(), Text: null),
                     null));
+        } 
+        
+        // Persons: comma-separated, uses match.any against array payload
+        var personsStr = GetArg("persons");
+        if (!string.IsNullOrWhiteSpace(personsStr))
+        {
+            var persons = personsStr.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (persons.Length > 0)
+                must.Add(new Condition("persons", new Match(Value: null, Any: persons.Cast<object>().ToArray(), Text: null),
+                    null));
         }
 
         // Full-text filter on "text" field (requires text index in Qdrant)
