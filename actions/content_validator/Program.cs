@@ -74,8 +74,7 @@ internal static class Program
             Console.WriteLine(
                 $"Job {jobId}: Content validation started for folder '{folderName}' with test '{testKind}'");
 
-            await UpsertStatusAsync(connString, jobGuid, folderName, testKind, "Running", new { message = "started" },
-                startedAtOnly: true);
+           
 
             int exitCode = 0;
             object? finalDetails = null;
@@ -87,6 +86,9 @@ internal static class Program
                     
                     foreach (var test in strategies)
                     {
+                        await UpsertStatusAsync(connString, jobGuid, folderName, test.Key, "Running", new { message = "started" },
+                            startedAtOnly: true);
+                        
                         var result = await test.ExecuteAsync(folder, async details => { Console.WriteLine(details.message); });
                         
                         exitCode = result.ExitCode;
@@ -104,9 +106,18 @@ internal static class Program
                 }
                 else
                 {
+                    await UpsertStatusAsync(connString, jobGuid, folderName, testKind, "Running", new { message = "started" },
+                        startedAtOnly: true);
+                    
                     var result = await strategy.ExecuteAsync(folder, async details => { Console.WriteLine(details.message); });
                     exitCode = result.ExitCode;
                     finalDetails = result.Details;
+                    
+                    var finalStatus = exitCode == 0 ? "Passed" : "Failed";
+                    await UpsertStatusAsync(connString, jobGuid, folderName, testKind, finalStatus,
+                        finalDetails ?? new { exitCode });
+                    
+                    Console.WriteLine($"Job {jobId}: Completed with status {finalStatus}");
                 }
             }
             catch (Exception ex)
@@ -115,11 +126,7 @@ internal static class Program
                 await UpsertStatusAsync(connString, jobGuid, folderName, testKind, "Error", new { error = ex.Message });
                 return 1;
             }
-
-            var finalStatus = exitCode == 0 ? "Passed" : "Failed";
-            await UpsertStatusAsync(connString, jobGuid, folderName, testKind, finalStatus,
-                finalDetails ?? new { exitCode });
-            Console.WriteLine($"Job {jobId}: Completed with status {finalStatus}");
+           
             return exitCode;
         }
         catch (Exception e)
