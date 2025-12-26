@@ -5,7 +5,7 @@
 
 <div class="row">
     <div class="col-md-10 col-lg-8">
-        <h1 class="mb-3">Run content quality (md5 prefix) and stream logs</h1>
+        <h1 class="mb-3">Run content quality validators to verify content consistency</h1>
 
         <div class="card mb-3">
             <div class="card-body">
@@ -13,6 +13,14 @@
                     <div class="col-12 col-md-5">
                         <label class="form-label">Storage path</label>
                         <div class="form-control-plaintext" id="storagePath">@ViewBag.StoragePath</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label for="level1" class="form-label">First-level folder (optional)</label>
+                        <input id="level1" class="form-control" type="text" placeholder="e.g. 2023" />
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label for="level2" class="form-label">Second-level folder (optional)</label>
+                        <input id="level2" class="form-control" type="text" placeholder="e.g. eventA" />
                     </div>
                     <div class="col-6 col-md-3">
                         <label class="form-label">Job</label>
@@ -23,7 +31,7 @@
                     <div class="col-6 col-md-3">
                         <label class="form-label">Test</label>
                         <select id="testKind" class="form-select">
-                            <option value="All">All</option>
+                            <option value= "All">All</option>
                             @foreach (var contentValidationKey in ModelConstants.ContentValidationKeys)
                             {
                                 <option value="@contentValidationKey.Item1">@contentValidationKey.Item2</option>
@@ -80,6 +88,8 @@
             const jobTypeEl = document.getElementById('jobType');
             const dopEl = document.getElementById('dop');
             const testKindEl = document.getElementById('testKind');
+            const level1El = document.getElementById('level1');
+            const level2El = document.getElementById('level2');
 
             let currentJobId = null;
             const connection = new signalR.HubConnectionBuilder()
@@ -140,15 +150,37 @@
                 }
                 try { await connection.invoke('JoinJobGroup', currentJobId); } catch(e) { addLog('Join failed: '+e); startBtn.disabled=false; return; }
 
-                const body = new URLSearchParams({ jobId: currentJobId, type: jobTypeEl.value, dop: (dopEl.value||'').toString(), testKind: (testKindEl?.value||'').toString() });
-                const resp = await fetch('@Url.Action("IndexJob", "Home")', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
-                if (!resp.ok) { addLog('Failed to start job: ' + resp.status); startBtn.disabled = false; return; }
+                const body = new URLSearchParams({
+                    jobId: currentJobId,
+                    type: jobTypeEl.value,
+                    dop: (dopEl.value || '').toString(),
+                    testKind: (testKindEl?.value || '').toString()
+                });
+                // include optional filters only if provided
+                const lvl1 = (level1El?.value || '').trim();
+                const lvl2 = (level2El?.value || '').trim();
+                if (lvl1) body.append('level1', lvl1);
+                if (lvl2) body.append('level2', lvl2);
+                
+                const resp = await fetch('@Url.Action("IndexJob", "Home")', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body
+                });
+                if (!resp.ok) {
+                    addLog('Failed to start job: ' + resp.status);
+                    startBtn.disabled = false;
+                    return;
+                }
                 addLog('Job started: ' + currentJobId);
             }
 
             startBtn.addEventListener('click', (e) => {
                 e.preventDefault();
-                startJob().catch(err => { addLog('Failed: ' + err); startBtn.disabled = false; });
+                startJob().catch(err => {
+                    addLog('Failed: ' + err);
+                    startBtn.disabled = false;
+                });
             });
         })();
     </script>

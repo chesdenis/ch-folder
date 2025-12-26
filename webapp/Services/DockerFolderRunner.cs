@@ -1,98 +1,103 @@
 using System.Diagnostics;
+using Microsoft.Extensions.Options;
+using shared_csharp.Extensions;
+using webapp.Models;
 
 namespace webapp.Services;
 
 public interface IDockerFolderRunner
 {
-    Task<int> RunMetaUploaderAsync(string actionsPath, string hostFolderAbs, Action<string>? onStdout = null,
+    Task<int> RunMetaUploaderAsync(string hostFolderAbs, Action<string>? onStdout = null,
         Action<string>? onStderr = null, CancellationToken ct = default);
 
-    Task<int> RunAiContentQueryBuilderAsync(string actionsPath, string hostFolderAbs,
+    Task<int> RunAiContentQueryBuilderAsync(string hostFolderAbs,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default); 
     
-    Task<int> RunAiContentAnswerBuilderAsync(string actionsPath, string hostFolderAbs,
+    Task<int> RunAiContentAnswerBuilderAsync(string hostFolderAbs,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
     
-    Task<int> RunMd5ImageMarkerAsync(string actionsPath, string hostFolderAbs,
+    Task<int> RunMd5ImageMarkerAsync(string hostFolderAbs,
         Action<string>? onStdout = null,
         Action<string>? onStderr = null, CancellationToken ct = default);
 
-    Task<int> RunDuplicateMarkerAsync(string actionsPath, string hostFolderAbs,
+    Task<int> RunDuplicateMarkerAsync(string hostFolderAbs,
         Action<string>? onStdout = null,
         Action<string>? onStderr = null, CancellationToken ct = default);
 
-    Task<int> RunFaceHashBuilderAsync(string actionsPath, string hostFolderAbs,
+    Task<int> RunFaceHashBuilderAsync(string hostFolderAbs,
         Action<string>? onStdout = null,
         Action<string>? onStderr = null, CancellationToken ct = default); 
     
-    Task<int> RunGroupFolderExtractorAsync(string actionsPath, string hostFolderAbs,
+    Task<int> RunGroupFolderExtractorAsync(string hostFolderAbs,
         Action<string>? onStdout = null,
         Action<string>? onStderr = null, CancellationToken ct = default); 
     
-    Task<int> RunEmbeddingDownloaderAsync(string actionsPath, string hostFolderAbs,
+    Task<int> RunEmbeddingDownloaderAsync(string hostFolderAbs,
         Action<string>? onStdout = null,
         Action<string>? onStderr = null, CancellationToken ct = default);
 
-    Task<int> RunAverageImageMarkerAsync(string actionsPath, string hostFolderAbs,
+    Task<int> RunAverageImageMarkerAsync(string hostFolderAbs,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
 
-    Task<int> RunContentValidatorAsync(string actionsPath, string hostFolderAbs, string testKind, string folderName,
+    Task<int> RunContentValidatorAsync(string hostFolderAbs, string testKind, string folderName,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
 }
 
-public class DockerFolderRunner : IDockerFolderRunner
+public class DockerFolderRunner(IOptions<StorageOptions> storage) : IDockerFolderRunner
 {
-    public Task<int> RunMetaUploaderAsync(string actionsPath, string hostFolderAbs, Action<string>? onStdout = null,
+    private readonly StorageOptions _storageOptions = storage.Value;
+
+    public Task<int> RunMetaUploaderAsync(string hostFolderAbs, Action<string>? onStdout = null,
         Action<string>? onStderr = null, CancellationToken ct = default)
-        => RunDockerAsync(actionsPath, "meta_uploader", hostFolderAbs, "/in", onStdout, onStderr, ct);
+        => RunDockerAsync("meta_uploader", hostFolderAbs, onStdout, onStderr, ct);
 
-    public Task<int> RunAiContentQueryBuilderAsync(string actionsPath, string hostFolderAbs,
+    public Task<int> RunAiContentQueryBuilderAsync(string hostFolderAbs,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
-        => RunDockerAsync(actionsPath, "ai_content_query_builder", hostFolderAbs, "/in", onStdout, onStderr, ct); 
+        => RunDockerAsync("ai_content_query_builder", hostFolderAbs, onStdout, onStderr, ct); 
     
-    public Task<int> RunAiContentAnswerBuilderAsync(string actionsPath, string hostFolderAbs,
+    public Task<int> RunAiContentAnswerBuilderAsync(string hostFolderAbs,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
-        => RunDockerAsync(actionsPath, "ai_content_answer_builder", hostFolderAbs, "/in", onStdout, onStderr, ct);
+        => RunDockerAsync("ai_content_answer_builder", hostFolderAbs, onStdout, onStderr, ct);
 
-    public Task<int> RunMd5ImageMarkerAsync(string actionsPath, string hostFolderAbs,
+    public Task<int> RunMd5ImageMarkerAsync(string hostFolderAbs,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
-        => RunDockerAsync(actionsPath, "md5_image_marker", hostFolderAbs, "/in", onStdout, onStderr, ct);
+        => RunDockerAsync("md5_image_marker", hostFolderAbs, onStdout, onStderr, ct);
 
-    public Task<int> RunDuplicateMarkerAsync(string actionsPath, string hostFolderAbs,
+    public Task<int> RunDuplicateMarkerAsync(string hostFolderAbs,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
-        => RunDockerAsync(actionsPath, "duplicate_marker", hostFolderAbs, "/in", onStdout, onStderr, ct);
+        => RunDockerAsync("duplicate_marker", hostFolderAbs, onStdout, onStderr, ct);
 
-    public Task<int> RunFaceHashBuilderAsync(string actionsPath, string hostFolderAbs,
+    public Task<int> RunFaceHashBuilderAsync(string hostFolderAbs,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
-        => RunDockerAsync(actionsPath, "face_hash_builder", hostFolderAbs, "/in", onStdout, onStderr, ct);
-     public Task<int> RunGroupFolderExtractorAsync(string actionsPath, string hostFolderAbs,
+        => RunDockerAsync("face_hash_builder", hostFolderAbs, onStdout, onStderr, ct);
+     public Task<int> RunGroupFolderExtractorAsync(string hostFolderAbs,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
-        => RunDockerAsync(actionsPath, "group_folder_extractor", hostFolderAbs, "/in", onStdout, onStderr, ct);
+        => RunDockerAsync("group_folder_extractor", hostFolderAbs, onStdout, onStderr, ct);
     
-    public Task<int> RunEmbeddingDownloaderAsync(string actionsPath, string hostFolderAbs,
+    public Task<int> RunEmbeddingDownloaderAsync(string hostFolderAbs,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
-        => RunDockerAsync(actionsPath, "embedding_downloader", hostFolderAbs, "/in", onStdout, onStderr, ct);
+        => RunDockerAsync("embedding_downloader", hostFolderAbs, onStdout, onStderr, ct);
 
-    public Task<int> RunAverageImageMarkerAsync(string actionsPath, string hostFolderAbs,
+    public Task<int> RunAverageImageMarkerAsync(string hostFolderAbs,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
-        => RunDockerAsync(actionsPath, "average_image_marker", hostFolderAbs, "/in", onStdout, onStderr, ct);
+        => RunDockerAsync("average_image_marker", hostFolderAbs, onStdout, onStderr, ct);
 
-    public Task<int> RunContentValidatorAsync(string actionsPath, string hostFolderAbs, string testKind, string folderName,
+    public Task<int> RunContentValidatorAsync(string hostFolderAbs, string testKind, string folderName,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
-        => RunDockerAsync(actionsPath, "content_validator", hostFolderAbs, "/in", onStdout, onStderr, ct,
-            extraArgs: $"--test-kind {ToB64(testKind)} --folder-name {ToB64(folderName)}");
+        => RunDockerAsync("content_validator", hostFolderAbs, onStdout, onStderr, ct,
+            extraArgs: $"--test-kind {testKind.AsBase64String()} --folder-name {folderName.AsBase64String()}");
 
 
-    private static Task<int> RunDockerAsync(
-        string actionsPath,
+    private Task<int> RunDockerAsync(
         string image,
         string hostFolderAbs,
-        string containerFolder,
         Action<string>? onStdout,
         Action<string>? onStderr,
         CancellationToken ct,
         string? extraArgs = null)
     {
+        var containerFolder = "/in";
+        var actionsPath = this._storageOptions.ActionsPath ?? throw new InvalidOperationException();
         var host = Path.GetFullPath(hostFolderAbs);
         var envFile = Path.Combine(actionsPath, image, ".env");
         var argsTail = string.IsNullOrWhiteSpace(extraArgs) ? string.Empty : $" {extraArgs}";
@@ -159,18 +164,5 @@ public class DockerFolderRunner : IDockerFolderRunner
         }
 
         return tcs.Task;
-    }
-
-    private static string EscapeArg(string value)
-    {
-        if (string.IsNullOrEmpty(value)) return "";
-        return value.Replace("\"", "\\\"");
-    }
-
-    private static string ToB64(string value)
-    {
-        if (string.IsNullOrEmpty(value)) return string.Empty;
-        var bytes = System.Text.Encoding.UTF8.GetBytes(value);
-        return Convert.ToBase64String(bytes);
     }
 }

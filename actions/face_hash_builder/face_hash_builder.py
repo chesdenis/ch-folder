@@ -133,6 +133,10 @@ def main(argv:list[str]) -> int:
         # Write to file with .face_vectors extension
         output_path = os.path.join(face_vectors_dir, name_without_ext + '.fv.md.answer.md')
         
+        if os.path.exists(output_path):
+            logging.info(f"Processed {processed}/{len(targets)} -> skip because computed")
+            return 
+        
         try:
             face_vectors = get_face_vectors(path)
             if face_vectors is not None:

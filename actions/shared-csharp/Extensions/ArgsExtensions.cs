@@ -52,4 +52,11 @@ public static class ArgsExtensions
             }
         }
     }
+    
+    public static string AsBase64String(this string value)
+    {
+        if (string.IsNullOrEmpty(value)) return string.Empty;
+        var bytes = System.Text.Encoding.UTF8.GetBytes(value);
+        return Convert.ToBase64String(bytes);
+    }
 }

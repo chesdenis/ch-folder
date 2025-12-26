@@ -454,7 +454,7 @@ public class HomeController(
         return View();
     }
 
-    public IActionResult ContentQualityReport()
+    public IActionResult ContentQualityValidator()
     {
         ViewBag.StoragePath = _storage.RootPath ?? string.Empty;
         return View();

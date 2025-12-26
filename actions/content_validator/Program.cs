@@ -58,8 +58,8 @@ internal static class Program
             
             await using var provider = services.BuildServiceProvider();
 
-            var strategies = provider.GetServices<IContentValidationTest>();
-            var strategy = strategies.FirstOrDefault(s => string.Equals(s.Key, testKind, StringComparison.OrdinalIgnoreCase));
+            var strategies = provider.GetServices<IContentValidationTest>().ToArray();
+            var strategy = provider.GetServices<IContentValidationTest>().FirstOrDefault(s => string.Equals(s.Key, testKind, StringComparison.OrdinalIgnoreCase));
 
             var connString = string.Join(";",
                 $"Host={Environment.GetEnvironmentVariable("PG_HOST")}",
@@ -81,8 +81,10 @@ internal static class Program
             object? finalDetails = null;
             try
             {
-                if (testKind.Equals("All"))
+                if (testKind.Equals("All",  StringComparison.OrdinalIgnoreCase))
                 {
+                    Console.WriteLine("Executing all strategies:" + strategies.Select(s=>s.Key).Aggregate((a,b)=>a + Environment.NewLine + b));
+                    
                     foreach (var test in strategies)
                     {
                         var result = await test.ExecuteAsync(folder, async details => { Console.WriteLine(details.message); });
@@ -90,13 +92,12 @@ internal static class Program
                         exitCode = result.ExitCode;
                         finalDetails = result.Details;
                         
-                        await UpsertStatusAsync(connString, jobGuid, folderName, testKind,  exitCode == 0 ? "Passed" : "Failed",
+                        await UpsertStatusAsync(connString, jobGuid, folderName, test.Key,  exitCode == 0 ? "Passed" : "Failed",
                             finalDetails ?? new { exitCode });
                         Console.WriteLine($"Job {jobId}: Completed.");
                     }
                 }
-                else
-                if (strategy is null)
+                else if (strategy is null)
                 {
                     Console.WriteLine($"Unknown test kind: {testKind}");
                     exitCode = 3;

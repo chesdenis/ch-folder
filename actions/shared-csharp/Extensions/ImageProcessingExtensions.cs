@@ -88,13 +88,33 @@ public static class ImageProcessingExtensions
 
             if (!File.Exists(fvAnswerPath))
             {
-                return Array.Empty<string>();
+                return ["NOBODY"];
             }
         }
 
         var rawText = File.ReadAllText(fvAnswerPath);
         var d = JsonSerializer.Deserialize<FaceEncoding>(rawText);
-        return d?.detected_faces ?? [];
+
+        if (d?.detected_faces != null && d.detected_faces.Length > 0)
+        {
+            // here we spotted some known faces -> so returning them
+            return d.detected_faces;
+        }
+
+        if(d?.face_locations != null && d.face_locations.Length > 0)
+        {
+            // return specific "placeholder" which will tell that some face on photo
+            return ["SOMEONE"];
+        }
+
+        if(d?.face_locations != null && d.face_locations.Length == 0)
+        {
+            // return specific "placeholder" which will tell that photo does not contain any face on it
+            return ["NOBODY"];
+        }
+
+        // other cases return empty string array
+        return ["NOBODY"];
     }
     
     public static readonly HashSet<string> IgnoredExtensions =
