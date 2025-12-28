@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using Npgsql;
+using shared_csharp.Abstractions;
 using webapp.Models;
 
 namespace webapp.Services;
@@ -11,7 +12,7 @@ public interface ISearchSessionSelectionRepository
     Task<bool> RemoveSelectionAsync(Guid sessionId, string md5, CancellationToken ct = default);
 }
 
-public sealed class SearchSessionSelectionRepository(IOptions<ConnectionStringOptions> connectionStringsOptions)
+public sealed class SearchSessionSelectionRepository(IFileSystem fileSystem,IOptions<ConnectionStringOptions> connectionStringsOptions)
     : ISearchSessionSelectionRepository
 {
     private readonly ConnectionStringOptions _connectionStrings = connectionStringsOptions.Value;
@@ -25,9 +26,10 @@ public sealed class SearchSessionSelectionRepository(IOptions<ConnectionStringOp
         await conn.OpenAsync(ct);
 
         var list = new List<SelectedPhotoInfo>();
-        await using var cmd = new NpgsqlCommand(@"SELECT p.md5_hash, p.short_details, p.tags
+        await using var cmd = new NpgsqlCommand(@"SELECT p.md5_hash, p.short_details, il.real_path, p.tags
             FROM search_session_selected s
             INNER JOIN photo p ON p.md5_hash = s.md5_hash
+            INNER JOIN image_location il on p.md5_hash = il.md5_hash
             WHERE s.session_id = @sid
             ORDER BY s.created_at ASC", conn);
         cmd.Parameters.AddWithValue("@sid", NpgsqlTypes.NpgsqlDbType.Uuid, sessionId);
@@ -37,8 +39,11 @@ public sealed class SearchSessionSelectionRepository(IOptions<ConnectionStringOp
         {
             var md5 = reader.GetString(0);
             var shortDetails = reader.GetString(1);
-            var tags = reader.IsDBNull(2) ? Array.Empty<string>() : reader.GetFieldValue<string[]>(2);
-            list.Add(new SelectedPhotoInfo(md5, shortDetails, tags));
+            var realPath = reader.GetString(2);
+            var largeDetails = await fileSystem.GetDqAnswer(realPath);
+            var commerceMark = await fileSystem.GetCommerceMarkAnswer(realPath);
+            var tags = reader.IsDBNull(3) ? Array.Empty<string>() : reader.GetFieldValue<string[]>(3);
+            list.Add(new SelectedPhotoInfo(md5, shortDetails, largeDetails, commerceMark, tags));
         }
 
         return list;
@@ -74,4 +79,4 @@ public sealed class SearchSessionSelectionRepository(IOptions<ConnectionStringOp
     }
 }
 
-public sealed record SelectedPhotoInfo(string Md5, string ShortDetails, string[] Tags);
+public sealed record SelectedPhotoInfo(string Md5, string ShortDetails, string LargeDetails, string CommerceMark, string[] Tags);

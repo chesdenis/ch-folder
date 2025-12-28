@@ -26,7 +26,7 @@ public sealed class ContentValidationRepository(IOptions<ConnectionStringOptions
         await using var conn = Create();
         await conn.OpenAsync(ct);
         await using var cmd = new NpgsqlCommand(
-            "select folder, test_kind, status, (details->>'total')::int as total from content_validation_result where job_id = @job order by folder", conn);
+            "select folder, test_kind, status, (details->>'mismatches')::int as total from content_validation_result where job_id = @job order by folder", conn);
         cmd.Parameters.AddWithValue("@job", jobId);
         await using var rdr = await cmd.ExecuteReaderAsync(ct);
         while (await rdr.ReadAsync(ct))
@@ -45,7 +45,7 @@ public sealed class ContentValidationRepository(IOptions<ConnectionStringOptions
         // pick the latest row per (folder, test_kind) by finished_at/started_at
         const string sql = @"
             SELECT DISTINCT ON (folder, test_kind)
-                   folder, test_kind, status, (details->>'total')::int as total
+                   folder, test_kind, status, (details->>'mismatches')::int as total
             FROM content_validation_result
             ORDER BY folder, test_kind, COALESCE(finished_at, started_at) DESC;";
         await using var cmd = new NpgsqlCommand(sql, conn);

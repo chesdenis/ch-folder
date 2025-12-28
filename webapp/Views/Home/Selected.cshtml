@@ -78,9 +78,15 @@
                                 <small class="text-muted mb-0">MD5: <code class="user-select-all text-break">@it.Md5</code></small>
                                 <div class="d-flex align-items-center gap-2">
                                     <button type="button" class="btn btn-outline-secondary btn-sm copy-btn"
-                                            data-copy-text="@it.ShortDetails" title="Copy text" aria-label="Copy text">
+                                            data-copy-text="@it.ShortDetails" title="Copy short text" aria-label="Copy text">
                                         <i class="bi bi-clipboard me-1" aria-hidden="true"></i>
-                                        Copy text
+                                        Copy short text
+                                    </button>
+                                    
+                                    <button type="button" class="btn btn-outline-secondary btn-sm copy-btn"
+                                            data-copy-text="@it.LargeDetails" title="Copy full text" aria-label="Copy text">
+                                        <i class="bi bi-clipboard me-1" aria-hidden="true"></i>
+                                        Copy full text
                                     </button>
                                     @if (it.Tags is { Length: > 0 })
                                     {

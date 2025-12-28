@@ -135,7 +135,7 @@ def main(argv:list[str]) -> int:
         
         if os.path.exists(output_path):
             logging.info(f"Processed {processed}/{len(targets)} -> skip because computed")
-            return 
+            continue 
         
         try:
             face_vectors = get_face_vectors(path)

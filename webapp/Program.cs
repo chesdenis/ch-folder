@@ -1,3 +1,5 @@
+using shared_csharp.Abstractions;
+using shared_csharp.Infrastructure;
 using webapp.Hubs;
 using webapp.Models;
 using webapp.Services;
@@ -20,6 +22,7 @@ builder.Services.AddSingleton<ISearchSessionSelectionRepository, SearchSessionSe
 builder.Services.AddSingleton<ISearchSessionRepository, SearchSessionRepository>();
 builder.Services.AddSingleton<IImageLocationRepository, ImageLocationRepository>();
 builder.Services.AddSingleton<IImageLocator, ImageLocator>();
+builder.Services.AddSingleton<IFileSystem, PhysicalFileSystem>();
 builder.Services.AddSingleton<IContentValidationRepository, ContentValidationRepository>();
 
 var app = builder.Build();

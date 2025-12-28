@@ -583,6 +583,7 @@ public class HomeController(
             {
                 Md5 = i.Md5,
                 ShortDetails = i.ShortDetails,
+                LargeDetails = i.LargeDetails,
                 Tags = i.Tags ?? Array.Empty<string>(),
                 ImageUrl = Url.Action("ByMd5", "Images", new { md5 = i.Md5, w = 128 })!
             }).ToList()
