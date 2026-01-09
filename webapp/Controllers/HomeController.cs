@@ -154,6 +154,11 @@ public class HomeController(
             "[Search] normalized state -> pageSize: {PageSize}, size: {Size}, orderBy: {OrderBy}, page reset to 1",
             normalizedPageSize, normalizedSize, route["orderBy"]);
 
+        // Normalize typed values for the view to avoid dynamic cast issues
+        var pageSizeInt = int.TryParse(route["pageSize"]?.ToString(), out var psVal) ? psVal : 12;
+        var sizeInt = int.TryParse(route["size"]?.ToString(), out var szVal) ? szVal : 256;
+        sizeInt = sizeInt.SnapToAllowed();
+
         // Determine if a specific session is requested via query string
         var sessionIdStr = Request.Query["sessionId"].ToString();
         Guid requestedSessionId;
@@ -176,8 +181,20 @@ public class HomeController(
                 }
             }
 
-            // No query and no valid session to restore from -> go to Index with normalized route
-            return RedirectToAction("Index", route);
+            // If no query and no session to restore, just show the search page with empty results/form
+            ViewBag.AvailableTags = Array.Empty<string>();
+            ViewBag.AvailablePersons = Array.Empty<string>();
+            ViewBag.GalleryItems = new List<webapp.Components.GalleryItem>();
+            ViewBag.SearchResults = new List<webapp.Services.SearchResultRow>();
+            ViewBag.Total = 0;
+            ViewBag.Page = pageFromQuery;
+            ViewBag.PageSize = pageSizeInt;
+            ViewBag.Size = sizeInt;
+            ViewBag.Query = string.Empty;
+            ViewBag.MinScore = minScoreVal;
+            ViewBag.OrderBy = route["orderBy"];
+
+            return View();
         }
         
         var tagsValues = Request.Query["tags"].ToString();
@@ -268,11 +285,9 @@ public class HomeController(
         }
 
         // Normalize typed values for the view to avoid dynamic cast issues
-        var pageSizeInt = int.TryParse(route["pageSize"]?.ToString(), out var psVal) ? psVal : 12;
-        var sizeInt = int.TryParse(route["size"]?.ToString(), out var szVal) ? szVal : 256;
+        pageSizeInt = int.TryParse(route["pageSize"]?.ToString(), out psVal) ? psVal : 12;
+        sizeInt = int.TryParse(route["size"]?.ToString(), out szVal) ? szVal : 256;
         sizeInt = sizeInt.SnapToAllowed();
-
-        // Apply score limiter to results
         var minScoreForFilter = (float)minScoreVal;
         var filteredResults = sessionToUse!.Results
             .Where(r => r.Score >= minScoreForFilter)
@@ -331,7 +346,7 @@ public class HomeController(
         ViewBag.SessionId = sessionToUse.SessionId;
         ViewBag.MinScore = minScoreVal;
         ViewBag.OrderBy = route["orderBy"];
-        return View("Index");
+        return View();
     }
 
     [HttpGet]
@@ -348,7 +363,8 @@ public class HomeController(
         var nextIdx = Math.Min(ImageProcessingExtensions.AllowedSizes.Length - 1, Math.Max(0, idx + 1));
         var nextSize = ImageProcessingExtensions.AllowedSizes[nextIdx];
 
-        return RedirectToAction("Index", new
+        var targetAction = string.IsNullOrWhiteSpace(query) ? "Index" : "Search";
+        return RedirectToAction(targetAction, new
         {
             query,
             tags,
@@ -374,7 +390,8 @@ public class HomeController(
         var prevIdx = Math.Max(0, Math.Max(0, idx - 1));
         var prevSize = ImageProcessingExtensions.AllowedSizes[prevIdx];
 
-        return RedirectToAction("Index", new
+        var targetAction = string.IsNullOrWhiteSpace(query) ? "Index" : "Search";
+        return RedirectToAction(targetAction, new
         {
             query,
             tags,
@@ -400,7 +417,8 @@ public class HomeController(
             ms = 0.78;
         ms = Math.Min(1.0, Math.Round(ms + 0.01, 2, MidpointRounding.AwayFromZero));
         var msStr = ms.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        return RedirectToAction("Index", new
+        var targetAction = string.IsNullOrWhiteSpace(query) ? "Index" : "Search";
+        return RedirectToAction(targetAction, new
         {
             query,
             tags,
@@ -427,7 +445,8 @@ public class HomeController(
             ms = 0.78;
         ms = Math.Max(0.0, Math.Round(ms - 0.01, 2, MidpointRounding.AwayFromZero));
         var msStr = ms.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        return RedirectToAction("Index", new
+        var targetAction = string.IsNullOrWhiteSpace(query) ? "Index" : "Search";
+        return RedirectToAction(targetAction, new
         {
             query,
             tags,

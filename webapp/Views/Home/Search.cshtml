@@ -1,6 +1,9 @@
 ﻿@{
-    ViewData["Title"] = "Navigation - Ch Photo Gallery";
+    ViewData["Title"] = "Search - Ch Photo Gallery";
     var queryText = Context.Request.Query["query"].ToString();
+    if (string.IsNullOrWhiteSpace(queryText)) {
+        queryText = ViewBag.Query?.ToString() ?? string.Empty;
+    }
     var selectedTags = Context.Request.Query["tags"].ToArray();
     var selectedPersons = Context.Request.Query["persons"].ToArray();
     var filters = Context.Request.Query["filters"].ToArray();
@@ -61,8 +64,14 @@
 }
 
 <div class="container-fluid mt-4 px-3">
-    <!-- Fluent-style top toolbar: page size, size controls -->
-    <div class="row g-3">
+    <form method="get" action="@Url.Action("Search", "Home")" class="row g-3">
+        <div class="col-12">
+            <textarea class="form-control"
+                      name="query"
+                      placeholder="Enter search text"
+                      rows="3">@queryText</textarea>
+        </div>
+        <!-- Fluent-style top toolbar: page size, tag selector, size controls, and search -->
         <div class="col-12">
             <div class="fluent-toolbar">
                 <div class="toolbar-group" role="group" aria-label="Images per page">
@@ -74,9 +83,41 @@
                         <button type="button" class="seg-btn page-size-btn @(pageSize==48?"active":"")" data-pagesize="48">48</button>
                     </div>
                 </div>
-
-                <div class="toolbar-spacer"></div>
-
+                <!-- Tags selector placed inline in the toolbar -->
+                <div class="toolbar-group" role="group" aria-label="Tags selector">
+                    <span class="toolbar-label">Tags</span>
+                    @await Component.InvokeAsync("TagsSelector", new {
+                        availableTags = (ViewBag.AvailableTags as IEnumerable<string> ?? Array.Empty<string>()).Take(10),
+                        selectedTags = ViewBag.SelectedTags as IEnumerable<string>
+                    })
+                </div>
+                <!-- Persons selector placed inline in the toolbar, similar to tags -->
+                <div class="toolbar-group" role="group" aria-label="Persons selector">
+                    <span class="toolbar-label">Persons</span>
+                    <div class="tags-selector" role="group" aria-label="Persons">
+                        @{
+                            var availablePersons = ViewBag.AvailablePersons as IEnumerable<string> ?? Array.Empty<string>();
+                            var personsToShow = availablePersons.Take(10).OrderBy(p => p, StringComparer.OrdinalIgnoreCase).ToArray();
+                            var selectedPersonsSet = new HashSet<string>(selectedPersons ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+                        }
+                        @if (personsToShow.Any())
+                        {
+                            foreach (var person in personsToShow)
+                            {
+                                var inputId = $"person_{person.Replace(" ", "_")}";
+                                <span class="tag-item">
+                                    <input class="tag-checkbox" type="checkbox" name="persons" value="@person" id="@inputId"
+                                           @(selectedPersonsSet.Contains(person) ? "checked" : null) />
+                                    <label class="tag-chip" for="@inputId">@person</label>
+                                </span>
+                            }
+                        }
+                        else
+                        {
+                            <span class="text-muted">No persons available</span>
+                        }
+                    </div>
+                </div>
                 <div class="toolbar-group" role="group" aria-label="Thumbnail size">
                     <span class="toolbar-label">Thumb size</span>
                     <div class="segmented">
@@ -84,19 +125,57 @@
                         <button type="button" id="sizeUpBtn" class="seg-btn" aria-label="Make larger">Larger</button>
                     </div>
                 </div>
+                <div class="toolbar-group" role="group" aria-label="Score limiter">
+                    <span class="toolbar-label">Score limit</span>
+                    <div class="segmented">
+                        <button type="button" id="rankDownBtn" class="seg-btn" aria-label="Decrease score limit">-0.01</button>
+                        <button type="button" id="rankUpBtn" class="seg-btn" aria-label="Increase score limit">+0.01</button>
+                    </div>
+                    <span class="ms-2 text-muted" id="rankValue">@minScore.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)</span>
+                </div>
+                <div class="toolbar-group" role="group" aria-label="Order by">
+                    <span class="toolbar-label">Order by</span>
+                    <div class="segmented">
+                        <button type="button" class="seg-btn order-by-btn @(orderBy=="score"?"active":"")" data-order="score">Score</button>
+                        <button type="button" class="seg-btn order-by-btn @(orderBy=="commerce"?"active":"")" data-order="commerce">Commerce</button>
+                    </div>
+                </div>
+                <div class="toolbar-spacer"></div>
+                <!-- Preserve current state on submit -->
+                <input type="hidden" name="size" value="@thumbSize" />
+                <input type="hidden" name="pageSize" value="@pageSize" />
+                <input type="hidden" name="minScore" id="minScoreInput" value="@minScore.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)" />
+                <input type="hidden" name="orderBy" value="@orderBy" />
+                @* Preserve any existing filters/sorting from the current query *@
+                @foreach (var f in filters)
+                {
+                    <input type="hidden" name="filters" value="@f" />
+                }
+                @foreach (var s in sorting)
+                {
+                    <input type="hidden" name="sorting" value="@s" />
+                }
+                <button type="submit" class="btn btn-primary btn-lg touch">Search</button>
             </div>
         </div>
-    </div>
-    <div class="row mt-3">
+    </form>
+    <div class="row">
         <div class="col-12">
             @{
-                // Default page: use real data items provided by controller
-                var defaultItems = ViewBag.GalleryItems as IReadOnlyList<webapp.Components.GalleryItem> ?? new List<webapp.Components.GalleryItem>();
-                totalItems = ViewBag.Total != null ? (int)ViewBag.Total : defaultItems.Count;
+                // Determine if we have search results
+                var results = ViewBag.SearchResults as IReadOnlyList<webapp.Services.SearchResultRow> ?? new List<webapp.Services.SearchResultRow>();
+                // Recalculate total pages based on results count
+                totalItems = results.Count;
                 totalPages = (int)Math.Ceiling(totalItems / (double)Math.Max(1, pageSize));
 
+                <div class="search-summary mb-2 text-muted">
+                    Found @results.Count images for "@queryText"
+                </div>
+
+                // Use server-prepared gallery items with real sizes
+                var srvItems = ViewBag.GalleryItems as IReadOnlyList<webapp.Components.GalleryItem> ?? new List<webapp.Components.GalleryItem>();
                 @await Component.InvokeAsync("Pagination", new { currentPage, totalPages })
-                @await Component.InvokeAsync("Gallery", new { page = 1, pageSize = pageSize, thumbSize = thumbSize, items = defaultItems, totalItems = totalItems })
+                @await Component.InvokeAsync("Gallery", new { page = currentPage, pageSize = pageSize, thumbSize = thumbSize, items = srvItems, totalItems = totalItems })
                 @await Component.InvokeAsync("Pagination", new { currentPage, totalPages })
             }
         </div>
@@ -201,8 +280,10 @@
                     const url = new URL(window.location.href);
                     url.searchParams.set('pageSize', size);
                     url.searchParams.set('page', '1');
-                    // Ensure it stays on Index page
-                    url.pathname = '/Home/Index';
+                    // Ensure it stays on Search page
+                    if (!url.pathname.includes('/Home/Search')) {
+                        url.pathname = '/Home/Search';
+                    }
                     window.location.href = url.toString();
                 });
             });
@@ -216,8 +297,10 @@
                     const url = new URL(window.location.href);
                     url.searchParams.set('orderBy', val);
                     url.searchParams.set('page', '1');
-                    // Ensure it stays on Index page
-                    url.pathname = '/Home/Index';
+                    // Ensure it stays on Search page
+                    if (!url.pathname.includes('/Home/Search')) {
+                        url.pathname = '/Home/Search';
+                    }
                     window.location.href = url.toString();
                 });
             });
@@ -240,7 +323,7 @@
             if (direction === 'up') newIdx = Math.min(allowed.length - 1, idx + 1);
             if (direction === 'down') newIdx = Math.max(0, idx - 1);
             const nextSize = allowed[newIdx];
-            
+
             // Navigate via server to ensure correct action and state
             const url = new URL(window.location.origin + '/Home/' + (direction === 'up' ? 'SizeUp' : 'SizeDown'));
             url.search = window.location.search;
@@ -277,7 +360,7 @@
             if (down) down.addEventListener('click', () => adjustMinScore(-0.01));
         }
 
-        document.addEventListener('DOMContentLoaded', () => { wirePageSizeButtons(); wireSizeButtons(); });
+        document.addEventListener('DOMContentLoaded', () => { wirePageSizeButtons(); wireSizeButtons(); wireRankButtons(); wireOrderByButtons(); });
 
         // Server now provides real slide sizes via data-pswp-width/height
 
