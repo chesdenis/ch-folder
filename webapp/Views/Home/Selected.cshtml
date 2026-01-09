@@ -10,6 +10,8 @@
 <div class="container mt-3">
     <h3>Selected images for session @Model.SessionId</h3>
 
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe.css">
     <style>
         /* Scoped fixes for this view to prevent horizontal overflow when there are many/long tags */
         .selected-table {
@@ -41,6 +43,7 @@
             overflow-wrap: anywhere;
         }
     </style>
+}
 
     @if (Model.Items == null || Model.Items.Count == 0)
     {
@@ -60,8 +63,13 @@
                 @foreach (var it in Model.Items)
                 {
                     <tr>
-                        <td>
-                            <img src="@it.ImageUrl" alt="@it.Md5" width="128" height="128" class="img-thumbnail" style="object-fit: cover;"/>
+                        <td class="pswp-gallery" id="gallery-@it.Md5">
+                            <a href="@Url.Action("ByMd5", "Images", new { md5 = it.Md5, w = 2000 })"
+                               data-pswp-width="@(it.Width ?? 2000)"
+                               data-pswp-height="@(it.Height ?? 2000)"
+                               target="_blank">
+                                <img src="@it.ImageUrl" alt="@it.Md5" width="128" height="128" class="img-thumbnail" style="object-fit: cover; cursor: zoom-in;"/>
+                            </a>
                         </td>
                         <td class="w-100 selected-cell">
                             <div class="fw-semibold selected-details-text text-break">@it.ShortDetails</div>
@@ -74,9 +82,24 @@
                                     }
                                 </div>
                             }
-                            <div class="mt-1 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                            <div class="mt-2 p-2 bg-light border rounded" style="font-size: 0.9rem;">
+                                <strong>Commerce Mark:</strong> <span class="badge bg-primary">@it.CommerceMark</span>
+                                <div class="text-muted mt-1 small">@it.ImprovementWays</div>
+                            </div>
+                            <div class="mt-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
                                 <small class="text-muted mb-0">MD5: <code class="user-select-all text-break">@it.Md5</code></small>
                                 <div class="d-flex align-items-center gap-2">
+                                    @if (!string.IsNullOrEmpty(it.RealUrl))
+                                    {
+                                        <a href="@it.RealUrl" class="btn btn-outline-primary btn-sm" download title="Download original image">
+                                            <i class="bi bi-download me-1"></i> Download
+                                        </a>
+                                    }
+                                    <button type="button" class="btn btn-outline-secondary btn-sm copy-btn"
+                                            data-copy-text="@it.CommerceMark: @it.ImprovementWays" title="Copy commerce mark" aria-label="Copy commerce mark">
+                                        <i class="bi bi-clipboard-check me-1" aria-hidden="true"></i>
+                                        Copy Mark
+                                    </button>
                                     <button type="button" class="btn btn-outline-secondary btn-sm copy-btn"
                                             data-copy-text="@it.ShortDetails" title="Copy short text" aria-label="Copy text">
                                         <i class="bi bi-clipboard me-1" aria-hidden="true"></i>
@@ -117,7 +140,19 @@
     </div>
 </div>
 
-<script>
+@section Scripts {
+    <script type="module">
+        import PhotoSwipeLightbox
+            from 'https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe-lightbox.esm.js';
+
+        const lightbox = new PhotoSwipeLightbox({
+            gallery: '.pswp-gallery',
+            children: 'a',
+            pswpModule: () => import('https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe.esm.js')
+        });
+        lightbox.init();
+    </script>
+    <script>
     (function () {
         const restoreDelay = 1200;
         function setTempLabel(btn, temp) {
@@ -160,3 +195,4 @@
         });
     })();
  </script>
+}

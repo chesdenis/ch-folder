@@ -577,16 +577,21 @@ public class HomeController(
         var vm = new SelectedViewModel
         {
             SessionId = sessionId,
-            Items = items.Select(i => new SelectedItemViewModel
-            {
-                Md5 = i.Md5,
-                ShortDetails = i.ShortDetails,
-                LargeDetails = i.LargeDetails,
-                Tags = i.Tags ?? Array.Empty<string>(),
-                ImageUrl = Url.Action("ByMd5", "Images", new { md5 = i.Md5, w = 128 })!,
-                RealUrl = imageLocator.GetImageLinks(i.Md5)?.Real ?? string.Empty,
-                CommerceMark =  i.CommerceMark.ThisJsonAs<ImageProcessingExtensions.RateExplanation>().rate.ToString(),
-                ImprovementWays = i.CommerceMark.ThisJsonAs<ImageProcessingExtensions.RateExplanation>().rateExplanation
+            Items = items.Select(i => {
+                var links = imageLocator.GetImageLinks(i.Md5);
+                return new SelectedItemViewModel
+                {
+                    Md5 = i.Md5,
+                    ShortDetails = i.ShortDetails,
+                    LargeDetails = i.LargeDetails,
+                    Tags = i.Tags ?? Array.Empty<string>(),
+                    ImageUrl = Url.Action("ByMd5", "Images", new { md5 = i.Md5, w = 128 })!,
+                    RealUrl = links?.Real ?? string.Empty,
+                    CommerceMark = i.CommerceMark.ThisJsonAs<ImageProcessingExtensions.RateExplanation>().rate.ToString(),
+                    ImprovementWays = i.CommerceMark.ThisJsonAs<ImageProcessingExtensions.RateExplanation>().rateExplanation,
+                    Width = links?.P2000Width,
+                    Height = links?.P2000Height
+                };
             }).ToList()
         };
 
