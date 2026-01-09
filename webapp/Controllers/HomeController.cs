@@ -143,6 +143,14 @@ public class HomeController(
         minScoreVal = Math.Round(minScoreVal, 2, MidpointRounding.AwayFromZero);
         route["minScore"] = minScoreVal.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
+        // Commerce rating filter normalization with default 4
+        if (!route.ContainsKey("minCommerceRating") ||
+            !int.TryParse(route["minCommerceRating"]?.ToString(), out var minCommerceRatingVal))
+        {
+            minCommerceRatingVal = 4;
+        }
+        route["minCommerceRating"] = minCommerceRatingVal;
+
         // Ordering normalization: score (default) or commerce
         var orderByRaw = Request.Query["orderBy"].ToString();
         var orderBy = string.Equals(orderByRaw, "commerce", StringComparison.OrdinalIgnoreCase)
@@ -192,6 +200,7 @@ public class HomeController(
             ViewBag.Size = sizeInt;
             ViewBag.Query = string.Empty;
             ViewBag.MinScore = minScoreVal;
+            ViewBag.MinCommerceRating = minCommerceRatingVal;
             ViewBag.OrderBy = route["orderBy"];
 
             return View();
@@ -291,6 +300,7 @@ public class HomeController(
         var minScoreForFilter = (float)minScoreVal;
         var filteredResults = sessionToUse!.Results
             .GroupBy(g=>g.Group).Select(s=>s.First())
+            .Where(r => r.CommerceRating >= minCommerceRatingVal)
             .Where(r => r.Score >= minScoreForFilter)
             .ToList();
 
@@ -346,6 +356,7 @@ public class HomeController(
         ViewBag.Query = queryText;
         ViewBag.SessionId = sessionToUse.SessionId;
         ViewBag.MinScore = minScoreVal;
+        ViewBag.MinCommerceRating = minCommerceRatingVal;
         ViewBag.OrderBy = route["orderBy"];
         return View();
     }
@@ -428,6 +439,7 @@ public class HomeController(
             pageSize = pageSize ?? 12,
             size = (size ?? 256).SnapToAllowed(),
             minScore = msStr,
+            minCommerceRating = Request.Query["minCommerceRating"].ToString(),
             page = 1
         });
     }
@@ -456,9 +468,11 @@ public class HomeController(
             pageSize = pageSize ?? 12,
             size = (size ?? 256).SnapToAllowed(),
             minScore = msStr,
+            minCommerceRating = Request.Query["minCommerceRating"].ToString(),
             page = 1
         });
     }
+
 
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public IActionResult Error()
