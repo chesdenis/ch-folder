@@ -21,8 +21,6 @@ public class HomeController(
     IContentValidationRepository contentValidationRepository) : Controller
 {
     private readonly StorageOptions _storage = storageOptions.Value;
-    private readonly IImageLocator _imageLocator = imageLocator;
-    private readonly IContentValidationRepository _contentRepo = contentValidationRepository;
 
     public async Task<IActionResult> Index([FromQuery] string[]? tags)
     {
@@ -61,7 +59,7 @@ public class HomeController(
             .Where(m => !string.IsNullOrWhiteSpace(m))
             .Select(m =>
             {
-                var links = _imageLocator.GetImageLinks(m);
+                var links = imageLocator.GetImageLinks(m);
                 // Prefer actual preview-2000 dimensions if available, otherwise use a safe fallback
                 int pw = Math.Max(1, links?.P2000Width ?? 2000);
                 int ph = Math.Max(1, links?.P2000Height ?? 1500);
@@ -289,7 +287,7 @@ public class HomeController(
             .Select(r => r.Md5!)
             .Select(m =>
             {
-                var links = _imageLocator.GetImageLinks(m);
+                var links = imageLocator.GetImageLinks(m);
                 int pw = Math.Max(1, links?.P2000Width ?? 2000);
                 int ph = Math.Max(1, links?.P2000Height ?? 1500);
                 return new webapp.Components.GalleryItem
@@ -467,7 +465,7 @@ public class HomeController(
             ? PathExtensions.GetStorageFolders(root).ToArray()
             : Array.Empty<string>();
 
-        var latest = await _contentRepo.GetLatestAsync(HttpContext.RequestAborted);
+        var latest = await contentValidationRepository.GetLatestAsync(HttpContext.RequestAborted);
         
         ViewBag.StoragePath = root ?? string.Empty;
 
@@ -492,7 +490,7 @@ public class HomeController(
 
         ViewBag.StoragePath = _storage.RootPath ?? string.Empty;
 
-        var rows = await _contentRepo.GetLatestDetailsByFolderAsync(folder, HttpContext.RequestAborted);
+        var rows = await contentValidationRepository.GetLatestDetailsByFolderAsync(folder, HttpContext.RequestAborted);
 
         // Prepare pretty JSON once on server side
         static string? Pretty(string? json)
@@ -585,7 +583,10 @@ public class HomeController(
                 ShortDetails = i.ShortDetails,
                 LargeDetails = i.LargeDetails,
                 Tags = i.Tags ?? Array.Empty<string>(),
-                ImageUrl = Url.Action("ByMd5", "Images", new { md5 = i.Md5, w = 128 })!
+                ImageUrl = Url.Action("ByMd5", "Images", new { md5 = i.Md5, w = 128 })!,
+                RealUrl = imageLocator.GetImageLinks(i.Md5)?.Real ?? string.Empty,
+                CommerceMark =  i.CommerceMark.ThisJsonAs<ImageProcessingExtensions.RateExplanation>().rate.ToString(),
+                ImprovementWays = i.CommerceMark.ThisJsonAs<ImageProcessingExtensions.RateExplanation>().rateExplanation
             }).ToList()
         };
 

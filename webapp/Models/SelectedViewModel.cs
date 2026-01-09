@@ -13,4 +13,8 @@ public sealed class SelectedItemViewModel
     public string LargeDetails { get; set; } = string.Empty;
     public string[] Tags { get; set; } = Array.Empty<string>();
     public string ImageUrl { get; set; } = string.Empty;
+
+    public string RealUrl { get; set; } = string.Empty;
+    public string CommerceMark { get; set; } = string.Empty;
+    public string ImprovementWays { get; set; } = string.Empty;
 }

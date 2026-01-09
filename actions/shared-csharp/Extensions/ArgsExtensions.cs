@@ -59,4 +59,15 @@ public static class ArgsExtensions
         var bytes = System.Text.Encoding.UTF8.GetBytes(value);
         return Convert.ToBase64String(bytes);
     }
+
+    public static T ThisJsonAs<T>(this string jsonData) where T : class
+    {
+        if (string.IsNullOrWhiteSpace(jsonData)) return null!;
+
+        return System.Text.Json.JsonSerializer.Deserialize<T>(jsonData, 
+            new System.Text.Json.JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        })!;
+    }
 }
