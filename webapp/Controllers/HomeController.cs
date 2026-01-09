@@ -290,6 +290,7 @@ public class HomeController(
         sizeInt = sizeInt.SnapToAllowed();
         var minScoreForFilter = (float)minScoreVal;
         var filteredResults = sessionToUse!.Results
+            .GroupBy(g=>g.Group).Select(s=>s.First())
             .Where(r => r.Score >= minScoreForFilter)
             .ToList();
 

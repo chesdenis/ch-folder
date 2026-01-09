@@ -20,7 +20,6 @@ public sealed class ImageLocator(
 {
     private readonly StorageOptions _storage = storage.Value;
     private readonly ConcurrentDictionary<string, string> _imageLocationsMap = new();
-    private readonly IImageLocationRepository _repo = imageLocationRepository;
     
     private static (int width, int height)? TryReadJpegSize(string path)
     {
@@ -131,6 +130,11 @@ public sealed class ImageLocator(
                 // last write wins if duplicates found
                 _imageLocationsMap[md5] = filePath;
                 totalProcessed++;
+
+                if (totalProcessed % 10000 == 0)
+                {
+                    logger.LogInformation("PhotoLocator: processed {Count} files", totalProcessed);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -145,7 +149,7 @@ public sealed class ImageLocator(
         // Persist image locations into Postgres so other services can use them
         try
         {
-            await _repo.UpsertLocationsAsync(_imageLocationsMap, ct);
+            await imageLocationRepository.UpsertLocationsAsync(_imageLocationsMap, ct);
             logger.LogInformation("PhotoLocator: uploaded {Count} image locations to DB", _imageLocationsMap.Count);
         }
         catch (Exception ex)

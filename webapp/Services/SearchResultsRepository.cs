@@ -56,7 +56,7 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
             ? "ORDER BY COALESCE(p.commerce_rate, 0) DESC, r.score DESC"
             : "ORDER BY r.score DESC, COALESCE(p.commerce_rate, 0) DESC";
         await using (var cmd = new NpgsqlCommand($@"
-            SELECT r.score, r.path_md5, p.commerce_rate
+            SELECT r.score, r.path_md5, p.commerce_rate, p.group_name
             FROM search_session_result r
             LEFT JOIN photo p ON p.md5_hash = r.path_md5
             WHERE r.session_id = @sid {orderSql}", conn))
@@ -69,7 +69,8 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
                 {
                     Score = rdr.GetFloat(0),
                     Md5 = rdr.IsDBNull(1) ? null : rdr.GetString(1),
-                    CommerceRating = rdr.IsDBNull(2) ? 0 : rdr.GetInt32(2)
+                    CommerceRating = rdr.IsDBNull(2) ? 0 : rdr.GetInt32(2),
+                    Group = rdr.IsDBNull(3) ? null : rdr.GetString(3)
                 };
                 results.Add(row);
             }
@@ -95,7 +96,7 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         if (queryText is null) return null;
 
         var results = new List<SearchResultRow>();
-        var sql = @"SELECT r.score, r.path_md5, p.commerce_rate
+        var sql = @"SELECT r.score, r.path_md5, p.commerce_rate, p.group_name
             FROM search_session_result r
             LEFT JOIN photo p ON p.md5_hash = r.path_md5
             WHERE r.session_id = @sid";
@@ -120,7 +121,8 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
                 {
                     Score = rdr.GetFloat(0),
                     Md5 = rdr.IsDBNull(1) ? null : rdr.GetString(1),
-                    CommerceRating = rdr.IsDBNull(2) ? 0 : rdr.GetInt32(2)
+                    CommerceRating = rdr.IsDBNull(2) ? 0 : rdr.GetInt32(2),
+                    Group = rdr.IsDBNull(3) ? null : rdr.GetString(3)
                 };
                 results.Add(row);
             }
@@ -244,6 +246,7 @@ public sealed record SearchResultRow
     public float Score { get; init; }
     public int CommerceRating { get; init; }
     public string? Md5 { get; init; }
+    public string? Group { get; set; }
 }
 
 public sealed record Photo
