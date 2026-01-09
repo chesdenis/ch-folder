@@ -56,6 +56,7 @@ public class ImageMetaUploader
         try
         {
             var fileName = Path.GetFileName(filePath);
+            var group = fileName.GetGroupName();
             var extension = Path.GetExtension(filePath).TrimStart('.').ToLowerInvariant();
             var sizeBytes = new FileInfo(filePath).Length;
 
@@ -112,7 +113,8 @@ public class ImageMetaUploader
                 tags: eng30TagsText,
                 persons: persons,
                 short_details:  shortDetails,
-                commerce_rate: commerceRate);
+                commerce_rate: commerceRate,
+                group_name: group);
 
             _buffer.Add(record);
             if (_buffer.Count >= BatchSize)
@@ -158,7 +160,8 @@ public class ImageMetaUploader
             .Append("tags, ")
             .Append("persons, ")
             .Append("short_details, ")
-            .Append("commerce_rate) VALUES ");
+            .Append("commerce_rate, ")
+            .Append("group_name) VALUES ");
 
         var cmd = new NpgsqlCommand();
         cmd.Connection = conn;
@@ -174,7 +177,8 @@ public class ImageMetaUploader
                       $"@tags_{i}, " +
                       $"@persons_{i}, " +
                       $"@sd_{i}, " +
-                      $"@cr_{i})");
+                      $"@cr_{i}, " +
+                      $"@group_{i})");
 
             cmd.Parameters.AddWithValue($"@md5_{i}", NpgsqlDbType.Text, r.md5_hash);
             cmd.Parameters.AddWithValue($"@ext_{i}", NpgsqlDbType.Text, r.extension);
@@ -185,6 +189,7 @@ public class ImageMetaUploader
             cmd.Parameters.Add(pPersons);
             cmd.Parameters.AddWithValue($"@sd_{i}", NpgsqlDbType.Text, r.short_details);
             cmd.Parameters.AddWithValue($"@cr_{i}", NpgsqlDbType.Integer, r.commerce_rate);
+            cmd.Parameters.AddWithValue($"@group_{i}", NpgsqlDbType.Text, r.group_name);
         }
 
         sb.Append(" ON CONFLICT (md5_hash) DO UPDATE SET ");
@@ -193,7 +198,8 @@ public class ImageMetaUploader
         sb.Append("tags = EXCLUDED.tags, ");
         sb.Append("persons = EXCLUDED.persons, ");
         sb.Append("short_details = EXCLUDED.short_details, ");
-        sb.Append("commerce_rate = EXCLUDED.commerce_rate;");
+        sb.Append("commerce_rate = EXCLUDED.commerce_rate, ");
+        sb.Append("group_name = EXCLUDED.group_name;");
 
         cmd.CommandText = sb.ToString();
         await cmd.ExecuteNonQueryAsync();
@@ -207,6 +213,7 @@ public class ImageMetaUploader
         string[] tags,
         string[] persons,
         string short_details,
-        int commerce_rate
+        int commerce_rate,
+        string group_name
     );
 }

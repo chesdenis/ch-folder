@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS photo (
     short_details text NOT NULL CHECK (short_details <> ''),
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
-    commerce_rate integer NOT NULL DEFAULT 0 CHECK (commerce_rate >= 0 AND commerce_rate <= 5)
+    commerce_rate integer NOT NULL DEFAULT 0 CHECK (commerce_rate >= 0 AND commerce_rate <= 5),
+    group_name text NOT NULL DEFAULT ''
     );
 
 CREATE OR REPLACE FUNCTION set_updated_at()
