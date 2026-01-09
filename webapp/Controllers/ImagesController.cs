@@ -28,6 +28,25 @@ public sealed class ImagesController(
         return File(stream, contentType);
     }
 
+    [HttpGet("download/{md5}")]
+    public async Task<IActionResult> Download(string md5, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(md5)) return BadRequest("md5 is required");
+
+        var photoContent = imageLocator.GetImageLinks(md5);
+        if (photoContent == null || string.IsNullOrWhiteSpace(photoContent.Real) || !System.IO.File.Exists(photoContent.Real))
+        {
+            return NotFound();
+        }
+
+        var path = photoContent.Real;
+        var contentType = GetContentType(path);
+        var fileName = Path.GetFileName(path);
+        
+        var stream = await System.IO.File.ReadAllBytesAsync(path, ct);
+        return File(stream, contentType, fileName);
+    }
+
     private static string SelectPreviewPath(Services.ImageLinks links, int? w)
     {
         // default to 512 if width is not specified

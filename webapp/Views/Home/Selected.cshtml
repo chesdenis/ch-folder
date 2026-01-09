@@ -91,7 +91,7 @@
                                 <div class="d-flex align-items-center gap-2">
                                     @if (!string.IsNullOrEmpty(it.RealUrl))
                                     {
-                                        <a href="@it.RealUrl" class="btn btn-outline-primary btn-sm" download title="Download original image">
+                                        <a href="@Url.Action("Download", "Images", new { md5 = it.Md5 })" class="btn btn-outline-primary btn-sm" title="Download original image">
                                             <i class="bi bi-download me-1"></i> Download
                                         </a>
                                     }
