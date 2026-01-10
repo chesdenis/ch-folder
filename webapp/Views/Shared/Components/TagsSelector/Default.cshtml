@@ -10,9 +10,7 @@
     {
         var inputId = $"tag_{tag.Replace(" ", "_")}";
         <span class="tag-item">
-            <input class="tag-checkbox" type="checkbox" name="tags" value="@tag" id="@inputId"
-                   @(selected.Contains(tag) ? "checked" : null) />
-            <label class="tag-chip" for="@inputId">@tag</label>
+            <button type="button" class="tag-btn @(selected.Contains(tag) ? "active" : "")" data-tag="@tag">@tag</button>
         </span>
     }
     @if (!toShow.Any())

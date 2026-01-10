@@ -116,11 +116,8 @@
                         {
                             foreach (var person in personsToShow)
                             {
-                                var inputId = $"person_{person.Replace(" ", "_")}";
                                 <span class="tag-item">
-                                    <input class="tag-checkbox" type="checkbox" name="persons" value="@person" id="@inputId"
-                                           @(selectedPersonsSet.Contains(person) ? "checked" : null) />
-                                    <label class="tag-chip" for="@inputId">@person</label>
+                                    <button type="button" class="tag-btn person-btn @(selectedPersonsSet.Contains(person) ? "active" : "")" data-person="@person">@person</button>
                                 </span>
                             }
                         }
@@ -240,8 +237,7 @@
 
         /* Tags selector chips styling to match fluent toolbar */
         .tags-selector { display: inline-flex; flex-wrap: wrap; gap: .5rem; }
-        .tags-selector .tag-checkbox { position: absolute; opacity: 0; width: 0; height: 0; }
-        .tags-selector .tag-chip {
+        .tag-btn {
             display: inline-flex;
             align-items: center;
             padding: .5rem .75rem;
@@ -253,16 +249,12 @@
             cursor: pointer;
             user-select: none;
         }
-        .tags-selector .tag-chip:hover { background: rgba(0,0,0,.04); }
-        .tags-selector .tag-checkbox:checked + .tag-chip {
+        .tag-btn:hover { background: rgba(0,0,0,.04); }
+        .tag-btn.active {
             background: rgba(0, 90, 255, .12);
             color: rgb(0, 82, 204);
             border-color: rgba(0, 90, 255, .3);
             font-weight: 600;
-        }
-        .tags-selector .tag-checkbox:focus-visible + .tag-chip {
-            outline: 2px solid rgba(0, 90, 255, .35);
-            outline-offset: 2px;
         }
         /* Selection highlight */
         #my-gallery img.selected-thumb {
@@ -274,7 +266,7 @@
         @@media (pointer: coarse) {
             .seg-btn { padding: .8rem 1.1rem; font-size: 1.05rem; }
             .btn.touch { padding: .9rem 1.25rem; font-size: 1.05rem; }
-            .tags-selector .tag-chip { padding: .65rem .9rem; }
+            .tags-selector .tag-btn { padding: .65rem .9rem; }
         }
     </style>
 }
@@ -400,7 +392,44 @@
             });
         }
 
-        document.addEventListener('DOMContentLoaded', () => { wirePageSizeButtons(); wireSizeButtons(); wireRankButtons(); wireCommerceButtons(); wireOrderByButtons(); });
+        function wireFilterButtons() {
+            // Tags
+            document.querySelectorAll('.tag-btn[data-tag]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tag = btn.getAttribute('data-tag');
+                    const url = new URL(window.location.href);
+                    let tags = url.searchParams.getAll('tags');
+                    if (tags.includes(tag)) {
+                        tags = tags.filter(t => t !== tag);
+                    } else {
+                        tags.push(tag);
+                    }
+                    url.searchParams.delete('tags');
+                    tags.forEach(t => url.searchParams.append('tags', t));
+                    url.searchParams.set('page', '1');
+                    window.location.href = url.toString();
+                });
+            });
+            // Persons
+            document.querySelectorAll('.person-btn[data-person]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const person = btn.getAttribute('data-person');
+                    const url = new URL(window.location.href);
+                    let persons = url.searchParams.getAll('persons');
+                    if (persons.includes(person)) {
+                        persons = persons.filter(p => p !== person);
+                    } else {
+                        persons.push(person);
+                    }
+                    url.searchParams.delete('persons');
+                    persons.forEach(p => url.searchParams.append('persons', p));
+                    url.searchParams.set('page', '1');
+                    window.location.href = url.toString();
+                });
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => { wirePageSizeButtons(); wireSizeButtons(); wireRankButtons(); wireCommerceButtons(); wireOrderByButtons(); wireFilterButtons(); });
 
         // Server now provides real slide sizes via data-pswp-width/height
 

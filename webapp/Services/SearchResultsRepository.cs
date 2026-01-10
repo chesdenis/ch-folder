@@ -16,8 +16,11 @@ public interface ISearchResultsRepository
     Task<SearchSessionResults?> GetLatestResultsAsync(ResultsOrderBy orderBy = ResultsOrderBy.ScoreDesc, CancellationToken ct = default);
     Task<SearchSessionResults?> GetResultsBySessionIdAsync(Guid sessionId, float? minScore = null, ResultsOrderBy orderBy = ResultsOrderBy.ScoreDesc, CancellationToken ct = default);
     Task<Photo?> GetPhotoInfoByMd5Async(string md5, CancellationToken ct = default);
-    Task<int> GetPhotosCountAsync(CancellationToken ct = default);
-    Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, CancellationToken ct = default);
+    Task<int> GetPhotosCountAsync(string[]? tags = null, string[]? persons = null, int? minCommerceRating = null, CancellationToken ct = default);
+    Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, string[]? tags = null, string[]? persons = null, int? minCommerceRating = null, CancellationToken ct = default);
+    Task<IReadOnlyList<string>> GetAllDistinctTagsAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<string>> GetAllDistinctPersonsAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<Photo>> GetPhotosByMd5sAsync(IReadOnlyList<string> md5s, CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetDistinctTagsForSessionAsync(Guid sessionId, CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetDistinctPersonsForSessionAsync(Guid sessionId, CancellationToken ct = default);
 }
@@ -162,28 +165,152 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         return photo;
     }
 
-    public async Task<int> GetPhotosCountAsync(CancellationToken ct = default)
+    public async Task<int> GetPhotosCountAsync(string[]? tags = null, string[]? persons = null, int? minCommerceRating = null, CancellationToken ct = default)
     {
         await using var conn = CreateConnection();
         await conn.OpenAsync(ct);
-        await using var cmd = new NpgsqlCommand("SELECT COUNT(*) FROM photo", conn);
+        var sql = "SELECT COUNT(*) FROM photo WHERE 1=1";
+        if (tags != null && tags.Length > 0)
+        {
+            sql += " AND tags @> @tags";
+        }
+        if (persons != null && persons.Length > 0)
+        {
+            sql += " AND persons @> @persons";
+        }
+        if (minCommerceRating.HasValue)
+        {
+            sql += " AND commerce_rate >= @minCommerceRating";
+        }
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        if (tags != null && tags.Length > 0)
+        {
+            cmd.Parameters.AddWithValue("@tags", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text, tags);
+        }
+        if (persons != null && persons.Length > 0)
+        {
+            cmd.Parameters.AddWithValue("@persons", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text, persons);
+        }
+        if (minCommerceRating.HasValue)
+        {
+            cmd.Parameters.AddWithValue("@minCommerceRating", NpgsqlTypes.NpgsqlDbType.Integer, minCommerceRating.Value);
+        }
         var result = await cmd.ExecuteScalarAsync(ct);
         return Convert.ToInt32(result);
     }
 
-    public async Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, CancellationToken ct = default)
+    public async Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, string[]? tags = null, string[]? persons = null, int? minCommerceRating = null, CancellationToken ct = default)
     {
         if (limit <= 0) return Array.Empty<string>();
         await using var conn = CreateConnection();
         await conn.OpenAsync(ct);
         var list = new List<string>(limit);
-        await using var cmd = new NpgsqlCommand(@"SELECT md5_hash FROM photo ORDER BY created_at DESC LIMIT @lim OFFSET @off", conn);
+        var sql = "SELECT md5_hash FROM photo WHERE 1=1";
+        if (tags != null && tags.Length > 0)
+        {
+            sql += " AND tags @> @tags";
+        }
+        if (persons != null && persons.Length > 0)
+        {
+            sql += " AND persons @> @persons";
+        }
+        if (minCommerceRating.HasValue)
+        {
+            sql += " AND commerce_rate >= @minCommerceRating";
+        }
+        sql += " ORDER BY created_at DESC LIMIT @lim OFFSET @off";
+        await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("@lim", NpgsqlTypes.NpgsqlDbType.Integer, limit);
         cmd.Parameters.AddWithValue("@off", NpgsqlTypes.NpgsqlDbType.Integer, Math.Max(0, offset));
+        if (tags != null && tags.Length > 0)
+        {
+            cmd.Parameters.AddWithValue("@tags", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text, tags);
+        }
+        if (persons != null && persons.Length > 0)
+        {
+            cmd.Parameters.AddWithValue("@persons", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text, persons);
+        }
+        if (minCommerceRating.HasValue)
+        {
+            cmd.Parameters.AddWithValue("@minCommerceRating", NpgsqlTypes.NpgsqlDbType.Integer, minCommerceRating.Value);
+        }
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
             list.Add(reader.GetString(0));
+        }
+        return list;
+    }
+
+    public async Task<IReadOnlyList<string>> GetAllDistinctTagsAsync(CancellationToken ct = default)
+    {
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(ct);
+        var tags = new List<string>();
+        await using var cmd = new NpgsqlCommand(@"
+            SELECT t AS tag
+            FROM photo
+            CROSS JOIN LATERAL unnest(tags) AS t
+            WHERE t IS NOT NULL AND length(trim(t)) > 0
+            GROUP BY t
+            ORDER BY COUNT(*) DESC, t ASC LIMIT 100", conn);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            tags.Add(reader.GetString(0));
+        }
+        return tags;
+    }
+
+    public async Task<IReadOnlyList<string>> GetAllDistinctPersonsAsync(CancellationToken ct = default)
+    {
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(ct);
+        var persons = new List<string>();
+        await using var cmd = new NpgsqlCommand(@"
+            SELECT p_name AS person
+            FROM photo
+            CROSS JOIN LATERAL unnest(persons) AS p_name
+            WHERE p_name IS NOT NULL AND length(trim(p_name)) > 0
+            GROUP BY p_name
+            ORDER BY COUNT(*) DESC, p_name ASC LIMIT 100", conn);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            persons.Add(reader.GetString(0));
+        }
+        return persons;
+    }
+
+    public async Task<IReadOnlyList<Photo>> GetPhotosByMd5sAsync(IReadOnlyList<string> md5s, CancellationToken ct = default)
+    {
+        if (md5s.Count == 0) return Array.Empty<Photo>();
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(ct);
+        var list = new List<Photo>(md5s.Count);
+        await using var cmd = new NpgsqlCommand(@"
+            SELECT md5_hash,
+            extension,
+            size_bytes,
+            tags,
+            short_details,
+            created_at,
+            updated_at FROM photo WHERE md5_hash = ANY(@md5s)", conn);
+        cmd.Parameters.AddWithValue("@md5s", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text, md5s.ToArray());
+
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            list.Add(new Photo
+            {
+                Md5Hash = reader.GetString(0),
+                Extension = reader.GetString(1),
+                SizeBytes = reader.GetInt64(2),
+                Tags = reader.IsDBNull(3) ? Array.Empty<string>() : reader.GetFieldValue<string[]>(3),
+                ShortDetails = reader.GetString(4),
+                CreatedAt = reader.GetDateTime(5),
+                UpdatedAt = reader.GetDateTime(6)
+            });
         }
         return list;
     }

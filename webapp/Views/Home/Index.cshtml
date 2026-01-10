@@ -58,10 +58,25 @@
     }
 
     var totalPages = (int)Math.Ceiling(totalItems / (double)Math.Max(1, pageSize));
+
+    // Commerce rating filter (minCommerceRating) from query or ViewBag with default 4
+    int minCommerceRating;
+    var qsMinCommerceRating = Context.Request.Query["minCommerceRating"].ToString();
+    if (!string.IsNullOrWhiteSpace(qsMinCommerceRating) && int.TryParse(qsMinCommerceRating, out var mcr1))
+    {
+        minCommerceRating = mcr1;
+    }
+    else
+    {
+        minCommerceRating = ViewBag.MinCommerceRating is int mcr2 ? mcr2 : 4;
+        
+        // If not in query, we should ideally reload or at least ensure UI matches effective default
+        // But for Navigation page we want a default hard filter.
+    }
 }
 
 <div class="container-fluid mt-4 px-3">
-    <!-- Fluent-style top toolbar: page size, size controls -->
+    <!-- Fluent-style top toolbar: page size, filters, size controls -->
     <div class="row g-3">
         <div class="col-12">
             <div class="fluent-toolbar">
@@ -75,7 +90,49 @@
                     </div>
                 </div>
 
+                <!-- Tags selector placed inline in the toolbar -->
+                <div class="toolbar-group" role="group" aria-label="Tags selector">
+                    <span class="toolbar-label">Tags</span>
+                    @await Component.InvokeAsync("TagsSelector", new {
+                        availableTags = (ViewBag.AvailableTags as IEnumerable<string> ?? Array.Empty<string>()).Take(10),
+                        selectedTags = ViewBag.SelectedTags as IEnumerable<string>
+                    })
+                </div>
+
+                <!-- Persons selector placed inline in the toolbar -->
+                <div class="toolbar-group" role="group" aria-label="Persons selector">
+                    <span class="toolbar-label">Persons</span>
+                    <div class="tags-selector" role="group" aria-label="Persons">
+                        @{
+                            var availablePersons = ViewBag.AvailablePersons as IEnumerable<string> ?? Array.Empty<string>();
+                            var selectedPersonsList = (ViewBag.SelectedPersons as IEnumerable<string> ?? Array.Empty<string>()).ToList();
+                            foreach (var person in availablePersons.Take(10))
+                            {
+                                var isSelected = selectedPersonsList.Contains(person, StringComparer.OrdinalIgnoreCase);
+                                <button type="button" class="tag-btn person-btn @(isSelected ? "active" : "")" data-person="@person">@person</button>
+                            }
+                        }
+                    </div>
+                </div>
+
+                <!-- Commerce rating selector -->
+                <div class="toolbar-group" role="group" aria-label="Commerce rating">
+                    <span class="toolbar-label">Commerce</span>
+                    <div class="segmented">
+                        @for (int i = 1; i <= 5; i++)
+                        {
+                            <button type="button" class="seg-btn commerce-rate-btn @(minCommerceRating == i ? "active" : "")" data-rating="@i">@i</button>
+                        }
+                    </div>
+                </div>
+
                 <div class="toolbar-spacer"></div>
+
+                <div class="toolbar-group" role="group" aria-label="Actions">
+                    <button type="button" id="jumpToSearchBtn" class="seg-btn active" title="Search for these photos in Search page">
+                        <i class="bi bi-search me-1"></i> Jump to Search
+                    </button>
+                </div>
 
                 <div class="toolbar-group" role="group" aria-label="Thumbnail size">
                     <span class="toolbar-label">Thumb size</span>
@@ -139,8 +196,7 @@
 
         /* Tags selector chips styling to match fluent toolbar */
         .tags-selector { display: inline-flex; flex-wrap: wrap; gap: .5rem; }
-        .tags-selector .tag-checkbox { position: absolute; opacity: 0; width: 0; height: 0; }
-        .tags-selector .tag-chip {
+        .tag-btn {
             display: inline-flex;
             align-items: center;
             padding: .5rem .75rem;
@@ -152,16 +208,12 @@
             cursor: pointer;
             user-select: none;
         }
-        .tags-selector .tag-chip:hover { background: rgba(0,0,0,.04); }
-        .tags-selector .tag-checkbox:checked + .tag-chip {
+        .tag-btn:hover { background: rgba(0,0,0,.04); }
+        .tag-btn.active {
             background: rgba(0, 90, 255, .12);
             color: rgb(0, 82, 204);
             border-color: rgba(0, 90, 255, .3);
             font-weight: 600;
-        }
-        .tags-selector .tag-checkbox:focus-visible + .tag-chip {
-            outline: 2px solid rgba(0, 90, 255, .35);
-            outline-offset: 2px;
         }
         /* Selection highlight */
         #my-gallery img.selected-thumb {
@@ -173,7 +225,7 @@
         @@media (pointer: coarse) {
             .seg-btn { padding: .8rem 1.1rem; font-size: 1.05rem; }
             .btn.touch { padding: .9rem 1.25rem; font-size: 1.05rem; }
-            .tags-selector .tag-chip { padding: .65rem .9rem; }
+            .tags-selector .tag-btn { padding: .65rem .9rem; }
         }
     </style>
 }
@@ -225,7 +277,7 @@
 
         // Two-button size control via URL param manipulation (no server action)
         function getCurrentSize() {
-            const allowed = [16, 32, 64, 128, 256, 512, 2000];
+            const allowed = [@string.Join(", ", shared_csharp.Extensions.ImageProcessingExtensions.AllowedSizes)];
             const params = new URL(window.location.href).searchParams;
             const sizeParam = parseInt(params.get('size') || '@thumbSize', 10);
             if (allowed.includes(sizeParam)) return sizeParam;
@@ -233,7 +285,7 @@
             return allowed.reduce((prev, curr) => Math.abs(curr - sizeParam) < Math.abs(prev - sizeParam) ? curr : prev, allowed[0]);
         }
         function adjustSize(direction) {
-            const allowed = [16, 32, 64, 128, 256, 512, 2000];
+            const allowed = [@string.Join(", ", shared_csharp.Extensions.ImageProcessingExtensions.AllowedSizes)];
             const current = getCurrentSize();
             const idx = allowed.indexOf(current);
             let newIdx = idx;
@@ -277,7 +329,100 @@
             if (down) down.addEventListener('click', () => adjustMinScore(-0.01));
         }
 
-        document.addEventListener('DOMContentLoaded', () => { wirePageSizeButtons(); wireSizeButtons(); });
+        // Commerce rating buttons handling
+        function wireCommerceButtons() {
+            const buttons = document.querySelectorAll('.commerce-rate-btn');
+            buttons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const rating = btn.getAttribute('data-rating');
+                    const url = new URL(window.location.href);
+                   
+                    url.searchParams.set('minCommerceRating', rating);
+                    url.searchParams.set('page', '1');
+                    // Ensure it stays on Index page
+                    url.pathname = '/Home/Index';
+                    window.location.href = url.toString();
+                });
+            });
+        }
+
+        function wireFilterButtons() {
+            // Tags
+            document.querySelectorAll('.tag-btn[data-tag]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tag = btn.getAttribute('data-tag');
+                    const url = new URL(window.location.href);
+                    let tags = url.searchParams.getAll('tags');
+                    if (tags.includes(tag)) {
+                        tags = tags.filter(t => t !== tag);
+                    } else {
+                        tags.push(tag);
+                    }
+                    url.searchParams.delete('tags');
+                    tags.forEach(t => url.searchParams.append('tags', t));
+                    url.searchParams.set('page', '1');
+                    window.location.href = url.toString();
+                });
+            });
+            // Persons
+            document.querySelectorAll('.person-btn[data-person]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const person = btn.getAttribute('data-person');
+                    const url = new URL(window.location.href);
+                    let persons = url.searchParams.getAll('persons');
+                    if (persons.includes(person)) {
+                        persons = persons.filter(p => p !== person);
+                    } else {
+                        persons.push(person);
+                    }
+                    url.searchParams.delete('persons');
+                    persons.forEach(p => url.searchParams.append('persons', p));
+                    url.searchParams.set('page', '1');
+                    window.location.href = url.toString();
+                });
+            });
+        }
+
+        function wireJumpToSearch() {
+            const btn = document.getElementById('jumpToSearchBtn');
+            if (!btn) return;
+            btn.addEventListener('click', () => {
+                // Collect ShortDetails from gallery items
+                const details = Array.from(document.querySelectorAll('.gallery-item'))
+                    .map(el => el.getAttribute('data-short-details'))
+                    .filter(d => d && d.length > 0);
+                
+                if (details.length === 0) {
+                    alert('No photo details found to search for.');
+                    return;
+                }
+
+                // Deduplicate and join into a single sentence
+                const allSentences = details.flatMap(d => d.split('.').map(s => s.trim()).filter(s => s.length > 0));
+                const uniqueSentences = [...new Set(allSentences)];
+                const query = uniqueSentences.join('. ').trim();
+                
+                const url = new URL(window.location.origin + '/Home/Search');
+                url.searchParams.set('query', query);
+                
+                // Carry over commerce rating if it was set
+                const params = new URL(window.location.href).searchParams;
+                const mcr = params.get('minCommerceRating');
+                if (mcr) {
+                    url.searchParams.set('minCommerceRating', mcr);
+                }
+                
+                window.location.href = url.toString();
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => { 
+            wirePageSizeButtons(); 
+            wireSizeButtons(); 
+            wireCommerceButtons();
+            wireFilterButtons();
+            wireJumpToSearch();
+        });
 
         // Server now provides real slide sizes via data-pswp-width/height
 

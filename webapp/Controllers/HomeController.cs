@@ -22,8 +22,11 @@ public class HomeController(
 {
     private readonly StorageOptions _storage = storageOptions.Value;
 
-    public async Task<IActionResult> Index([FromQuery] string[]? tags)
+    public async Task<IActionResult> Index([FromQuery] string[]? tags, [FromQuery] string[]? persons, [FromQuery] int? minCommerceRating)
     {
+        // Default values for Navigation page when not explicitly provided
+        var effectiveMinCommerceRating = minCommerceRating ?? 4;
+        
         // If only sessionId is provided (no query), redirect to Search to restore query by sessionId
         var sessionIdStr = Request.Query["sessionId"].ToString();
         var hasSessionInQuery = Guid.TryParse(sessionIdStr, out var sessionIdVal);
@@ -41,8 +44,14 @@ public class HomeController(
             return RedirectToAction("Search", route);
         }
 
-        // Expose selected tags (from model binding) to the view
+        // Expose selected filters to the view
         ViewBag.SelectedTags = tags ?? Array.Empty<string>();
+        ViewBag.SelectedPersons = persons ?? Array.Empty<string>();
+        ViewBag.MinCommerceRating = effectiveMinCommerceRating;
+
+        // Fetch available tags and persons for filtering
+        ViewBag.AvailableTags = await searchResultsRepo.GetAllDistinctTagsAsync(HttpContext.RequestAborted);
+        ViewBag.AvailablePersons = await searchResultsRepo.GetAllDistinctPersonsAsync(HttpContext.RequestAborted);
 
         // Pull paging and size from query to load real data for the gallery
         var page = int.TryParse(Request.Query["page"], out var p) ? Math.Max(1, p) : 1;
@@ -50,15 +59,20 @@ public class HomeController(
         var thumbSize = int.TryParse(Request.Query["size"], out var sz) ? sz : 256;
         thumbSize = thumbSize.SnapToAllowed();
 
-        // Load recent photos as the default gallery content (no sample data)
-        var total = await searchResultsRepo.GetPhotosCountAsync(HttpContext.RequestAborted);
+        // Load photos as the gallery content with hard filters
+        var total = await searchResultsRepo.GetPhotosCountAsync(tags, persons, effectiveMinCommerceRating, HttpContext.RequestAborted);
         var offset = (page - 1) * pageSize;
-        var md5s = await searchResultsRepo.GetRecentPhotoMd5Async(offset, pageSize, HttpContext.RequestAborted);
+        var md5s = await searchResultsRepo.GetRecentPhotoMd5Async(offset, pageSize, tags, persons, effectiveMinCommerceRating, HttpContext.RequestAborted);
 
+        // Fetch full photo info to get ShortDetails for "Jump to Search"
+        var photos = await searchResultsRepo.GetPhotosByMd5sAsync(md5s, HttpContext.RequestAborted);
+        
+        // Map to components and store ShortDetails
         var items = md5s
             .Where(m => !string.IsNullOrWhiteSpace(m))
             .Select(m =>
             {
+                var photo = photos.FirstOrDefault(p => p.Md5Hash == m);
                 var links = imageLocator.GetImageLinks(m);
                 // Prefer actual preview-2000 dimensions if available, otherwise use a safe fallback
                 int pw = Math.Max(1, links?.P2000Width ?? 2000);
@@ -69,7 +83,8 @@ public class HomeController(
                     FullWidth = pw,
                     FullHeight = ph,
                     Alt = m!,
-                    Md5 = m!
+                    Md5 = m!,
+                    ShortDetails = photo?.ShortDetails
                 };
             })
             .ToList();
