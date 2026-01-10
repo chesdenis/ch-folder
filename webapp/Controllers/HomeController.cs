@@ -48,6 +48,7 @@ public class HomeController(
         ViewBag.SelectedTags = tags ?? Array.Empty<string>();
         ViewBag.SelectedPersons = persons ?? Array.Empty<string>();
         ViewBag.MinCommerceRating = effectiveMinCommerceRating;
+        ViewBag.SessionId = Guid.Empty; // Static empty guid for navigation search result id
 
         // Fetch available tags and persons for filtering
         ViewBag.AvailableTags = await searchResultsRepo.GetAllDistinctTagsAsync(HttpContext.RequestAborted);
@@ -618,9 +619,6 @@ public class HomeController(
     [HttpGet]
     public async Task<IActionResult> Selected([FromQuery] Guid sessionId)
     {
-        if (sessionId == Guid.Empty)
-            return BadRequest("sessionId is required");
-
         var items = await selectionRepo.GetSelectedMd5Async(sessionId, HttpContext.RequestAborted);
 
         var vm = new SelectedViewModel

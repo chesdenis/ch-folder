@@ -54,6 +54,17 @@ public sealed class SearchSessionSelectionRepository(IFileSystem fileSystem,IOpt
         await using var conn = CreateConnection();
         await conn.OpenAsync(ct);
 
+        if (sessionId == Guid.Empty)
+        {
+            // Ensure static navigation session exists in search_session table to satisfy FK
+            await using var cmdS = new NpgsqlCommand(@"INSERT INTO search_session
+                (id, query_text, embedding_model, embedding_dim, collection_name, limit_requested, result_count)
+                VALUES (@id, 'Navigation', 'none', 1, 'none', 1, 0)
+                ON CONFLICT DO NOTHING", conn);
+            cmdS.Parameters.AddWithValue("@id", NpgsqlTypes.NpgsqlDbType.Uuid, Guid.Empty);
+            await cmdS.ExecuteNonQueryAsync(ct);
+        }
+
         await using var cmd = new NpgsqlCommand(@"INSERT INTO search_session_selected(session_id, md5_hash)
             VALUES (@sid, @md5)
             ON CONFLICT DO NOTHING", conn);

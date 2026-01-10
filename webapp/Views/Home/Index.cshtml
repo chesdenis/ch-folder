@@ -422,6 +422,8 @@
             wireCommerceButtons();
             wireFilterButtons();
             wireJumpToSearch();
+            preloadSelected();
+            wireSelectionHandlers();
         });
 
         // Server now provides real slide sizes via data-pswp-width/height
@@ -487,8 +489,6 @@
                     img.addEventListener('touchend', handleSelectClick, { passive: false });
                 });
         }
-
-        document.addEventListener('DOMContentLoaded', () => { preloadSelected(); wireSelectionHandlers(); });
     </script>
 }
 
