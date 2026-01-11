@@ -1,0 +1,164 @@
+@model webapp.Models.SinglePhotoViewModel
+@{
+    ViewData["Title"] = "Photo Details";
+    var it = Model.Photo;
+}
+
+<div class="container-fluid mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a asp-action="Index">Home</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Photo Details</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="pswp-gallery" id="gallery-@it.Md5">
+                <a href="@Url.Action("ByMd5", "Images", new { md5 = it.Md5, w = 2000 })"
+                   data-pswp-width="@(it.Width ?? 2000)"
+                   data-pswp-height="@(it.Height ?? 2000)"
+                   target="_blank">
+                    <img src="@Url.Action("ByMd5", "Images", new { md5 = it.Md5, w = 512 })" alt="@it.Md5" class="img-fluid rounded shadow" style="cursor: zoom-in;"/>
+                </a>
+            </div>
+            
+            <div class="mt-3">
+                <small class="text-muted">MD5: <code class="user-select-all">@it.Md5</code></small>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h3 class="card-title h4 mb-3">Analysis & Details</h3>
+                    <div class="fw-semibold text-break mb-3">@it.ShortDetails</div>
+                    
+                    @if (it.Tags is { Length: > 0 })
+                    {
+                        <div class="mb-3 d-flex align-items-start flex-wrap gap-2">
+                            @foreach (var tag in it.Tags)
+                            {
+                                <span class="badge bg-secondary rounded-pill">@tag</span>
+                            }
+                        </div>
+                    }
+
+                    <div class="p-3 bg-light border rounded mb-3">
+                        <div class="d-flex align-items-center mb-2">
+                            <strong class="me-2">Commerce Mark:</strong>
+                            <span class="badge bg-primary fs-6">@it.CommerceMark</span>
+                        </div>
+                        <div class="text-muted">@it.ImprovementWays</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <h5 class="h6 text-muted border-bottom pb-2">Full Description</h5>
+                        <div class="text-break" style="white-space: pre-wrap; max-height: 300px; overflow-y: auto;">@it.LargeDetails</div>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2">
+                        @if (!string.IsNullOrEmpty(it.RealUrl))
+                        {
+                            <a href="@Url.Action("Download", "Images", new { md5 = it.Md5 })" class="btn btn-outline-primary" title="Download original image">
+                                <i class="bi bi-download me-1"></i> Download
+                            </a>
+                        }
+                        <button type="button" class="btn btn-outline-secondary copy-btn"
+                                data-copy-text="@it.CommerceMark: @it.ImprovementWays" title="Copy commerce mark">
+                            <i class="bi bi-clipboard-check me-1"></i> Commerce Mark
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary copy-btn"
+                                data-copy-text="@it.RefinementPrompt" title="Copy refinement prompt">
+                            <i class="bi bi-clipboard-check me-1"></i> Refinement Prompt
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary copy-btn"
+                                data-copy-text="@it.ShortDetails" title="Copy short text">
+                            <i class="bi bi-clipboard me-1"></i> Short text
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary copy-btn"
+                                data-copy-text="@it.LargeDetails" title="Copy full text">
+                            <i class="bi bi-clipboard me-1"></i> Full text
+                        </button>
+                        @if (it.Tags is { Length: > 0 })
+                        {
+                            <button type="button" class="btn btn-outline-secondary copy-btn"
+                                    data-copy-text="@string.Join(", ", it.Tags)" title="Copy tags">
+                                <i class="bi bi-tags me-1"></i> Copy tags
+                            </button>
+                        }
+                        <a href="@Url.Action("Search", "Home", new { query = it.ShortDetails })" class="btn btn-outline-success" title="Search similar images">
+                            <i class="bi bi-search me-1"></i> Search similar
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (Model.SimilarPhotos.Any())
+    {
+        <div class="mt-5 mb-5">
+            <h4 class="mb-4">Similar Photos in Group</h4>
+            @await Component.InvokeAsync("Gallery", new { 
+                items = Model.SimilarPhotos.Select(s => new webapp.Components.GalleryItem {
+                    FullUrl = Url.Action("ByMd5", "Images", new { md5 = s.Md5 })!,
+                    FullWidth = s.Width ?? 2000,
+                    FullHeight = s.Height ?? 2000,
+                    Alt = s.Md5,
+                    Md5 = s.Md5,
+                    ShortDetails = s.ShortDetails
+                }).ToList(),
+                pageSize = 100,
+                thumbSize = 256
+            })
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Re-bind click for gallery items to open SinglePhoto view if needed, 
+            // but the Gallery component usually just opens lightbox.
+            // The user wanted "navigate also from this page to single photo view".
+            // Since Gallery component is used, we might want to override its behavior or just let it be a lightbox.
+            // If we want it to navigate on double click or something? 
+            // User said: "we can navigate also from this page to single photo view"
+            // Let's add a button to the lightbox or just make images clickable.
+            
+            document.querySelectorAll('.gallery-item img').forEach(img => {
+                img.addEventListener('contextmenu', (e) => {
+                   e.preventDefault();
+                   const md5 = img.getAttribute('data-md5');
+                   if (md5) {
+                       window.location.href = '@Url.Action("SinglePhoto", "Home")?md5=' + md5;
+                   }
+                });
+                
+                // Also add a title to inform users
+                img.title = "Right click to view details";
+            });
+        });
+    </script>
+    <script type="module">
+        import PhotoSwipeLightbox from '/lib/photoswipe/photoswipe-lightbox.esm.min.js';
+        const lightbox = new PhotoSwipeLightbox({
+            gallery: '.pswp-gallery',
+            children: 'a',
+            pswpModule: () => import('/lib/photoswipe/photoswipe.esm.min.js')
+        });
+        lightbox.init();
+
+        document.querySelectorAll('.copy-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const text = btn.getAttribute('data-copy-text');
+                navigator.clipboard.writeText(text).then(() => {
+                    const icon = btn.querySelector('i');
+                    const originalClass = icon.className;
+                    icon.className = 'bi bi-check2 text-success me-1';
+                    setTimeout(() => icon.className = originalClass, 2000);
+                });
+            });
+        });
+    </script>
+}

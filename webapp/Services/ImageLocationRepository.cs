@@ -9,6 +9,7 @@ namespace webapp.Services;
 public interface IImageLocationRepository
 {
     Task UpsertLocationsAsync(IEnumerable<KeyValuePair<string, string>> md5ToPath, CancellationToken ct = default);
+    Task<string?> GetPathByMd5Async(string md5, CancellationToken ct = default);
 }
 
 public sealed class ImageLocationRepository(IOptions<ConnectionStringOptions> connectionStringsOptions, ILogger<ImageLocationRepository> logger)
@@ -33,6 +34,16 @@ public sealed class ImageLocationRepository(IOptions<ConnectionStringOptions> co
         }
 
         logger.LogInformation("ImageLocationRepository: upserted {Count} records into image_location table", list.Count);
+    }
+
+    public async Task<string?> GetPathByMd5Async(string md5, CancellationToken ct = default)
+    {
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(ct);
+        await using var cmd = new NpgsqlCommand("SELECT real_path FROM image_location WHERE md5_hash = @md5 LIMIT 1", conn);
+        cmd.Parameters.AddWithValue("@md5", NpgsqlDbType.Text, md5);
+        var result = await cmd.ExecuteScalarAsync(ct);
+        return result?.ToString();
     }
 
     private async Task UpsertBatchAsync(IReadOnlyList<KeyValuePair<string, string>> batch, CancellationToken ct)

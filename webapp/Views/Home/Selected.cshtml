@@ -99,29 +99,32 @@
                                     @if (!string.IsNullOrEmpty(it.RealUrl))
                                     {
                                         <a href="@Url.Action("Download", "Images", new { md5 = it.Md5 })" class="btn btn-outline-primary btn-sm" title="Download original image">
-                                            <i class="bi bi-download me-1"></i> Download
+                                            <i class="bi bi-download me-1"></i>Download
                                         </a>
                                     }
+                                    <a href="@Url.Action("SinglePhoto", "Home", new { md5 = it.Md5 })" class="btn btn-outline-info btn-sm" title="View details and similar in group">
+                                        <i class="bi bi-eye me-1"></i>Focus on this
+                                    </a>
                                     <button type="button" class="btn btn-outline-secondary btn-sm copy-btn"
                                             data-copy-text="@it.CommerceMark: @it.ImprovementWays" title="Copy commerce mark" aria-label="Copy commerce mark">
                                         <i class="bi bi-clipboard-check me-1" aria-hidden="true"></i>
-                                        Copy Commerce Mark
+                                        Commerce Mark
                                     </button>
                                     <button type="button" class="btn btn-outline-secondary btn-sm copy-btn"
                                             data-copy-text="@it.RefinementPrompt" title="Copy commerce mark" aria-label="Copy commerce mark">
                                         <i class="bi bi-clipboard-check me-1" aria-hidden="true"></i>
-                                        Copy Refinement Prompt
+                                       Refinement Prompt
                                     </button>
                                     <button type="button" class="btn btn-outline-secondary btn-sm copy-btn"
                                             data-copy-text="@it.ShortDetails" title="Copy short text" aria-label="Copy text">
                                         <i class="bi bi-clipboard me-1" aria-hidden="true"></i>
-                                        Copy short text
+                                        Short text
                                     </button>
                                     
                                     <button type="button" class="btn btn-outline-secondary btn-sm copy-btn"
                                             data-copy-text="@it.LargeDetails" title="Copy full text" aria-label="Copy text">
                                         <i class="bi bi-clipboard me-1" aria-hidden="true"></i>
-                                        Copy full text
+                                        Full text
                                     </button>
                                     @if (it.Tags is { Length: > 0 })
                                     {
@@ -132,7 +135,7 @@
                                         </button>
                                     }
                                     <a href="@Url.Action("Search", "Home", new { query = it.ShortDetails })" class="btn btn-outline-success btn-sm" title="Search similar images">
-                                        <i class="bi bi-search me-1"></i> Search similar
+                                        <i class="bi bi-search me-1"></i>Search similar
                                     </a>
                                     </div>
                             </div>
@@ -156,6 +159,20 @@
 </div>
 
 @section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.pswp-gallery img').forEach(img => {
+                img.addEventListener('contextmenu', (e) => {
+                    const md5 = img.alt;
+                    if (md5 && md5.length === 32) {
+                        e.preventDefault();
+                        window.open('@Url.Action("SinglePhoto", "Home")?md5=' + md5, '_blank');
+                    }
+                });
+                img.title = "Right click to view details";
+            });
+        });
+    </script>
     <script type="module">
         import PhotoSwipeLightbox
             from 'https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe-lightbox.esm.js';

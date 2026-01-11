@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using webapp.Models;
 using Microsoft.Extensions.Options;
+using shared_csharp.Abstractions;
 using shared_csharp.Extensions;
 using webapp.Services;
 using System.Text.Json;
@@ -18,6 +19,8 @@ public class HomeController(
     ISearchSessionRepository sessionsRepo,
     ISearchSessionSelectionRepository selectionRepo,
     IImageLocator imageLocator,
+    IImageLocationRepository imageLocationRepository,
+    IFileSystem fileSystem,
     IContentValidationRepository contentValidationRepository) : Controller
 {
     private readonly StorageOptions _storage = storageOptions.Value;
@@ -614,6 +617,62 @@ public class HomeController(
         ViewBag.StoragePath = _storage.RootPath ?? string.Empty;
         ViewBag.InputPath = _storage.InputPath ?? string.Empty;
         return View();
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> SinglePhoto([FromQuery] string md5)
+    {
+        if (string.IsNullOrWhiteSpace(md5)) return BadRequest("MD5 is required");
+
+        var photo = await searchResultsRepo.GetPhotoInfoByMd5Async(md5, HttpContext.RequestAborted);
+        if (photo == null) return NotFound();
+
+        var realPath = await imageLocationRepository.GetPathByMd5Async(md5, HttpContext.RequestAborted);
+        var largeDetails = realPath != null ? await fileSystem.GetDqAnswer(realPath) : string.Empty;
+        var commerceMarkJson = realPath != null ? await fileSystem.GetCommerceMarkAnswer(realPath) : "{}";
+
+        var links = imageLocator.GetImageLinks(md5);
+        var item = new SelectedItemViewModel
+        {
+            Md5 = md5,
+            ShortDetails = photo.ShortDetails,
+            LargeDetails = largeDetails,
+            Tags = photo.Tags ?? Array.Empty<string>(),
+            ImageUrl = Url.Action("ByMd5", "Images", new { md5 = md5, w = 128 })!,
+            RealUrl = links?.Real ?? string.Empty,
+            CommerceMark = commerceMarkJson.ThisJsonAs<ImageProcessingExtensions.RateExplanation>().rate.ToString(),
+            ImprovementWays = commerceMarkJson.ThisJsonAs<ImageProcessingExtensions.RateExplanation>().rateExplanation,
+            Width = links?.P2000Width,
+            Height = links?.P2000Height
+        };
+
+        var vm = new SinglePhotoViewModel
+        {
+            Photo = item
+        };
+
+        if (!string.IsNullOrEmpty(photo.GroupName))
+        {
+            var similar = await searchResultsRepo.GetPhotosByGroupAsync(photo.GroupName, HttpContext.RequestAborted);
+            foreach (var s in similar)
+            {
+                if (s.Md5Hash == md5) continue;
+
+                var sLinks = imageLocator.GetImageLinks(s.Md5Hash);
+                vm.SimilarPhotos.Add(new SelectedItemViewModel
+                {
+                    Md5 = s.Md5Hash,
+                    ShortDetails = s.ShortDetails,
+                    Tags = s.Tags ?? Array.Empty<string>(),
+                    ImageUrl = Url.Action("ByMd5", "Images", new { md5 = s.Md5Hash, w = 128 })!,
+                    RealUrl = sLinks?.Real ?? string.Empty,
+                    Width = sLinks?.P2000Width,
+                    Height = sLinks?.P2000Height
+                });
+            }
+        }
+
+        return View(vm);
     }
 
     [HttpGet]

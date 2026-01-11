@@ -16,6 +16,7 @@ public interface ISearchResultsRepository
     Task<SearchSessionResults?> GetLatestResultsAsync(ResultsOrderBy orderBy = ResultsOrderBy.ScoreDesc, CancellationToken ct = default);
     Task<SearchSessionResults?> GetResultsBySessionIdAsync(Guid sessionId, float? minScore = null, ResultsOrderBy orderBy = ResultsOrderBy.ScoreDesc, CancellationToken ct = default);
     Task<Photo?> GetPhotoInfoByMd5Async(string md5, CancellationToken ct = default);
+    Task<IReadOnlyList<Photo>> GetPhotosByGroupAsync(string groupName, CancellationToken ct = default);
     Task<int> GetPhotosCountAsync(string[]? tags = null, string[]? persons = null, int? minCommerceRating = null, CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, string[]? tags = null, string[]? persons = null, int? minCommerceRating = null, CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetAllDistinctTagsAsync(CancellationToken ct = default);
@@ -144,7 +145,9 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
             tags,
             short_details,
             created_at,
-            updated_at FROM photo WHERE md5_hash = @md5 LIMIT 1", conn);
+            updated_at,
+            commerce_rate,
+            group_name FROM photo WHERE md5_hash = @md5 LIMIT 1", conn);
         cmd.Parameters.AddWithValue("@md5", NpgsqlTypes.NpgsqlDbType.Text, md5);
 
         await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -159,10 +162,48 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
             Tags = reader.IsDBNull(3) ? Array.Empty<string>() : reader.GetFieldValue<string[]>(3),
             ShortDetails = reader.GetString(4),
             CreatedAt = reader.GetDateTime(5), // UTC DateTime for timestamptz
-            UpdatedAt = reader.GetDateTime(6)
+            UpdatedAt = reader.GetDateTime(6),
+            CommerceRate = reader.GetInt32(7),
+            GroupName = reader.GetString(8)
         };
 
         return photo;
+    }
+
+    public async Task<IReadOnlyList<Photo>> GetPhotosByGroupAsync(string groupName, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(groupName)) return Array.Empty<Photo>();
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(ct);
+        var list = new List<Photo>();
+        await using var cmd = new NpgsqlCommand(@"SELECT md5_hash,
+            extension,
+            size_bytes,
+            tags,
+            short_details,
+            created_at,
+            updated_at,
+            commerce_rate,
+            group_name FROM photo WHERE group_name = @group ORDER BY created_at ASC", conn);
+        cmd.Parameters.AddWithValue("@group", NpgsqlTypes.NpgsqlDbType.Text, groupName);
+
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            list.Add(new Photo
+            {
+                Md5Hash = reader.GetString(0),
+                Extension = reader.GetString(1),
+                SizeBytes = reader.GetInt64(2),
+                Tags = reader.IsDBNull(3) ? Array.Empty<string>() : reader.GetFieldValue<string[]>(3),
+                ShortDetails = reader.GetString(4),
+                CreatedAt = reader.GetDateTime(5),
+                UpdatedAt = reader.GetDateTime(6),
+                CommerceRate = reader.GetInt32(7),
+                GroupName = reader.GetString(8)
+            });
+        }
+        return list;
     }
 
     public async Task<int> GetPhotosCountAsync(string[]? tags = null, string[]? persons = null, int? minCommerceRating = null, CancellationToken ct = default)
@@ -295,7 +336,9 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
             tags,
             short_details,
             created_at,
-            updated_at FROM photo WHERE md5_hash = ANY(@md5s)", conn);
+            updated_at,
+            commerce_rate,
+            group_name FROM photo WHERE md5_hash = ANY(@md5s)", conn);
         cmd.Parameters.AddWithValue("@md5s", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text, md5s.ToArray());
 
         await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -309,7 +352,9 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
                 Tags = reader.IsDBNull(3) ? Array.Empty<string>() : reader.GetFieldValue<string[]>(3),
                 ShortDetails = reader.GetString(4),
                 CreatedAt = reader.GetDateTime(5),
-                UpdatedAt = reader.GetDateTime(6)
+                UpdatedAt = reader.GetDateTime(6),
+                CommerceRate = reader.GetInt32(7),
+                GroupName = reader.GetString(8)
             });
         }
         return list;
@@ -385,4 +430,6 @@ public sealed record Photo
     public string ShortDetails { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public int CommerceRate { get; set; }
+    public string GroupName { get; set; }
 }
