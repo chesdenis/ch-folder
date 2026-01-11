@@ -645,6 +645,13 @@ public class HomeController(
         return View(vm);
     }
 
+    [HttpPost]
+    public async Task<IActionResult> ClearSelected([FromQuery] Guid sessionId)
+    {
+        await selectionRepo.ClearSelectionAsync(sessionId, HttpContext.RequestAborted);
+        return RedirectToAction("Selected", new { sessionId });
+    }
+
     public IActionResult About()
     {
         return View();

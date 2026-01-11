@@ -10,6 +10,7 @@ public interface ISearchSessionSelectionRepository
     Task<IReadOnlyList<SelectedPhotoInfo>> GetSelectedMd5Async(Guid sessionId, CancellationToken ct = default);
     Task<bool> AddSelectionAsync(Guid sessionId, string md5, CancellationToken ct = default);
     Task<bool> RemoveSelectionAsync(Guid sessionId, string md5, CancellationToken ct = default);
+    Task ClearSelectionAsync(Guid sessionId, CancellationToken ct = default);
 }
 
 public sealed class SearchSessionSelectionRepository(IFileSystem fileSystem,IOptions<ConnectionStringOptions> connectionStringsOptions)
@@ -87,6 +88,18 @@ public sealed class SearchSessionSelectionRepository(IFileSystem fileSystem,IOpt
 
         var affected = await cmd.ExecuteNonQueryAsync(ct);
         return affected > 0;
+    }
+
+    public async Task ClearSelectionAsync(Guid sessionId, CancellationToken ct = default)
+    {
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(ct);
+
+        await using var cmd = new NpgsqlCommand(@"DELETE FROM search_session_selected
+            WHERE session_id = @sid", conn);
+        cmd.Parameters.AddWithValue("@sid", NpgsqlTypes.NpgsqlDbType.Uuid, sessionId);
+
+        await cmd.ExecuteNonQueryAsync(ct);
     }
 }
 
