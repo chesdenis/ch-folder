@@ -17,8 +17,8 @@ public interface ISearchResultsRepository
     Task<SearchSessionResults?> GetResultsBySessionIdAsync(Guid sessionId, float? minScore = null, ResultsOrderBy orderBy = ResultsOrderBy.ScoreDesc, CancellationToken ct = default);
     Task<Photo?> GetPhotoInfoByMd5Async(string md5, CancellationToken ct = default);
     Task<IReadOnlyList<Photo>> GetPhotosByGroupAsync(string groupName, CancellationToken ct = default);
-    Task<int> GetPhotosCountAsync(string[]? tags = null, string[]? persons = null, int? minCommerceRating = null, CancellationToken ct = default);
-    Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, string[]? tags = null, string[]? persons = null, int? minCommerceRating = null, CancellationToken ct = default);
+    Task<int> GetPhotosCountAsync(string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, CancellationToken ct = default);
+    Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetAllDistinctTagsAsync(CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetAllDistinctPersonsAsync(CancellationToken ct = default);
     Task<IReadOnlyList<Photo>> GetPhotosByMd5sAsync(IReadOnlyList<string> md5s, CancellationToken ct = default);
@@ -206,7 +206,7 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         return list;
     }
 
-    public async Task<int> GetPhotosCountAsync(string[]? tags = null, string[]? persons = null, int? minCommerceRating = null, CancellationToken ct = default)
+    public async Task<int> GetPhotosCountAsync(string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, CancellationToken ct = default)
     {
         await using var conn = CreateConnection();
         await conn.OpenAsync(ct);
@@ -219,9 +219,9 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         {
             sql += " AND persons @> @persons";
         }
-        if (minCommerceRating.HasValue)
+        if (commerceRatings != null && commerceRatings.Length > 0)
         {
-            sql += " AND commerce_rate >= @minCommerceRating";
+            sql += " AND commerce_rate = ANY(@commerceRatings)";
         }
         await using var cmd = new NpgsqlCommand(sql, conn);
         if (tags != null && tags.Length > 0)
@@ -232,15 +232,15 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         {
             cmd.Parameters.AddWithValue("@persons", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text, persons);
         }
-        if (minCommerceRating.HasValue)
+        if (commerceRatings != null && commerceRatings.Length > 0)
         {
-            cmd.Parameters.AddWithValue("@minCommerceRating", NpgsqlTypes.NpgsqlDbType.Integer, minCommerceRating.Value);
+            cmd.Parameters.AddWithValue("@commerceRatings", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Integer, commerceRatings);
         }
         var result = await cmd.ExecuteScalarAsync(ct);
         return Convert.ToInt32(result);
     }
 
-    public async Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, string[]? tags = null, string[]? persons = null, int? minCommerceRating = null, CancellationToken ct = default)
+    public async Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, CancellationToken ct = default)
     {
         if (limit <= 0) return Array.Empty<string>();
         await using var conn = CreateConnection();
@@ -255,9 +255,9 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         {
             sql += " AND persons @> @persons";
         }
-        if (minCommerceRating.HasValue)
+        if (commerceRatings != null && commerceRatings.Length > 0)
         {
-            sql += " AND commerce_rate >= @minCommerceRating";
+            sql += " AND commerce_rate = ANY(@commerceRatings)";
         }
         sql += " ORDER BY created_at DESC LIMIT @lim OFFSET @off";
         await using var cmd = new NpgsqlCommand(sql, conn);
@@ -271,9 +271,9 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         {
             cmd.Parameters.AddWithValue("@persons", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text, persons);
         }
-        if (minCommerceRating.HasValue)
+        if (commerceRatings != null && commerceRatings.Length > 0)
         {
-            cmd.Parameters.AddWithValue("@minCommerceRating", NpgsqlTypes.NpgsqlDbType.Integer, minCommerceRating.Value);
+            cmd.Parameters.AddWithValue("@commerceRatings", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Integer, commerceRatings);
         }
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))

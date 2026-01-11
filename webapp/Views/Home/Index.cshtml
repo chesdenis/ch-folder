@@ -59,19 +59,16 @@
 
     var totalPages = (int)Math.Ceiling(totalItems / (double)Math.Max(1, pageSize));
 
-    // Commerce rating filter (minCommerceRating) from query or ViewBag with default 4
-    int minCommerceRating;
-    var qsMinCommerceRating = Context.Request.Query["minCommerceRating"].ToString();
-    if (!string.IsNullOrWhiteSpace(qsMinCommerceRating) && int.TryParse(qsMinCommerceRating, out var mcr1))
+    // Commerce rating filter (commerceRatings) from query or ViewBag with default [4, 5]
+    int[] commerceRatings;
+    var qsCommerceRatings = Context.Request.Query["commerceRatings"].ToArray();
+    if (qsCommerceRatings.Length > 0)
     {
-        minCommerceRating = mcr1;
+        commerceRatings = qsCommerceRatings.Select(s => int.TryParse(s, out var v) ? (int?)v : null).Where(v => v.HasValue).Select(v => v!.Value).ToArray();
     }
     else
     {
-        minCommerceRating = ViewBag.MinCommerceRating is int mcr2 ? mcr2 : 4;
-        
-        // If not in query, we should ideally reload or at least ensure UI matches effective default
-        // But for Navigation page we want a default hard filter.
+        commerceRatings = ViewBag.CommerceRatings is int[] crs ? crs : [4, 5];
     }
 }
 
@@ -121,7 +118,7 @@
                     <div class="segmented">
                         @for (int i = 1; i <= 5; i++)
                         {
-                            <button type="button" class="seg-btn commerce-rate-btn @(minCommerceRating == i ? "active" : "")" data-rating="@i">@i</button>
+                            <button type="button" class="seg-btn commerce-rate-btn @(commerceRatings.Contains(i) ? "active" : "")" data-rating="@i">@i</button>
                         }
                     </div>
                 </div>
@@ -337,7 +334,15 @@
                     const rating = btn.getAttribute('data-rating');
                     const url = new URL(window.location.href);
                    
-                    url.searchParams.set('minCommerceRating', rating);
+                    let ratings = url.searchParams.getAll('commerceRatings');
+                    if (ratings.includes(rating)) {
+                        ratings = ratings.filter(r => r !== rating);
+                    } else {
+                        ratings.push(rating);
+                    }
+                    url.searchParams.delete('commerceRatings');
+                    ratings.forEach(r => url.searchParams.append('commerceRatings', r));
+                    
                     url.searchParams.set('page', '1');
                     // Ensure it stays on Index page
                     url.pathname = '/Home/Index';
@@ -407,10 +412,10 @@
                 
                 // Carry over commerce rating if it was set
                 const params = new URL(window.location.href).searchParams;
-                const mcr = params.get('minCommerceRating');
-                if (mcr) {
-                    url.searchParams.set('minCommerceRating', mcr);
-                }
+                const crs = params.getAll('commerceRatings');
+                crs.forEach(cr => {
+                    url.searchParams.append('commerceRatings', cr);
+                });
                 
                 window.location.href = url.toString();
             });

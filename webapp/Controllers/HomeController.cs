@@ -25,10 +25,10 @@ public class HomeController(
 {
     private readonly StorageOptions _storage = storageOptions.Value;
 
-    public async Task<IActionResult> Index([FromQuery] string[]? tags, [FromQuery] string[]? persons, [FromQuery] int? minCommerceRating)
+    public async Task<IActionResult> Index([FromQuery] string[]? tags, [FromQuery] string[]? persons, [FromQuery] int[]? commerceRatings)
     {
         // Default values for Navigation page when not explicitly provided
-        var effectiveMinCommerceRating = minCommerceRating ?? 4;
+        var effectiveCommerceRatings = (commerceRatings == null || commerceRatings.Length == 0) ? [4, 5] : commerceRatings;
         
         // If only sessionId is provided (no query), redirect to Search to restore query by sessionId
         var sessionIdStr = Request.Query["sessionId"].ToString();
@@ -50,7 +50,7 @@ public class HomeController(
         // Expose selected filters to the view
         ViewBag.SelectedTags = tags ?? Array.Empty<string>();
         ViewBag.SelectedPersons = persons ?? Array.Empty<string>();
-        ViewBag.MinCommerceRating = effectiveMinCommerceRating;
+        ViewBag.CommerceRatings = effectiveCommerceRatings;
         ViewBag.SessionId = Guid.Empty; // Static empty guid for navigation search result id
 
         // Fetch available tags and persons for filtering
@@ -64,9 +64,9 @@ public class HomeController(
         thumbSize = thumbSize.SnapToAllowed();
 
         // Load photos as the gallery content with hard filters
-        var total = await searchResultsRepo.GetPhotosCountAsync(tags, persons, effectiveMinCommerceRating, HttpContext.RequestAborted);
+        var total = await searchResultsRepo.GetPhotosCountAsync(tags, persons, effectiveCommerceRatings, HttpContext.RequestAborted);
         var offset = (page - 1) * pageSize;
-        var md5s = await searchResultsRepo.GetRecentPhotoMd5Async(offset, pageSize, tags, persons, effectiveMinCommerceRating, HttpContext.RequestAborted);
+        var md5s = await searchResultsRepo.GetRecentPhotoMd5Async(offset, pageSize, tags, persons, effectiveCommerceRatings, HttpContext.RequestAborted);
 
         // Fetch full photo info to get ShortDetails for "Jump to Search"
         var photos = await searchResultsRepo.GetPhotosByMd5sAsync(md5s, HttpContext.RequestAborted);
@@ -162,13 +162,21 @@ public class HomeController(
         minScoreVal = Math.Round(minScoreVal, 2, MidpointRounding.AwayFromZero);
         route["minScore"] = minScoreVal.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
-        // Commerce rating filter normalization with default 4
-        if (!route.ContainsKey("minCommerceRating") ||
-            !int.TryParse(route["minCommerceRating"]?.ToString(), out var minCommerceRatingVal))
+        // Commerce rating filter normalization with default 4,5
+        int[] commerceRatings;
+        if (Request.Query.ContainsKey("commerceRatings"))
         {
-            minCommerceRatingVal = 4;
+            commerceRatings = Request.Query["commerceRatings"]
+                .Select(s => int.TryParse(s, out var v) ? (int?)v : null)
+                .Where(v => v.HasValue)
+                .Select(v => v!.Value)
+                .ToArray();
         }
-        route["minCommerceRating"] = minCommerceRatingVal;
+        else
+        {
+            commerceRatings = [4, 5];
+        }
+        route["commerceRatings"] = commerceRatings;
 
         // Ordering normalization: score (default) or commerce
         var orderByRaw = Request.Query["orderBy"].ToString();
@@ -219,7 +227,7 @@ public class HomeController(
             ViewBag.Size = sizeInt;
             ViewBag.Query = string.Empty;
             ViewBag.MinScore = minScoreVal;
-            ViewBag.MinCommerceRating = minCommerceRatingVal;
+            ViewBag.CommerceRatings = commerceRatings;
             ViewBag.OrderBy = route["orderBy"];
 
             return View();
@@ -319,7 +327,7 @@ public class HomeController(
         var minScoreForFilter = (float)minScoreVal;
         var filteredResults = sessionToUse!.Results
             .GroupBy(g=>g.Group).Select(s=>s.First())
-            .Where(r => r.CommerceRating >= minCommerceRatingVal)
+            .Where(r => commerceRatings.Contains(r.CommerceRating))
             .Where(r => r.Score >= minScoreForFilter)
             .ToList();
 
@@ -375,7 +383,7 @@ public class HomeController(
         ViewBag.Query = queryText;
         ViewBag.SessionId = sessionToUse.SessionId;
         ViewBag.MinScore = minScoreVal;
-        ViewBag.MinCommerceRating = minCommerceRatingVal;
+        ViewBag.CommerceRatings = commerceRatings;
         ViewBag.OrderBy = route["orderBy"];
         return View();
     }
@@ -384,6 +392,7 @@ public class HomeController(
     public IActionResult SizeUp(
         [FromQuery] string? query,
         [FromQuery] string[]? tags,
+        [FromQuery] int[]? commerceRatings,
         [FromQuery] string[]? filters,
         [FromQuery] string[]? sorting,
         [FromQuery] int? pageSize,
@@ -399,6 +408,7 @@ public class HomeController(
         {
             query,
             tags,
+            commerceRatings,
             filters,
             sorting,
             pageSize = pageSize ?? 12,
@@ -411,6 +421,7 @@ public class HomeController(
     public IActionResult SizeDown(
         [FromQuery] string? query,
         [FromQuery] string[]? tags,
+        [FromQuery] int[]? commerceRatings,
         [FromQuery] string[]? filters,
         [FromQuery] string[]? sorting,
         [FromQuery] int? pageSize,
@@ -426,6 +437,7 @@ public class HomeController(
         {
             query,
             tags,
+            commerceRatings,
             filters,
             sorting,
             pageSize = pageSize ?? 12,
@@ -438,6 +450,7 @@ public class HomeController(
     public IActionResult RankUp(
         [FromQuery] string? query,
         [FromQuery] string[]? tags,
+        [FromQuery] int[]? commerceRatings,
         [FromQuery] string[]? filters,
         [FromQuery] string[]? sorting,
         [FromQuery] int? pageSize,
@@ -453,12 +466,12 @@ public class HomeController(
         {
             query,
             tags,
+            commerceRatings,
             filters,
             sorting,
             pageSize = pageSize ?? 12,
             size = (size ?? 256).SnapToAllowed(),
             minScore = msStr,
-            minCommerceRating = Request.Query["minCommerceRating"].ToString(),
             page = 1
         });
     }
@@ -467,6 +480,7 @@ public class HomeController(
     public IActionResult RankDown(
         [FromQuery] string? query,
         [FromQuery] string[]? tags,
+        [FromQuery] int[]? commerceRatings,
         [FromQuery] string[]? filters,
         [FromQuery] string[]? sorting,
         [FromQuery] int? pageSize,
@@ -482,12 +496,12 @@ public class HomeController(
         {
             query,
             tags,
+            commerceRatings,
             filters,
             sorting,
             pageSize = pageSize ?? 12,
             size = (size ?? 256).SnapToAllowed(),
             minScore = msStr,
-            minCommerceRating = Request.Query["minCommerceRating"].ToString(),
             page = 1
         });
     }

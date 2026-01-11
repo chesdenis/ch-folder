@@ -36,16 +36,16 @@
     }
     minScore = Math.Max(0, Math.Min(1, Math.Round(minScore, 2)));
 
-    // Commerce rating filter (minCommerceRating) from query or ViewBag with default 4
-    int minCommerceRating;
-    var qsMinCommerceRating = Context.Request.Query["minCommerceRating"].ToString();
-    if (!string.IsNullOrWhiteSpace(qsMinCommerceRating) && int.TryParse(qsMinCommerceRating, out var mcr1))
+    // Commerce rating filter (commerceRatings) from query or ViewBag with default [4, 5]
+    int[] commerceRatings;
+    var qsCommerceRatings = Context.Request.Query["commerceRatings"].ToArray();
+    if (qsCommerceRatings.Length > 0)
     {
-        minCommerceRating = mcr1;
+        commerceRatings = qsCommerceRatings.Select(s => int.TryParse(s, out var v) ? (int?)v : null).Where(v => v.HasValue).Select(v => v!.Value).ToArray();
     }
     else
     {
-        minCommerceRating = ViewBag.MinCommerceRating is int mcr2 ? mcr2 : 4;
+        commerceRatings = ViewBag.CommerceRatings is int[] crs ? crs : [4, 5];
     }
     // Prefer real totals/items from controller if provided (handle possible string/object types safely)
     var vbPageStr = ViewBag.Page?.ToString();
@@ -147,7 +147,7 @@
                     <div class="segmented">
                         @for (int i = 1; i <= 5; i++)
                         {
-                            <button type="button" class="seg-btn commerce-rate-btn @(minCommerceRating == i ? "active" : "")" data-rating="@i">@i</button>
+                            <button type="button" class="seg-btn commerce-rate-btn @(commerceRatings.Contains(i) ? "active" : "")" data-rating="@i">@i</button>
                         }
                     </div>
                 </div>
@@ -163,7 +163,12 @@
                 <input type="hidden" name="size" value="@thumbSize" />
                 <input type="hidden" name="pageSize" value="@pageSize" />
                 <input type="hidden" name="minScore" id="minScoreInput" value="@minScore.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)" />
-                <input type="hidden" name="minCommerceRating" id="minCommerceRatingInput" value="@minCommerceRating" />
+                <div id="commerceRatingsInputs">
+                    @foreach (var r in commerceRatings)
+                    {
+                        <input type="hidden" name="commerceRatings" value="@r" />
+                    }
+                </div>
                 <input type="hidden" name="orderBy" value="@orderBy" />
                 @* Preserve any existing filters/sorting from the current query *@
                 @foreach (var f in filters)
@@ -382,7 +387,15 @@
                     const rating = btn.getAttribute('data-rating');
                     const url = new URL(window.location.href);
                    
-                    url.searchParams.set('minCommerceRating', rating);
+                    let ratings = url.searchParams.getAll('commerceRatings');
+                    if (ratings.includes(rating)) {
+                        ratings = ratings.filter(r => r !== rating);
+                    } else {
+                        ratings.push(rating);
+                    }
+                    url.searchParams.delete('commerceRatings');
+                    ratings.forEach(r => url.searchParams.append('commerceRatings', r));
+
                     url.searchParams.set('page', '1');
                     if (!url.pathname.includes('/Home/Search')) {
                         url.pathname = '/Home/Search';
