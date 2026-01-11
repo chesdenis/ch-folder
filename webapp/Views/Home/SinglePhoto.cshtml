@@ -4,6 +4,11 @@
     var it = Model.Photo;
 }
 
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+}
+
 <div class="container-fluid mt-4">
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
@@ -12,22 +17,38 @@
         </ol>
     </nav>
 
-    <div class="row">
-        <div class="col-md-6">
-            <div class="pswp-gallery" id="gallery-@it.Md5">
+    <div class="row g-4">
+        <div class="col-lg-6 col-md-12">
+            <div class="pswp-gallery" id="photo-gallery">
                 <a href="@Url.Action("ByMd5", "Images", new { md5 = it.Md5, w = 2000 })"
                    data-pswp-width="@(it.Width ?? 2000)"
                    data-pswp-height="@(it.Height ?? 2000)"
-                   target="_blank">
-                    <img src="@Url.Action("ByMd5", "Images", new { md5 = it.Md5, w = 512 })" alt="@it.Md5" class="img-fluid rounded shadow" style="cursor: zoom-in;"/>
+                   target="_blank"
+                   class="d-block mb-3">
+                    <img src="@Url.Action("ByMd5", "Images", new { md5 = it.Md5, w = 512 })" alt="@it.Md5" class="img-fluid rounded shadow w-100" style="cursor: zoom-in;"/>
                 </a>
+                
+                @if (Model.SimilarPhotos.Any())
+                {
+                    <div class="d-none">
+                        @foreach (var s in Model.SimilarPhotos)
+                        {
+                            <a href="@Url.Action("ByMd5", "Images", new { md5 = s.Md5, w = 2000 })"
+                               data-pswp-width="@(s.Width ?? 2000)"
+                               data-pswp-height="@(s.Height ?? 2000)"
+                               target="_blank">
+                                <img src="@Url.Action("ByMd5", "Images", new { md5 = s.Md5, w = 256 })" alt="@s.Md5" />
+                            </a>
+                        }
+                    </div>
+                }
             </div>
             
-            <div class="mt-3">
+            <div class="mt-2 text-center text-lg-start">
                 <small class="text-muted">MD5: <code class="user-select-all">@it.Md5</code></small>
             </div>
         </div>
-        <div class="col-md-6">
+        <div class="col-lg-6 col-md-12">
             <div class="card shadow-sm">
                 <div class="card-body">
                     <h3 class="card-title h4 mb-3">Analysis & Details</h3>
@@ -99,18 +120,20 @@
     {
         <div class="mt-5 mb-5">
             <h4 class="mb-4">Similar Photos in Group</h4>
-            @await Component.InvokeAsync("Gallery", new { 
-                items = Model.SimilarPhotos.Select(s => new webapp.Components.GalleryItem {
-                    FullUrl = Url.Action("ByMd5", "Images", new { md5 = s.Md5 })!,
-                    FullWidth = s.Width ?? 2000,
-                    FullHeight = s.Height ?? 2000,
-                    Alt = s.Md5,
-                    Md5 = s.Md5,
-                    ShortDetails = s.ShortDetails
-                }).ToList(),
-                pageSize = 100,
-                thumbSize = 256
-            })
+            <div id="group-gallery">
+                @await Component.InvokeAsync("Gallery", new { 
+                    items = Model.SimilarPhotos.Select(s => new webapp.Components.GalleryItem {
+                        FullUrl = Url.Action("ByMd5", "Images", new { md5 = s.Md5 })!,
+                        FullWidth = s.Width ?? 2000,
+                        FullHeight = s.Height ?? 2000,
+                        Alt = s.Md5,
+                        Md5 = s.Md5,
+                        ShortDetails = s.ShortDetails
+                    }).ToList(),
+                    pageSize = 100,
+                    thumbSize = 256
+                })
+            </div>
         </div>
     }
 </div>
@@ -118,47 +141,45 @@
 @section Scripts {
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // Re-bind click for gallery items to open SinglePhoto view if needed, 
-            // but the Gallery component usually just opens lightbox.
-            // The user wanted "navigate also from this page to single photo view".
-            // Since Gallery component is used, we might want to override its behavior or just let it be a lightbox.
-            // If we want it to navigate on double click or something? 
-            // User said: "we can navigate also from this page to single photo view"
-            // Let's add a button to the lightbox or just make images clickable.
-            
-            document.querySelectorAll('.gallery-item img').forEach(img => {
-                img.addEventListener('contextmenu', (e) => {
-                   e.preventDefault();
-                   const md5 = img.getAttribute('data-md5');
-                   if (md5) {
-                       window.location.href = '@Url.Action("SinglePhoto", "Home")?md5=' + md5;
-                   }
+            // Handle clicking on similar photos to navigate to their SinglePhoto view
+            const groupGallery = document.getElementById('group-gallery');
+            if (groupGallery) {
+                groupGallery.querySelectorAll('.gallery-item').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        // Prevent opening lightbox from the lower gallery
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        const img = item.querySelector('img');
+                        const md5 = img.getAttribute('data-md5');
+                        if (md5) {
+                            window.location.href = '@Url.Action("SinglePhoto", "Home")?md5=' + md5;
+                        }
+                    }, true); // Use capture phase to intercept before PhotoSwipe if it was attached there
                 });
-                
-                // Also add a title to inform users
-                img.title = "Right click to view details";
+            }
+
+            // Copy buttons logic
+            document.querySelectorAll('.copy-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const text = btn.getAttribute('data-copy-text');
+                    navigator.clipboard.writeText(text).then(() => {
+                        const icon = btn.querySelector('i');
+                        const originalClass = icon.className;
+                        icon.className = 'bi bi-check2 text-success me-1';
+                        setTimeout(() => icon.className = originalClass, 2000);
+                    });
+                });
             });
         });
     </script>
     <script type="module">
-        import PhotoSwipeLightbox from '/lib/photoswipe/photoswipe-lightbox.esm.min.js';
+        import PhotoSwipeLightbox from 'https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe-lightbox.esm.js';
         const lightbox = new PhotoSwipeLightbox({
             gallery: '.pswp-gallery',
             children: 'a',
-            pswpModule: () => import('/lib/photoswipe/photoswipe.esm.min.js')
+            pswpModule: () => import('https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe.esm.js')
         });
         lightbox.init();
-
-        document.querySelectorAll('.copy-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const text = btn.getAttribute('data-copy-text');
-                navigator.clipboard.writeText(text).then(() => {
-                    const icon = btn.querySelector('i');
-                    const originalClass = icon.className;
-                    icon.className = 'bi bi-check2 text-success me-1';
-                    setTimeout(() => icon.className = originalClass, 2000);
-                });
-            });
-        });
     </script>
 }
