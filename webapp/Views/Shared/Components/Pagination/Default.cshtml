@@ -76,17 +76,23 @@
 @functions {
     string GetPageUrl(int page, HttpRequest request)
     {
-        var queryParams = new Dictionary<string, string>();
+        var queryParams = new List<KeyValuePair<string, string>>();
 
         foreach (var key in request.Query.Keys)
         {
             if (key != "page")
             {
-                queryParams[key] = request.Query[key].ToString();
+                foreach (var value in request.Query[key])
+                {
+                    if (value != null)
+                    {
+                        queryParams.Add(new KeyValuePair<string, string>(key, value));
+                    }
+                }
             }
         }
 
-        queryParams["page"] = page.ToString();
+        queryParams.Add(new KeyValuePair<string, string>("page", page.ToString()));
 
         var queryString = string.Join("&", queryParams.Select(kvp => $"{kvp.Key}={Uri.EscapeDataString(kvp.Value)}"));
         return $"?{queryString}";
