@@ -28,11 +28,8 @@
                     <table class="table table-sm align-middle mb-0">
                         <thead>
                         <tr>
-                            <th scope="col" style="width:60%">Folder</th>
-                            @foreach (var x in ModelConstants.ContentValidationKeys)
-                            {
-                                <th scope="col">@x.Item2</th>
-                            }
+                            <th scope="col" style="width:40%">Folder</th>
+                            <th scope="col">Status Indicators</th>
                         </tr>
                         </thead>
                         <tbody>
@@ -45,28 +42,41 @@
                                         <code>@folderName</code>
                                     </a>
                                 </td>
-                                @foreach (var fs in ModelConstants.ContentValidationKeys)
-                                {
-                                    var test = Model.Items.FirstOrDefault(f => f.Folder.Equals(folderName) && f.TestKind.Equals(fs.Item1));
-                                    if (test == null)
-                                    {
-                                        <td>
-                                            <span>Missing</span>
-                                        </td>
-                                    }
-                                    else
-                                    {
-                                        var color = test.Status == "Passed" ? "#28a745" : test.Status == "Failed" ? "#dc3545" : test.Status == "Running" ? "#ffc107" : "#6c757d";
-                                        var text = (test.Status == "Failed" && test.TotalFailures.HasValue)
-                                            ? $"Failed ({test.TotalFailures.Value})"
-                                            : test.Status;
+                                <td>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        @foreach (var fs in ModelConstants.ContentValidationKeys)
+                                        {
+                                            var test = Model.Items.FirstOrDefault(f => f.Folder.Equals(folderName) && f.TestKind.Equals(fs.Item1));
+                                            var color = "#6c757d"; // Default Grey
+                                            var status = "Missing";
+                                            var failures = "";
 
-                                        <td>
-                                            <span style="color:@color">@text</span>
-                                        </td>
-                                    }
-                                }
+                                            if (test != null)
+                                            {
+                                                status = test.Status;
+                                                color = status switch
+                                                {
+                                                    "Passed" => "#28a745",
+                                                    "Failed" => "#dc3545",
+                                                    "Running" => "#ffc107",
+                                                    _ => "#6c757d"
+                                                };
 
+                                                if (status == "Failed" && test.TotalFailures.HasValue)
+                                                {
+                                                    failures = test.TotalFailures.Value.ToString();
+                                                }
+                                            }
+
+                                            <a href="@Url.Action("ContentQualityDetails", new { folder = folderName })"
+                                               class="d-inline-flex align-items-center justify-content-center text-decoration-none text-white rounded"
+                                               style="background-color: @color; min-width: 24px; height: 24px; font-size: 0.75rem; padding: 2px;"
+                                               title="@fs.Item2: @status">
+                                                @failures
+                                            </a>
+                                        }
+                                    </div>
+                                </td>
                             </tr>
                         }
                         </tbody>
