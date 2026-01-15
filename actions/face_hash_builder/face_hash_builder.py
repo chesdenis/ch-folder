@@ -31,7 +31,10 @@ def from_b64_answer(data):
 def get_known_faces():
     return [
         {"Name": "DENISC","Encodings": from_b64_answer(os.environ.get('DENISC'))},
-        {"Name": "ANNAC","Encodings": from_b64_answer(os.environ.get('ANNAC'))}
+        {"Name": "ANNAC","Encodings": from_b64_answer(os.environ.get('ANNAC'))},
+        {"Name": "NATALIAV","Encodings": from_b64_answer(os.environ.get('NATALIAV'))},
+        {"Name": "TANYAV","Encodings": from_b64_answer(os.environ.get('TANYAV'))},
+        {"Name": "KATYAV","Encodings": from_b64_answer(os.environ.get('KATYAV'))}
     ]
 
 def get_face_vectors(file_path):

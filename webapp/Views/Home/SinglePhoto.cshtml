@@ -86,25 +86,25 @@
                         }
                         <button type="button" class="btn btn-outline-secondary copy-btn"
                                 data-copy-text="@it.CommerceMark: @it.ImprovementWays" title="Copy commerce mark">
-                            <i class="bi bi-clipboard-check me-1"></i> Commerce Mark
+                            <i class="bi bi-clipboard-check me-1"></i> <span>Commerce Mark</span>
                         </button>
                         <button type="button" class="btn btn-outline-secondary copy-btn"
                                 data-copy-text="@it.RefinementPrompt" title="Copy refinement prompt">
-                            <i class="bi bi-clipboard-check me-1"></i> Refinement Prompt
+                            <i class="bi bi-clipboard-check me-1"></i> <span>Refinement Prompt</span>
                         </button>
                         <button type="button" class="btn btn-outline-secondary copy-btn"
                                 data-copy-text="@it.ShortDetails" title="Copy short text">
-                            <i class="bi bi-clipboard me-1"></i> Short text
+                            <i class="bi bi-clipboard me-1"></i> <span>Short text</span>
                         </button>
                         <button type="button" class="btn btn-outline-secondary copy-btn"
                                 data-copy-text="@it.LargeDetails" title="Copy full text">
-                            <i class="bi bi-clipboard me-1"></i> Full text
+                            <i class="bi bi-clipboard me-1"></i> <span>Full text</span>
                         </button>
                         @if (it.Tags is { Length: > 0 })
                         {
                             <button type="button" class="btn btn-outline-secondary copy-btn"
                                     data-copy-text="@string.Join(", ", it.Tags)" title="Copy tags">
-                                <i class="bi bi-tags me-1"></i> Copy tags
+                                <i class="bi bi-tags me-1"></i> <span>Copy tags</span>
                             </button>
                         }
                         <a href="@Url.Action("Search", "Home", new { query = it.ShortDetails })" class="btn btn-outline-success" title="Search similar images">
@@ -160,15 +160,63 @@
             }
 
             // Copy buttons logic
+            async function copyToClipboard(text, btn) {
+                let success = false;
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    try {
+                        await navigator.clipboard.writeText(text);
+                        success = true;
+                    } catch (err) {
+                        console.error('Async: Could not copy text: ', err);
+                    }
+                }
+                
+                if (!success) {
+                    // Fallback for non-secure contexts or failures
+                    const textArea = document.createElement("textarea");
+                    textArea.value = text;
+                    textArea.style.position = "fixed";
+                    textArea.style.left = "-9999px";
+                    textArea.style.top = "0";
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    try {
+                        success = document.execCommand('copy');
+                    } catch (err) {
+                        console.error('Fallback: Unable to copy', err);
+                    }
+                    document.body.removeChild(textArea);
+                }
+
+                if (success) {
+                    showSuccess(btn);
+                }
+            }
+
+            function showSuccess(btn) {
+                const icon = btn.querySelector('i');
+                const label = btn.querySelector('span');
+                const originalIconClass = icon.className;
+                const originalLabel = label.textContent;
+                
+                icon.className = 'bi bi-check2 text-success me-1';
+                label.textContent = 'Copied!';
+                btn.classList.add('btn-outline-success');
+                btn.classList.remove('btn-outline-secondary');
+                
+                setTimeout(() => {
+                    icon.className = originalIconClass;
+                    label.textContent = originalLabel;
+                    btn.classList.remove('btn-outline-success');
+                    btn.classList.add('btn-outline-secondary');
+                }, 2000);
+            }
+
             document.querySelectorAll('.copy-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const text = btn.getAttribute('data-copy-text');
-                    navigator.clipboard.writeText(text).then(() => {
-                        const icon = btn.querySelector('i');
-                        const originalClass = icon.className;
-                        icon.className = 'bi bi-check2 text-success me-1';
-                        setTimeout(() => icon.className = originalClass, 2000);
-                    });
+                    copyToClipboard(text, btn);
                 });
             });
         });
