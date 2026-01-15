@@ -64,9 +64,9 @@ public class HomeController(
         thumbSize = thumbSize.SnapToAllowed();
 
         // Load photos as the gallery content with hard filters
-        var total = await searchResultsRepo.GetPhotosCountAsync(tags, persons, effectiveCommerceRatings, HttpContext.RequestAborted);
+        var total = await searchResultsRepo.GetPhotosCountAsync(tags, persons, effectiveCommerceRatings, groupByGroup: true, HttpContext.RequestAborted);
         var offset = (page - 1) * pageSize;
-        var md5s = await searchResultsRepo.GetRecentPhotoMd5Async(offset, pageSize, tags, persons, effectiveCommerceRatings, HttpContext.RequestAborted);
+        var md5s = await searchResultsRepo.GetRecentPhotoMd5Async(offset, pageSize, tags, persons, effectiveCommerceRatings, groupByGroup: true, HttpContext.RequestAborted);
 
         // Fetch full photo info to get ShortDetails for "Jump to Search"
         var photos = await searchResultsRepo.GetPhotosByMd5sAsync(md5s, HttpContext.RequestAborted);

@@ -17,8 +17,8 @@ public interface ISearchResultsRepository
     Task<SearchSessionResults?> GetResultsBySessionIdAsync(Guid sessionId, float? minScore = null, ResultsOrderBy orderBy = ResultsOrderBy.ScoreDesc, CancellationToken ct = default);
     Task<Photo?> GetPhotoInfoByMd5Async(string md5, CancellationToken ct = default);
     Task<IReadOnlyList<Photo>> GetPhotosByGroupAsync(string groupName, CancellationToken ct = default);
-    Task<int> GetPhotosCountAsync(string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, CancellationToken ct = default);
-    Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, CancellationToken ct = default);
+    Task<int> GetPhotosCountAsync(string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, bool groupByGroup = false, CancellationToken ct = default);
+    Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, bool groupByGroup = false, CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetAllDistinctTagsAsync(CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetAllDistinctPersonsAsync(CancellationToken ct = default);
     Task<IReadOnlyList<Photo>> GetPhotosByMd5sAsync(IReadOnlyList<string> md5s, CancellationToken ct = default);
@@ -206,11 +206,13 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         return list;
     }
 
-    public async Task<int> GetPhotosCountAsync(string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, CancellationToken ct = default)
+    public async Task<int> GetPhotosCountAsync(string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, bool groupByGroup = false, CancellationToken ct = default)
     {
         await using var conn = CreateConnection();
         await conn.OpenAsync(ct);
-        var sql = "SELECT COUNT(*) FROM photo WHERE 1=1";
+        var sql = groupByGroup 
+            ? "SELECT COUNT(DISTINCT group_name) FROM photo WHERE 1=1"
+            : "SELECT COUNT(*) FROM photo WHERE 1=1";
         if (tags != null && tags.Length > 0)
         {
             sql += " AND tags @> @tags";
@@ -240,26 +242,42 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         return Convert.ToInt32(result);
     }
 
-    public async Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, CancellationToken ct = default)
+    public async Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, bool groupByGroup = false, CancellationToken ct = default)
     {
         if (limit <= 0) return Array.Empty<string>();
         await using var conn = CreateConnection();
         await conn.OpenAsync(ct);
         var list = new List<string>(limit);
-        var sql = "SELECT md5_hash FROM photo WHERE 1=1";
-        if (tags != null && tags.Length > 0)
+        
+        string sql;
+        if (groupByGroup)
         {
-            sql += " AND tags @> @tags";
+            sql = @"
+                SELECT md5_hash 
+                FROM (
+                    SELECT DISTINCT ON (group_name) md5_hash, created_at
+                    FROM photo 
+                    WHERE 1=1";
+            
+            if (tags != null && tags.Length > 0) sql += " AND tags @> @tags";
+            if (persons != null && persons.Length > 0) sql += " AND persons @> @persons";
+            if (commerceRatings != null && commerceRatings.Length > 0) sql += " AND commerce_rate = ANY(@commerceRatings)";
+
+            sql += @"
+                    ORDER BY group_name, created_at DESC
+                ) AS sub
+                ORDER BY created_at DESC 
+                LIMIT @lim OFFSET @off";
         }
-        if (persons != null && persons.Length > 0)
+        else
         {
-            sql += " AND persons @> @persons";
+            sql = "SELECT md5_hash FROM photo WHERE 1=1";
+            if (tags != null && tags.Length > 0) sql += " AND tags @> @tags";
+            if (persons != null && persons.Length > 0) sql += " AND persons @> @persons";
+            if (commerceRatings != null && commerceRatings.Length > 0) sql += " AND commerce_rate = ANY(@commerceRatings)";
+            sql += " ORDER BY created_at DESC LIMIT @lim OFFSET @off";
         }
-        if (commerceRatings != null && commerceRatings.Length > 0)
-        {
-            sql += " AND commerce_rate = ANY(@commerceRatings)";
-        }
-        sql += " ORDER BY created_at DESC LIMIT @lim OFFSET @off";
+
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("@lim", NpgsqlTypes.NpgsqlDbType.Integer, limit);
         cmd.Parameters.AddWithValue("@off", NpgsqlTypes.NpgsqlDbType.Integer, Math.Max(0, offset));
@@ -300,7 +318,7 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         {
             tags.Add(reader.GetString(0));
         }
-        return tags;
+        return tags.OrderBy(t => t).ToList();
     }
 
     public async Task<IReadOnlyList<string>> GetAllDistinctPersonsAsync(CancellationToken ct = default)
@@ -320,7 +338,7 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         {
             persons.Add(reader.GetString(0));
         }
-        return persons;
+        return persons.OrderBy(p => p).ToList();
     }
 
     public async Task<IReadOnlyList<Photo>> GetPhotosByMd5sAsync(IReadOnlyList<string> md5s, CancellationToken ct = default)

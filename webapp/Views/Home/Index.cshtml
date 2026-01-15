@@ -91,7 +91,7 @@
                 <div class="toolbar-group" role="group" aria-label="Tags selector">
                     <span class="toolbar-label">Tags</span>
                     @await Component.InvokeAsync("TagsSelector", new {
-                        availableTags = (ViewBag.AvailableTags as IEnumerable<string> ?? Array.Empty<string>()).Take(10),
+                        availableTags = (ViewBag.AvailableTags as IEnumerable<string> ?? Array.Empty<string>()).Take(20),
                         selectedTags = ViewBag.SelectedTags as IEnumerable<string>
                     })
                 </div>
@@ -103,7 +103,7 @@
                         @{
                             var availablePersons = ViewBag.AvailablePersons as IEnumerable<string> ?? Array.Empty<string>();
                             var selectedPersonsList = (ViewBag.SelectedPersons as IEnumerable<string> ?? Array.Empty<string>()).ToList();
-                            foreach (var person in availablePersons.Take(10))
+                            foreach (var person in availablePersons.Take(20))
                             {
                                 var isSelected = selectedPersonsList.Contains(person, StringComparer.OrdinalIgnoreCase);
                                 <button type="button" class="tag-btn person-btn @(isSelected ? "active" : "")" data-person="@person">@person</button>
