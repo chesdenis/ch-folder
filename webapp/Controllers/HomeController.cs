@@ -398,11 +398,6 @@ public class HomeController(
         [FromQuery] int? pageSize,
         [FromQuery] int? size)
     {
-        var current = (size ?? 256).SnapToAllowed();
-        var idx = Array.IndexOf(ImageProcessingExtensions.AllowedSizes, current);
-        var nextIdx = Math.Min(ImageProcessingExtensions.AllowedSizes.Length - 1, Math.Max(0, idx + 1));
-        var nextSize = ImageProcessingExtensions.AllowedSizes[nextIdx];
-
         var targetAction = string.IsNullOrWhiteSpace(query) ? "Index" : "Search";
         return RedirectToAction(targetAction, new
         {
@@ -412,7 +407,7 @@ public class HomeController(
             filters,
             sorting,
             pageSize = pageSize ?? 12,
-            size = nextSize,
+            size = size ?? 256,
             page = 1
         });
     }
@@ -427,11 +422,6 @@ public class HomeController(
         [FromQuery] int? pageSize,
         [FromQuery] int? size)
     {
-        var current = (size ?? 256).SnapToAllowed();
-        var idx = Array.IndexOf(ImageProcessingExtensions.AllowedSizes, current);
-        var prevIdx = Math.Max(0, Math.Max(0, idx - 1));
-        var prevSize = ImageProcessingExtensions.AllowedSizes[prevIdx];
-
         var targetAction = string.IsNullOrWhiteSpace(query) ? "Index" : "Search";
         return RedirectToAction(targetAction, new
         {
@@ -441,7 +431,7 @@ public class HomeController(
             filters,
             sorting,
             pageSize = pageSize ?? 12,
-            size = prevSize,
+            size = size ?? 256,
             page = 1
         });
     }
