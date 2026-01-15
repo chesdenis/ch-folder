@@ -6,11 +6,11 @@
 <div class="pswp-gallery" id="my-gallery">
 @foreach (var item in Model.Items)
 {
-    <a href="@item.FullUrl?w=2000"
+    <a href="@Url.Action("SinglePhoto", "Home", new { md5 = item.Md5 })"
+       data-pswp-src="@item.FullUrl?w=2000"
        data-pswp-width="@item.FullWidth"
        data-pswp-height="@item.FullHeight"
        data-short-details="@item.ShortDetails"
-       target="_blank"
        class="d-inline-block gallery-item">
         <img src="@item.GetThumbUrl(size)"
              alt="@item.Alt"
