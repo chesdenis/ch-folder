@@ -10,6 +10,7 @@ public interface IContentValidationRepository
     Task<IReadOnlyList<ValidationRow>> GetByJobAsync(Guid jobId, CancellationToken ct = default);
     Task<IReadOnlyList<ValidationRow>> GetLatestAsync(CancellationToken ct = default);
     Task<IReadOnlyList<ValidationDetailRow>> GetLatestDetailsByFolderAsync(string folder, CancellationToken ct = default);
+    Task TruncateAsync(CancellationToken ct = default);
 }
 
 public sealed class ContentValidationRepository(IOptions<ConnectionStringOptions> connectionStrings)
@@ -80,6 +81,14 @@ public sealed class ContentValidationRepository(IOptions<ConnectionStringOptions
             list.Add(new ValidationDetailRow(testKind, status, details));
         }
         return list;
+    }
+
+    public async Task TruncateAsync(CancellationToken ct = default)
+    {
+        await using var conn = Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new NpgsqlCommand("truncate table content_validation_result", conn);
+        await cmd.ExecuteNonQueryAsync(ct);
     }
 }
 

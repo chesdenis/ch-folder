@@ -539,6 +539,13 @@ public class HomeController(
         return View(vm);
     }
 
+    [HttpPost]
+    public async Task<IActionResult> TruncateAnalysisResults()
+    {
+        await contentValidationRepository.TruncateAsync(HttpContext.RequestAborted);
+        return RedirectToAction(nameof(ContentQualityStatus));
+    }
+
     [HttpGet]
     public async Task<IActionResult> ContentQualityDetails([FromQuery] string folder)
     {

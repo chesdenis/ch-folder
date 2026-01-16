@@ -15,6 +15,10 @@
                         <div class="form-control-plaintext">Storage: @ViewBag.StoragePath</div>
                     </div>
                     <div class="col-12 col-md-4 text-md-end">
+                        <form asp-action="TruncateAnalysisResults" method="post" class="d-inline" 
+                              onsubmit="return confirm('Are you sure you want to truncate all analysis results? This action cannot be undone.');">
+                            <button type="submit" class="btn btn-outline-danger">Truncate Results</button>
+                        </form>
                         <a class="btn btn-outline-secondary" href="@Url.Action("ContentQualityStatus")">Refresh</a>
                     </div>
                 </div>
