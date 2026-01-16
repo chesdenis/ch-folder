@@ -11,12 +11,24 @@
        data-pswp-width="@item.FullWidth"
        data-pswp-height="@item.FullHeight"
        data-short-details="@item.ShortDetails"
-       class="d-inline-block gallery-item">
+       class="d-inline-block gallery-item position-relative">
         <img src="@item.GetThumbUrl(size)"
              alt="@item.Alt"
              class="img-thumbnail m-2"
              data-md5="@item.Md5"
              style="width: @(size)px; height: auto;" />
+        
+        @if (item.PublishPlatforms.Any())
+        {
+            <div class="position-absolute bottom-0 start-0 m-2 px-1 d-flex flex-wrap gap-1" style="max-width: @(size)px; pointer-events: none;">
+                @foreach (var platform in item.PublishPlatforms)
+                {
+                    <span class="badge bg-success" style="font-size: 0.6rem; border: 1px solid white; padding: 2px 4px;" title="@platform">
+                        @platform
+                    </span>
+                }
+            </div>
+        }
     </a>
 }
 </div>

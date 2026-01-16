@@ -27,4 +27,5 @@ public sealed class SelectedItemViewModel
 
     public int? Width { get; set; }
     public int? Height { get; set; }
+    public string[] PublishPlatforms { get; set; } = Array.Empty<string>();
 }

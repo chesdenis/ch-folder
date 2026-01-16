@@ -137,7 +137,25 @@
                                     <a href="@Url.Action("Search", "Home", new { query = it.ShortDetails })" class="btn btn-outline-success btn-sm" title="Search similar images">
                                         <i class="bi bi-search me-1"></i>Search similar
                                     </a>
-                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-3 pt-2 border-top">
+                                <div class="d-flex flex-wrap gap-2">
+                                    @{
+                                        var platforms = new[] { "AdobeStock", "Alami", "ShutterStock" };
+                                    }
+                                    @foreach (var platform in platforms)
+                                    {
+                                        var isPublished = it.PublishPlatforms.Contains(platform, StringComparer.OrdinalIgnoreCase);
+                                        <button type="button" 
+                                                class="btn btn-sm toggle-publish-btn @(isPublished ? "btn-success" : "btn-outline-secondary")"
+                                                data-md5="@it.Md5" 
+                                                data-platform="@platform">
+                                            <i class="bi @(isPublished ? "bi-check-circle-fill" : "bi-circle") me-1"></i>
+                                            @platform
+                                        </button>
+                                    }
+                                </div>
                             </div>
                         </td>
                     </tr>
@@ -224,6 +242,49 @@
             const text = btn.getAttribute('data-copy-text') ?? '';
             const success = await copy(text);
             setTempLabel(btn, success ? 'Copied!' : 'Failed');
+        });
+
+        // Toggle publish status logic
+        document.addEventListener('click', async function (e) {
+            const btn = e.target.closest('.toggle-publish-btn');
+            if (!btn) return;
+            
+            const md5 = btn.getAttribute('data-md5');
+            const platform = btn.getAttribute('data-platform');
+            
+            btn.disabled = true;
+            try {
+                const response = await fetch('@Url.Action("TogglePublish", "Home")', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        'md5': md5,
+                        'platform': platform
+                    })
+                });
+
+                if (response.ok) {
+                    const isPublished = btn.classList.contains('btn-success');
+                    if (isPublished) {
+                        btn.classList.remove('btn-success');
+                        btn.classList.add('btn-outline-secondary');
+                        btn.querySelector('i').className = 'bi bi-circle me-1';
+                    } else {
+                        btn.classList.remove('btn-outline-secondary');
+                        btn.classList.add('btn-success');
+                        btn.querySelector('i').className = 'bi bi-check-circle-fill me-1';
+                    }
+                } else {
+                    alert('Failed to update publish status');
+                }
+            } catch (err) {
+                console.error('Error toggling publish status:', err);
+                alert('Error toggling publish status');
+            } finally {
+                btn.disabled = false;
+            }
         });
     })();
  </script>

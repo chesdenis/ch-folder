@@ -17,6 +17,7 @@ namespace webapp.Components
         public string? Md5 { get; set; }
 
         public string? ShortDetails { get; set; }
+        public string[] PublishPlatforms { get; set; } = Array.Empty<string>();
 
         // Helper: builds thumbnail URL for a requested width
         public string GetThumbUrl(int width)

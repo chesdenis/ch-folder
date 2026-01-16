@@ -21,9 +21,20 @@ public class HomeController(
     IImageLocator imageLocator,
     IImageLocationRepository imageLocationRepository,
     IFileSystem fileSystem,
-    IContentValidationRepository contentValidationRepository) : Controller
+    IContentValidationRepository contentValidationRepository,
+    IPublishTrackerRepository publishTrackerRepo) : Controller
 {
     private readonly StorageOptions _storage = storageOptions.Value;
+
+    [HttpPost]
+    public async Task<IActionResult> TogglePublish(string md5, string platform)
+    {
+        if (string.IsNullOrWhiteSpace(md5) || string.IsNullOrWhiteSpace(platform))
+            return BadRequest();
+
+        await publishTrackerRepo.TogglePublishStatusAsync(md5, platform, HttpContext.RequestAborted);
+        return Ok();
+    }
 
     public async Task<IActionResult> Index([FromQuery] string[]? tags, [FromQuery] string[]? persons, [FromQuery] int[]? commerceRatings)
     {
@@ -70,6 +81,7 @@ public class HomeController(
 
         // Fetch full photo info to get ShortDetails for "Jump to Search"
         var photos = await searchResultsRepo.GetPhotosByMd5sAsync(md5s, HttpContext.RequestAborted);
+        var publishStatuses = await publishTrackerRepo.GetPublishStatusesAsync(md5s, HttpContext.RequestAborted);
         
         // Map to components and store ShortDetails
         var items = md5s
@@ -88,7 +100,8 @@ public class HomeController(
                     FullHeight = ph,
                     Alt = m!,
                     Md5 = m!,
-                    ShortDetails = photo?.ShortDetails
+                    ShortDetails = photo?.ShortDetails,
+                    PublishPlatforms = publishStatuses.TryGetValue(m, out var platforms) ? platforms : Array.Empty<string>()
                 };
             })
             .ToList();
@@ -335,9 +348,13 @@ public class HomeController(
         ViewBag.SelectedTags = route.TryGetValue("tags", out var t) ? t : Array.Empty<string>();
         ViewBag.SearchResults = filteredResults;
         // Build gallery items with real preview dimensions for PhotoSwipe
-        var galleryItems = filteredResults
+        var searchMd5s = filteredResults
             .Where(r => !string.IsNullOrWhiteSpace(r.Md5))
             .Select(r => r.Md5!)
+            .ToList();
+        var searchPublishStatuses = await publishTrackerRepo.GetPublishStatusesAsync(searchMd5s, HttpContext.RequestAborted);
+
+        var galleryItems = searchMd5s
             .Select(m =>
             {
                 var links = imageLocator.GetImageLinks(m);
@@ -349,7 +366,8 @@ public class HomeController(
                     FullWidth = pw,
                     FullHeight = ph,
                     Alt = m,
-                    Md5 = m
+                    Md5 = m,
+                    PublishPlatforms = searchPublishStatuses.TryGetValue(m, out var platforms) ? platforms : Array.Empty<string>()
                 };
             })
             .ToList();
@@ -643,6 +661,7 @@ public class HomeController(
         var commerceMarkJson = realPath != null ? await fileSystem.GetCommerceMarkAnswer(realPath) : "{}";
 
         var links = imageLocator.GetImageLinks(md5);
+        var publishStatuses = await publishTrackerRepo.GetPublishStatusesAsync([md5], HttpContext.RequestAborted);
         var item = new SelectedItemViewModel
         {
             Md5 = md5,
@@ -654,7 +673,8 @@ public class HomeController(
             CommerceMark = commerceMarkJson.ThisJsonAs<ImageProcessingExtensions.RateExplanation>().rate.ToString(),
             ImprovementWays = commerceMarkJson.ThisJsonAs<ImageProcessingExtensions.RateExplanation>().rateExplanation,
             Width = links?.P2000Width,
-            Height = links?.P2000Height
+            Height = links?.P2000Height,
+            PublishPlatforms = publishStatuses.TryGetValue(md5, out var platforms) ? platforms : Array.Empty<string>()
         };
 
         var vm = new SinglePhotoViewModel
@@ -690,6 +710,8 @@ public class HomeController(
     public async Task<IActionResult> Selected([FromQuery] Guid sessionId)
     {
         var items = await selectionRepo.GetSelectedMd5Async(sessionId, HttpContext.RequestAborted);
+        var md5s = items.Select(i => i.Md5).ToArray();
+        var publishStatuses = await publishTrackerRepo.GetPublishStatusesAsync(md5s, HttpContext.RequestAborted);
 
         var vm = new SelectedViewModel
         {
@@ -707,7 +729,8 @@ public class HomeController(
                     CommerceMark = i.CommerceMark.ThisJsonAs<ImageProcessingExtensions.RateExplanation>().rate.ToString(),
                     ImprovementWays = i.CommerceMark.ThisJsonAs<ImageProcessingExtensions.RateExplanation>().rateExplanation,
                     Width = links?.P2000Width,
-                    Height = links?.P2000Height
+                    Height = links?.P2000Height,
+                    PublishPlatforms = publishStatuses.TryGetValue(i.Md5, out var platforms) ? platforms : Array.Empty<string>()
                 };
             }).ToList()
         };

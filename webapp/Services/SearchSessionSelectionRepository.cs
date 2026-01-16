@@ -44,7 +44,22 @@ public sealed class SearchSessionSelectionRepository(IFileSystem fileSystem,IOpt
             var largeDetails = await fileSystem.GetDqAnswer(realPath);
             var commerceMark = await fileSystem.GetCommerceMarkAnswer(realPath);
             var tags = reader.IsDBNull(3) ? Array.Empty<string>() : reader.GetFieldValue<string[]>(3);
-            list.Add(new SelectedPhotoInfo(md5, shortDetails, largeDetails, commerceMark, tags));
+
+            // Fetch publish platforms for this photo
+            var platforms = new List<string>();
+            await using (var pConn = CreateConnection())
+            {
+                await pConn.OpenAsync(ct);
+                await using var pCmd = new NpgsqlCommand("SELECT platform FROM photo_publish_tracker WHERE md5_hash = @md5", pConn);
+                pCmd.Parameters.AddWithValue("@md5", md5);
+                await using var pReader = await pCmd.ExecuteReaderAsync(ct);
+                while (await pReader.ReadAsync(ct))
+                {
+                    platforms.Add(pReader.GetString(0));
+                }
+            }
+
+            list.Add(new SelectedPhotoInfo(md5, shortDetails, largeDetails, commerceMark, tags, platforms.ToArray()));
         }
 
         return list;
@@ -103,4 +118,4 @@ public sealed class SearchSessionSelectionRepository(IFileSystem fileSystem,IOpt
     }
 }
 
-public sealed record SelectedPhotoInfo(string Md5, string ShortDetails, string LargeDetails, string CommerceMark, string[] Tags);
+public sealed record SelectedPhotoInfo(string Md5, string ShortDetails, string LargeDetails, string CommerceMark, string[] Tags, string[] PublishPlatforms);

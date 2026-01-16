@@ -450,4 +450,5 @@ public sealed record Photo
     public DateTime UpdatedAt { get; set; }
     public int CommerceRate { get; set; }
     public string GroupName { get; set; }
+    public string[] PublishPlatforms { get; set; } = Array.Empty<string>();
 }

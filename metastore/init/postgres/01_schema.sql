@@ -142,3 +142,18 @@ CREATE TABLE IF NOT EXISTS content_validation_result (
 CREATE INDEX IF NOT EXISTS ix_content_validation_result_job ON content_validation_result (job_id);
 CREATE INDEX IF NOT EXISTS ix_content_validation_result_folder ON content_validation_result (folder);
 CREATE INDEX IF NOT EXISTS ix_content_validation_result_kind ON content_validation_result (test_kind);
+
+-- =============================================================
+-- Photo publish tracker
+-- Stores which platforms a photo has been published to
+-- =============================================================
+
+CREATE TABLE IF NOT EXISTS photo_publish_tracker (
+    md5_hash text NOT NULL,
+    platform text NOT NULL,
+    published_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (md5_hash, platform),
+    FOREIGN KEY (md5_hash) REFERENCES photo(md5_hash) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS ix_photo_publish_tracker_md5 ON photo_publish_tracker (md5_hash);
