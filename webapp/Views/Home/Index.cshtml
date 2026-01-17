@@ -78,7 +78,7 @@
         <div class="col-12">
             <div class="fluent-toolbar">
                 <div class="toolbar-group" role="group" aria-label="Images per page">
-                    <span class="toolbar-label">Images/page</span>
+                    <span class="toolbar-label no-margin">Images/page</span>
                     <div class="segmented">
                         <button type="button" class="seg-btn page-size-btn @(pageSize==6?"active":"")" data-pagesize="6">6</button>
                         <button type="button" class="seg-btn page-size-btn @(pageSize==12?"active":"")" data-pagesize="12">12</button>
@@ -91,7 +91,7 @@
                 <div class="toolbar-group" role="group" aria-label="Tags selector">
                     <span class="toolbar-label">Tags</span>
                     @await Component.InvokeAsync("TagsSelector", new {
-                        availableTags = (ViewBag.AvailableTags as IEnumerable<string> ?? Array.Empty<string>()).Take(20),
+                        availableTags = ViewBag.AvailableTags as IEnumerable<string>,
                         selectedTags = ViewBag.SelectedTags as IEnumerable<string>
                     })
                 </div>
@@ -99,22 +99,64 @@
                 <!-- Persons selector placed inline in the toolbar -->
                 <div class="toolbar-group" role="group" aria-label="Persons selector">
                     <span class="toolbar-label">Persons</span>
-                    <div class="tags-selector" role="group" aria-label="Persons">
-                        @{
-                            var availablePersons = ViewBag.AvailablePersons as IEnumerable<string> ?? Array.Empty<string>();
-                            var selectedPersonsList = (ViewBag.SelectedPersons as IEnumerable<string> ?? Array.Empty<string>()).ToList();
-                            foreach (var person in availablePersons.Take(20))
-                            {
-                                var isSelected = selectedPersonsList.Contains(person, StringComparer.OrdinalIgnoreCase);
-                                <button type="button" class="tag-btn person-btn @(isSelected ? "active" : "")" data-person="@person">@person</button>
+                    <div class="person-input-container">
+                        <div id="selectedPersonsChips" class="selected-chips">
+                            @{
+                                var selectedPersonsList = (ViewBag.SelectedPersons as IEnumerable<string> ?? Array.Empty<string>()).ToList();
+                                foreach (var person in selectedPersonsList)
+                                {
+                                    <span class="chip" data-person="@person">
+                                        @person
+                                        <button type="button" class="remove-person-chip remove-chip" aria-label="Remove @person">&times;</button>
+                                    </span>
+                                }
                             }
-                        }
+                        </div>
+                        <input type="text" id="personInput" list="personHints" class="person-input" placeholder="Add person..." autocomplete="off">
+                        <datalist id="personHints">
+                            @{
+                                var availablePersons = ViewBag.AvailablePersons as IEnumerable<string> ?? Array.Empty<string>();
+                                foreach (var person in availablePersons)
+                                {
+                                    <option value="@person"></option>
+                                }
+                            }
+                        </datalist>
+                    </div>
+                </div>
+
+                <!-- Folders selector with text box and hints -->
+                <div class="toolbar-group" role="group" aria-label="Folders selector">
+                    <span class="toolbar-label">Folders</span>
+                    <div class="folder-input-container">
+                        <div id="selectedFoldersChips" class="selected-chips">
+                            @{
+                                var selectedFoldersList = (ViewBag.SelectedFolders as IEnumerable<string> ?? Array.Empty<string>()).ToList();
+                                foreach (var folder in selectedFoldersList)
+                                {
+                                    <span class="chip" data-folder="@folder">
+                                        @folder
+                                        <button type="button" class="remove-folder-chip remove-chip" aria-label="Remove @folder">&times;</button>
+                                    </span>
+                                }
+                            }
+                        </div>
+                        <input type="text" id="folderInput" list="folderHints" class="folder-input" placeholder="Add folder..." autocomplete="off">
+                        <datalist id="folderHints">
+                            @{
+                                var availableFolders = ViewBag.AvailableFolders as IEnumerable<string> ?? Array.Empty<string>();
+                                foreach (var folder in availableFolders)
+                                {
+                                    <option value="@folder"></option>
+                                }
+                            }
+                        </datalist>
                     </div>
                 </div>
 
                 <!-- Commerce rating selector -->
                 <div class="toolbar-group" role="group" aria-label="Commerce rating">
-                    <span class="toolbar-label">Commerce</span>
+                    <span class="toolbar-label no-margin">Commerce</span>
                     <div class="segmented">
                         @for (int i = 1; i <= 5; i++)
                         {
@@ -132,7 +174,7 @@
                 </div>
 
                 <div class="toolbar-group" role="group" aria-label="Thumbnail size">
-                    <span class="toolbar-label">Thumb size</span>
+                    <span class="toolbar-label no-margin">Thumb size</span>
                     <div class="segmented">
                         <button type="button" id="sizeDownBtn" class="seg-btn" aria-label="Make smaller">Smaller</button>
                         <button type="button" id="sizeUpBtn" class="seg-btn" aria-label="Make larger">Larger</button>
@@ -173,8 +215,9 @@
             padding: .75rem;
             box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 2px 8px rgba(0,0,0,.04);
         }
-        .toolbar-group { display: flex; align-items: center; gap: .5rem; }
-        .toolbar-label { font-size: .95rem; color: #6c757d; }
+        .toolbar-group { display: flex; align-items: flex-start; gap: .5rem; }
+        .toolbar-label { font-size: .95rem; color: #6c757d; margin-top: 0.5rem; }
+        .toolbar-label.no-margin { margin-top: 0; align-self: center; }
         .segmented { display: inline-flex; border: 1px solid rgba(0,0,0,.1); border-radius: 10px; overflow: hidden; }
         .seg-btn {
             background: transparent;
@@ -190,6 +233,55 @@
         .seg-btn.active { background: rgba(0, 90, 255, .12); color: rgb(0, 82, 204); font-weight: 600; }
         .toolbar-spacer { flex: 1; }
         .btn.touch, .seg-btn { border-radius: 10px; }
+
+        /* Folders selector styling */
+        .folder-input-container, .tag-input-container, .person-input-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            border: 1px solid rgba(0,0,0,.1);
+            border-radius: 10px;
+            padding: 0.5rem;
+            background: rgba(0,0,0,0.02);
+            min-height: 2.5rem;
+            max-width: 400px;
+        }
+        .selected-chips {
+            display: flex;
+            gap: 0.25rem;
+            flex-wrap: wrap;
+        }
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(0, 90, 255, .12);
+            color: rgb(0, 82, 204);
+            border: 1px solid rgba(0, 90, 255, .3);
+            border-radius: 6px;
+            padding: 0.1rem 0.4rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .remove-chip {
+            background: transparent;
+            border: none;
+            color: rgb(0, 82, 204);
+            margin-left: 0.25rem;
+            padding: 0;
+            cursor: pointer;
+            font-size: 1.1rem;
+            line-height: 1;
+        }
+        .folder-input, .tag-input, .person-input {
+            border: 1px solid rgba(0,0,0,.1);
+            border-radius: 6px;
+            background: #fff;
+            outline: none;
+            font-size: 0.95rem;
+            padding: 0.25rem 0.5rem;
+            width: 100%;
+        }
 
         /* Tags selector chips styling to match fluent toolbar */
         .tags-selector { display: inline-flex; flex-wrap: wrap; gap: .5rem; }
@@ -355,36 +447,116 @@
         }
 
         function wireFilterButtons() {
-            // Tags
-            document.querySelectorAll('.tag-btn[data-tag]').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const tag = btn.getAttribute('data-tag');
+            // Tags (updated for chips)
+            const tagInput = document.getElementById('tagInput');
+            if (tagInput) {
+                tagInput.addEventListener('change', () => {
+                    const tag = tagInput.value.trim();
+                    if (!tag) return;
+                    
                     const url = new URL(window.location.href);
                     let tags = url.searchParams.getAll('tags');
-                    if (tags.includes(tag)) {
-                        tags = tags.filter(t => t !== tag);
-                    } else {
+                    if (!tags.includes(tag)) {
                         tags.push(tag);
+                        url.searchParams.delete('tags');
+                        tags.forEach(t => url.searchParams.append('tags', t));
+                        url.searchParams.set('page', '1');
+                        window.location.href = url.toString();
                     }
+                    tagInput.value = '';
+                });
+                tagInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') tagInput.dispatchEvent(new Event('change'));
+                });
+            }
+
+            document.querySelectorAll('.remove-tag-chip').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const chip = e.target.closest('.chip');
+                    const tag = chip.getAttribute('data-tag');
+                    const url = new URL(window.location.href);
+                    let tags = url.searchParams.getAll('tags');
+                    tags = tags.filter(t => t !== tag);
                     url.searchParams.delete('tags');
                     tags.forEach(t => url.searchParams.append('tags', t));
                     url.searchParams.set('page', '1');
                     window.location.href = url.toString();
                 });
             });
-            // Persons
-            document.querySelectorAll('.person-btn[data-person]').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const person = btn.getAttribute('data-person');
+
+            // Persons (updated for chips)
+            const personInput = document.getElementById('personInput');
+            if (personInput) {
+                personInput.addEventListener('change', () => {
+                    const person = personInput.value.trim();
+                    if (!person) return;
+                    
                     const url = new URL(window.location.href);
                     let persons = url.searchParams.getAll('persons');
-                    if (persons.includes(person)) {
-                        persons = persons.filter(p => p !== person);
-                    } else {
+                    if (!persons.includes(person)) {
                         persons.push(person);
+                        url.searchParams.delete('persons');
+                        persons.forEach(p => url.searchParams.append('persons', p));
+                        url.searchParams.set('page', '1');
+                        window.location.href = url.toString();
                     }
+                    personInput.value = '';
+                });
+                personInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') personInput.dispatchEvent(new Event('change'));
+                });
+            }
+
+            document.querySelectorAll('.remove-person-chip').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const chip = e.target.closest('.chip');
+                    const person = chip.getAttribute('data-person');
+                    const url = new URL(window.location.href);
+                    let persons = url.searchParams.getAll('persons');
+                    persons = persons.filter(p => p !== person);
                     url.searchParams.delete('persons');
                     persons.forEach(p => url.searchParams.append('persons', p));
+                    url.searchParams.set('page', '1');
+                    window.location.href = url.toString();
+                });
+            });
+
+            // Folders (updated logic for removal button class)
+            const folderInput = document.getElementById('folderInput');
+            if (folderInput) {
+                folderInput.addEventListener('change', () => {
+                    const folder = folderInput.value.trim();
+                    if (!folder) return;
+                    
+                    const url = new URL(window.location.href);
+                    let folders = url.searchParams.getAll('folders');
+                    if (!folders.includes(folder)) {
+                        folders.push(folder);
+                        url.searchParams.delete('folders');
+                        folders.forEach(f => url.searchParams.append('folders', f));
+                        url.searchParams.set('page', '1');
+                        window.location.href = url.toString();
+                    }
+                    folderInput.value = '';
+                });
+
+                // Support Enter key if change event doesn't trigger as expected
+                folderInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        folderInput.dispatchEvent(new Event('change'));
+                    }
+                });
+            }
+
+            document.querySelectorAll('.remove-folder-chip').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const chip = e.target.closest('.chip');
+                    const folder = chip.getAttribute('data-folder');
+                    const url = new URL(window.location.href);
+                    let folders = url.searchParams.getAll('folders');
+                    folders = folders.filter(f => f !== folder);
+                    url.searchParams.delete('folders');
+                    folders.forEach(f => url.searchParams.append('folders', f));
                     url.searchParams.set('page', '1');
                     window.location.href = url.toString();
                 });

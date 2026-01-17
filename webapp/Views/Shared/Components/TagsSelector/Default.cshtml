@@ -1,20 +1,23 @@
 ﻿@{
     var available = ViewBag.AvailableTags as HashSet<string> ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     var selected = ViewBag.SelectedTags as HashSet<string> ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-    // Ensure a hard cap of 10 tags on UI and stable alphabetical order
-    var toShow = available.OrderBy(t => t, StringComparer.OrdinalIgnoreCase).Take(10).ToArray();
 }
 
-<div class="tags-selector" role="group" aria-label="Tags">
-    @foreach (var tag in toShow)
-    {
-        var inputId = $"tag_{tag.Replace(" ", "_")}";
-        <span class="tag-item">
-            <button type="button" class="tag-btn @(selected.Contains(tag) ? "active" : "")" data-tag="@tag">@tag</button>
-        </span>
-    }
-    @if (!toShow.Any())
-    {
-        <span class="text-muted">No tags available</span>
-    }
+<div class="tag-input-container">
+    <div id="selectedTagsChips" class="selected-chips">
+        @foreach (var tag in selected)
+        {
+            <span class="chip" data-tag="@tag">
+                @tag
+                <button type="button" class="remove-tag-chip remove-chip" aria-label="Remove @tag">&times;</button>
+            </span>
+        }
+    </div>
+    <input type="text" id="tagInput" list="tagHints" class="tag-input" placeholder="Add tag..." autocomplete="off">
+    <datalist id="tagHints">
+        @foreach (var tag in available)
+        {
+            <option value="@tag"></option>
+        }
+    </datalist>
 </div>

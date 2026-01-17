@@ -10,6 +10,7 @@ public interface IImageLocator
 {
     Task<int> IdentifyImageLocations(CancellationToken ct = default);
     public ImageLinks? GetImageLinks(string md5);
+    IEnumerable<string> GetAvailableFolders();
 }
 
 public sealed class ImageLocator(
@@ -103,6 +104,17 @@ public sealed class ImageLocator(
             P2000Height = size?.height
         };
         return links;
+    }
+
+    public IEnumerable<string> GetAvailableFolders()
+    {
+        return _imageLocationsMap.Values
+            .Select(Path.GetDirectoryName)
+            .Where(d => !string.IsNullOrEmpty(d))
+            .Select(d => Path.GetFileName(d))
+            .Where(n => !string.IsNullOrEmpty(n))
+            .Distinct()
+            .OrderBy(n => n)!;
     }
 
     public async Task<int> IdentifyImageLocations(CancellationToken ct = default)
