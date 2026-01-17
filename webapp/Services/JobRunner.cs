@@ -99,10 +99,26 @@ public class JobRunner : IJobRunner
                             await ReportProgress(jobId, group, total, completed,
                                 $"Starting: {Path.GetRelativePath(rootPath, folderAbs)}", ct);
 
-                            int exit;
+                            int exit = 0;
                             switch (jobType)
                             {
                                 case JobType.MetaUploader:
+                                {
+                                    // for meta processing we skip system folders
+                                    if (!folderPath.StartsWith("_"))
+                                    {
+                                        // Map job to appropriate docker runner function (unify signatures via wrappers)
+                                        var jobFunc = BuildJobFunc(jobType);
+
+                                        exit = await jobFunc(
+                                            folderAbs,
+                                            line => ReportProgress(jobId, group, total, completed,
+                                                line, ct).GetAwaiter().GetResult(),
+                                            line => ReportProgress(jobId, group, total, completed,
+                                                $"[stderr] {line}", ct).GetAwaiter().GetResult(), ct);
+                                    }
+                                }
+                                    break;
                                 case JobType.AiContentQueryBuilder:
                                 case JobType.AiContentAnswerBuilder:
                                 case JobType.EmbeddingDownloader:
