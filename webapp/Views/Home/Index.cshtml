@@ -154,6 +154,35 @@
                     </div>
                 </div>
 
+                <!-- Extensions selector with text box and hints -->
+                <div class="toolbar-group" role="group" aria-label="Extensions selector">
+                    <span class="toolbar-label">Ext</span>
+                    <div class="extension-input-container">
+                        <div id="selectedExtensionsChips" class="selected-chips">
+                            @{
+                                var selectedExtensionsList = (ViewBag.SelectedExtensions as IEnumerable<string> ?? Array.Empty<string>()).ToList();
+                                foreach (var ext in selectedExtensionsList)
+                                {
+                                    <span class="chip" data-extension="@ext">
+                                        @ext
+                                        <button type="button" class="remove-extension-chip remove-chip" aria-label="Remove @ext">&times;</button>
+                                    </span>
+                                }
+                            }
+                        </div>
+                        <input type="text" id="extensionInput" list="extensionHints" class="extension-input" placeholder="Add ext..." autocomplete="off">
+                        <datalist id="extensionHints">
+                            @{
+                                var availableExtensions = ViewBag.AvailableExtensions as IEnumerable<string> ?? Array.Empty<string>();
+                                foreach (var ext in availableExtensions)
+                                {
+                                    <option value="@ext"></option>
+                                }
+                            }
+                        </datalist>
+                    </div>
+                </div>
+
                 <!-- Commerce rating selector -->
                 <div class="toolbar-group" role="group" aria-label="Commerce rating">
                     <span class="toolbar-label no-margin">Commerce</span>
@@ -235,7 +264,7 @@
         .btn.touch, .seg-btn { border-radius: 10px; }
 
         /* Folders selector styling */
-        .folder-input-container, .tag-input-container, .person-input-container {
+        .folder-input-container, .tag-input-container, .person-input-container, .extension-input-container {
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
@@ -273,7 +302,7 @@
             font-size: 1.1rem;
             line-height: 1;
         }
-        .folder-input, .tag-input, .person-input {
+        .folder-input, .tag-input, .person-input, .extension-input {
             border: 1px solid rgba(0,0,0,.1);
             border-radius: 6px;
             background: #fff;
@@ -557,6 +586,46 @@
                     folders = folders.filter(f => f !== folder);
                     url.searchParams.delete('folders');
                     folders.forEach(f => url.searchParams.append('folders', f));
+                    url.searchParams.set('page', '1');
+                    window.location.href = url.toString();
+                });
+            });
+
+            // Extensions
+            const extensionInput = document.getElementById('extensionInput');
+            if (extensionInput) {
+                extensionInput.addEventListener('change', () => {
+                    const ext = extensionInput.value.trim();
+                    if (!ext) return;
+                    
+                    const url = new URL(window.location.href);
+                    let extensions = url.searchParams.getAll('extensions');
+                    if (!extensions.includes(ext)) {
+                        extensions.push(ext);
+                        url.searchParams.delete('extensions');
+                        extensions.forEach(e => url.searchParams.append('extensions', e));
+                        url.searchParams.set('page', '1');
+                        window.location.href = url.toString();
+                    }
+                    extensionInput.value = '';
+                });
+
+                extensionInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        extensionInput.dispatchEvent(new Event('change'));
+                    }
+                });
+            }
+
+            document.querySelectorAll('.remove-extension-chip').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const chip = e.target.closest('.chip');
+                    const ext = chip.getAttribute('data-extension');
+                    const url = new URL(window.location.href);
+                    let extensions = url.searchParams.getAll('extensions');
+                    extensions = extensions.filter(e => e !== ext);
+                    url.searchParams.delete('extensions');
+                    extensions.forEach(e => url.searchParams.append('extensions', e));
                     url.searchParams.set('page', '1');
                     window.location.href = url.toString();
                 });

@@ -5,14 +5,14 @@ namespace webapp.Services;
 
 public interface IDockerSearchRunner
 {
-    Task<int> RunImageSearcherAsync(string actionsPath, string queryText, string[] tags, string[] persons, Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
+    Task<int> RunImageSearcherAsync(string actionsPath, string queryText, string[] tags, string[] persons, string[] extensions, Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
 }
 
 public class DockerSearchRunner : IDockerSearchRunner
 {
-    public Task<int> RunImageSearcherAsync(string actionsPath, string queryText, string[] tags, string[] persons, Action<string>? onStdout = null, Action<string>? onStderr = null,
+    public Task<int> RunImageSearcherAsync(string actionsPath, string queryText, string[] tags, string[] persons, string[] extensions, Action<string>? onStdout = null, Action<string>? onStderr = null,
         CancellationToken ct = default) =>
-        RunDockerAsync(actionsPath, "image_searcher", queryText, tags, persons, onStdout, onStderr, ct);
+        RunDockerAsync(actionsPath, "image_searcher", queryText, tags, persons, extensions, onStdout, onStderr, ct);
 
     private static Task<int> RunDockerAsync(
         string actionsPath,
@@ -20,6 +20,7 @@ public class DockerSearchRunner : IDockerSearchRunner
         string queryText,
         string[] tags,
         string[] persons,
+        string[] extensions,
         Action<string>? onStdout,
         Action<string>? onStderr,
         CancellationToken ct)
@@ -34,6 +35,10 @@ public class DockerSearchRunner : IDockerSearchRunner
         if (persons.Length > 0)
         {
             arguments += $" --persons={string.Join(",", persons)}";
+        }
+        if (extensions.Length > 0)
+        {
+            arguments += $" --extensions={string.Join(",", extensions)}";
         }
 
         var psi = new ProcessStartInfo

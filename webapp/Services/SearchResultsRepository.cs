@@ -17,11 +17,12 @@ public interface ISearchResultsRepository
     Task<SearchSessionResults?> GetResultsBySessionIdAsync(Guid sessionId, float? minScore = null, ResultsOrderBy orderBy = ResultsOrderBy.ScoreDesc, CancellationToken ct = default);
     Task<Photo?> GetPhotoInfoByMd5Async(string md5, CancellationToken ct = default);
     Task<IReadOnlyList<Photo>> GetPhotosByGroupAsync(string groupName, CancellationToken ct = default);
-    Task<int> GetPhotosCountAsync(string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, string[]? folders = null, bool groupByGroup = false, CancellationToken ct = default);
-    Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, string[]? folders = null, bool groupByGroup = false, CancellationToken ct = default);
+    Task<int> GetPhotosCountAsync(string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, string[]? folders = null, string[]? extensions = null, bool groupByGroup = false, CancellationToken ct = default);
+    Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, string[]? folders = null, string[]? extensions = null, bool groupByGroup = false, CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetAllDistinctTagsAsync(CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetAllDistinctPersonsAsync(CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetAllDistinctFoldersAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<string>> GetAllDistinctExtensionsAsync(CancellationToken ct = default);
     Task<IReadOnlyList<Photo>> GetPhotosByMd5sAsync(IReadOnlyList<string> md5s, CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetDistinctTagsForSessionAsync(Guid sessionId, CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetDistinctPersonsForSessionAsync(Guid sessionId, CancellationToken ct = default);
@@ -207,12 +208,13 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         return list;
     }
 
-    public async Task<int> GetPhotosCountAsync(string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, string[]? folders = null, bool groupByGroup = false, CancellationToken ct = default)
+    public async Task<int> GetPhotosCountAsync(string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, string[]? folders = null, string[]? extensions = null, bool groupByGroup = false, CancellationToken ct = default)
     {
         await using var conn = CreateConnection();
         await conn.OpenAsync(ct);
 
         var useFolders = folders != null && folders.Length > 0;
+        var useExtensions = extensions != null && extensions.Length > 0;
         var sql = groupByGroup 
             ? "SELECT COUNT(DISTINCT group_name) FROM photo p"
             : "SELECT COUNT(*) FROM photo p";
@@ -240,6 +242,10 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         {
             sql += " AND (split_part(l.real_path, '/', array_length(string_to_array(l.real_path, '/'), 1) - 1)) = ANY(@folders) AND l.real_path LIKE '%/%'";
         }
+        if (useExtensions)
+        {
+            sql += " AND p.extension = ANY(@extensions)";
+        }
 
         await using var cmd = new NpgsqlCommand(sql, conn);
         if (tags != null && tags.Length > 0)
@@ -258,12 +264,16 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         {
             cmd.Parameters.AddWithValue("@folders", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text, folders!);
         }
+        if (useExtensions)
+        {
+            cmd.Parameters.AddWithValue("@extensions", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text, extensions!);
+        }
 
         var result = await cmd.ExecuteScalarAsync(ct);
         return Convert.ToInt32(result);
     }
 
-    public async Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, string[]? folders = null, bool groupByGroup = false, CancellationToken ct = default)
+    public async Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, string[]? folders = null, string[]? extensions = null, bool groupByGroup = false, CancellationToken ct = default)
     {
         if (limit <= 0) return Array.Empty<string>();
         await using var conn = CreateConnection();
@@ -271,6 +281,7 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         var list = new List<string>(limit);
         
         var useFolders = folders != null && folders.Length > 0;
+        var useExtensions = extensions != null && extensions.Length > 0;
         string sql;
         if (groupByGroup)
         {
@@ -291,6 +302,7 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
             if (persons != null && persons.Length > 0) sql += " AND p.persons @> @persons";
             if (commerceRatings != null && commerceRatings.Length > 0) sql += " AND p.commerce_rate = ANY(@commerceRatings)";
             if (useFolders) sql += " AND (split_part(l.real_path, '/', array_length(string_to_array(l.real_path, '/'), 1) - 1)) = ANY(@folders) AND l.real_path LIKE '%/%'";
+            if (useExtensions) sql += " AND p.extension = ANY(@extensions)";
 
             sql += @"
                     ORDER BY p.group_name, p.created_at DESC
@@ -310,6 +322,7 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
             if (persons != null && persons.Length > 0) sql += " AND p.persons @> @persons";
             if (commerceRatings != null && commerceRatings.Length > 0) sql += " AND p.commerce_rate = ANY(@commerceRatings)";
             if (useFolders) sql += " AND (split_part(l.real_path, '/', array_length(string_to_array(l.real_path, '/'), 1) - 1)) = ANY(@folders) AND l.real_path LIKE '%/%'";
+            if (useExtensions) sql += " AND p.extension = ANY(@extensions)";
             sql += " ORDER BY p.created_at DESC LIMIT @lim OFFSET @off";
         }
 
@@ -331,6 +344,10 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         if (useFolders)
         {
             cmd.Parameters.AddWithValue("@folders", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text, folders!);
+        }
+        if (useExtensions)
+        {
+            cmd.Parameters.AddWithValue("@extensions", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text, extensions!);
         }
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
@@ -400,6 +417,20 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
             }
         }
         return folders;
+    }
+
+    public async Task<IReadOnlyList<string>> GetAllDistinctExtensionsAsync(CancellationToken ct = default)
+    {
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(ct);
+        var list = new List<string>();
+        await using var cmd = new NpgsqlCommand("SELECT DISTINCT extension FROM photo ORDER BY extension", conn);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            list.Add(reader.GetString(0));
+        }
+        return list;
     }
 
     public async Task<IReadOnlyList<Photo>> GetPhotosByMd5sAsync(IReadOnlyList<string> md5s, CancellationToken ct = default)

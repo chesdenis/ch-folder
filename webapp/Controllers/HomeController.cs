@@ -36,7 +36,7 @@ public class HomeController(
         return Ok();
     }
 
-    public async Task<IActionResult> Index([FromQuery] string[]? tags, [FromQuery] string[]? persons, [FromQuery] int[]? commerceRatings, [FromQuery] string[]? folders)
+    public async Task<IActionResult> Index([FromQuery] string[]? tags, [FromQuery] string[]? persons, [FromQuery] int[]? commerceRatings, [FromQuery] string[]? folders, [FromQuery] string[]? extensions)
     {
         // Default values for Navigation page when not explicitly provided
         var effectiveCommerceRatings = (commerceRatings == null || commerceRatings.Length == 0) ? [4, 5] : commerceRatings;
@@ -62,6 +62,7 @@ public class HomeController(
         ViewBag.SelectedTags = tags ?? Array.Empty<string>();
         ViewBag.SelectedPersons = persons ?? Array.Empty<string>();
         ViewBag.SelectedFolders = folders ?? Array.Empty<string>();
+        ViewBag.SelectedExtensions = extensions ?? Array.Empty<string>();
         ViewBag.CommerceRatings = effectiveCommerceRatings;
         ViewBag.SessionId = Guid.Empty; // Static empty guid for navigation search result id
 
@@ -71,6 +72,7 @@ public class HomeController(
         
         // Use ImageLocator for folders as it has in-memory map which is faster/more accurate for current session
         ViewBag.AvailableFolders = imageLocator.GetAvailableFolders();
+        ViewBag.AvailableExtensions = await searchResultsRepo.GetAllDistinctExtensionsAsync(HttpContext.RequestAborted);
 
         // Pull paging and size from query to load real data for the gallery
         var page = int.TryParse(Request.Query["page"], out var p) ? Math.Max(1, p) : 1;
@@ -79,9 +81,9 @@ public class HomeController(
         thumbSize = thumbSize.SnapToAllowed();
 
         // Load photos as the gallery content with hard filters
-        var total = await searchResultsRepo.GetPhotosCountAsync(tags, persons, effectiveCommerceRatings, folders, groupByGroup: true, HttpContext.RequestAborted);
+        var total = await searchResultsRepo.GetPhotosCountAsync(tags, persons, effectiveCommerceRatings, folders, extensions, groupByGroup: true, HttpContext.RequestAborted);
         var offset = (page - 1) * pageSize;
-        var md5s = await searchResultsRepo.GetRecentPhotoMd5Async(offset, pageSize, tags, persons, effectiveCommerceRatings, folders, groupByGroup: true, HttpContext.RequestAborted);
+        var md5s = await searchResultsRepo.GetRecentPhotoMd5Async(offset, pageSize, tags, persons, effectiveCommerceRatings, folders, extensions, groupByGroup: true, HttpContext.RequestAborted);
 
         // Fetch full photo info to get ShortDetails for "Jump to Search"
         var photos = await searchResultsRepo.GetPhotosByMd5sAsync(md5s, HttpContext.RequestAborted);
@@ -122,7 +124,7 @@ public class HomeController(
     
 
     [HttpGet]
-    public async Task<IActionResult> Search()
+    public async Task<IActionResult> Search([FromQuery] string[]? extensions)
     {
         // Log invocation to verify this endpoint is being triggered
         logger.LogInformation(
@@ -131,6 +133,10 @@ public class HomeController(
             HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             Request.QueryString.HasValue ? Request.QueryString.Value : string.Empty,
             Request.Query.Count);
+
+        var effExtensions = extensions ?? Array.Empty<string>();
+        ViewBag.AvailableExtensions = await searchResultsRepo.GetAllDistinctExtensionsAsync(HttpContext.RequestAborted);
+        ViewBag.SelectedExtensions = effExtensions;
 
         // Build route values from full incoming query/model state, normalize some options
         var route = new RouteValueDictionary();
@@ -254,6 +260,7 @@ public class HomeController(
         var tags = tagsValues.Split(',', StringSplitOptions.RemoveEmptyEntries);
         var personsValues = Request.Query["persons"].ToString();
         var persons = personsValues.Split(',', StringSplitOptions.RemoveEmptyEntries);
+        var searchExtensions = Request.Query["extensions"].ToString().Split(',', StringSplitOptions.RemoveEmptyEntries);
 
         var actionsPath = _storage.ActionsPath ?? string.Empty;
         if (string.IsNullOrWhiteSpace(actionsPath))
@@ -280,7 +287,7 @@ public class HomeController(
             else
             {
                 // Provided session is missing or belongs to a different query -> run a new search and stick to new latest
-                int exitCode = await dockerSearchRunner.RunImageSearcherAsync(actionsPath, queryText, tags, persons,
+                int exitCode = await dockerSearchRunner.RunImageSearcherAsync(actionsPath, queryText, tags, persons, searchExtensions,
                     onStdout: s => logger.LogInformation("[image_searcher][stdout] {Line}", s),
                     onStderr: s => logger.LogWarning("[image_searcher][stderr] {Line}", s));
                 if (exitCode != 0)
@@ -308,7 +315,7 @@ public class HomeController(
             // No specific session requested; optionally run search on non-paging request
             if (!isPagingRequest)
             {
-                int exitCode = await dockerSearchRunner.RunImageSearcherAsync(actionsPath, queryText, tags, persons,
+                int exitCode = await dockerSearchRunner.RunImageSearcherAsync(actionsPath, queryText, tags, persons, searchExtensions,
                     onStdout: s => logger.LogInformation("[image_searcher][stdout] {Line}", s),
                     onStderr: s => logger.LogWarning("[image_searcher][stderr] {Line}", s));
                 if (exitCode != 0)

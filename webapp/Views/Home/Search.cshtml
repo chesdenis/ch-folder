@@ -6,6 +6,7 @@
     }
     var selectedTags = Context.Request.Query["tags"].ToArray();
     var selectedPersons = Context.Request.Query["persons"].ToArray();
+    var selectedExtensions = Context.Request.Query["extensions"].ToArray();
     var filters = Context.Request.Query["filters"].ToArray();
     var sorting = Context.Request.Query["sorting"].ToArray();
     // Ordering by score (default) or commerce
@@ -127,6 +128,30 @@
                         }
                     </div>
                 </div>
+                <!-- Extensions selector placed inline in the toolbar, similar to persons -->
+                <div class="toolbar-group" role="group" aria-label="Extensions selector">
+                    <span class="toolbar-label">Ext</span>
+                    <div class="tags-selector" role="group" aria-label="Extensions">
+                        @{
+                            var availableExtensions = ViewBag.AvailableExtensions as IEnumerable<string> ?? Array.Empty<string>();
+                            var extensionsToShow = availableExtensions.Take(10).OrderBy(e => e, StringComparer.OrdinalIgnoreCase).ToArray();
+                            var selectedExtensionsSet = new HashSet<string>(selectedExtensions ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+                        }
+                        @if (extensionsToShow.Any())
+                        {
+                            foreach (var ext in extensionsToShow)
+                            {
+                                <span class="tag-item">
+                                    <button type="button" class="tag-btn extension-btn @(selectedExtensionsSet.Contains(ext) ? "active" : "")" data-extension="@ext">@ext</button>
+                                </span>
+                            }
+                        }
+                        else
+                        {
+                            <span class="text-muted">No extensions available</span>
+                        }
+                    </div>
+                </div>
                 <div class="toolbar-group" role="group" aria-label="Thumbnail size">
                     <span class="toolbar-label">Thumb size</span>
                     <div class="segmented">
@@ -170,6 +195,12 @@
                     }
                 </div>
                 <input type="hidden" name="orderBy" value="@orderBy" />
+                <div id="extensionsInputs">
+                    @foreach (var ext in selectedExtensions)
+                    {
+                        <input type="hidden" name="extensions" value="@ext" />
+                    }
+                </div>
                 @* Preserve any existing filters/sorting from the current query *@
                 @foreach (var f in filters)
                 {
@@ -439,6 +470,23 @@
                     }
                     url.searchParams.delete('persons');
                     persons.forEach(p => url.searchParams.append('persons', p));
+                    url.searchParams.set('page', '1');
+                    window.location.href = url.toString();
+                });
+            });
+            // Extensions
+            document.querySelectorAll('.extension-btn[data-extension]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const ext = btn.getAttribute('data-extension');
+                    const url = new URL(window.location.href);
+                    let extensions = url.searchParams.getAll('extensions');
+                    if (extensions.includes(ext)) {
+                        extensions = extensions.filter(e => e !== ext);
+                    } else {
+                        extensions.push(ext);
+                    }
+                    url.searchParams.delete('extensions');
+                    extensions.forEach(e => url.searchParams.append('extensions', e));
                     url.searchParams.set('page', '1');
                     window.location.href = url.toString();
                 });
