@@ -11,6 +11,7 @@ public interface IImageLocator
     Task<int> IdentifyImageLocations(CancellationToken ct = default);
     public ImageLinks? GetImageLinks(string md5);
     IEnumerable<string> GetAvailableFolders();
+    IDictionary<string, List<string>> GetAvailableFoldersHierarchical();
 }
 
 public sealed class ImageLocator(
@@ -115,6 +116,45 @@ public sealed class ImageLocator(
             .Where(n => !string.IsNullOrEmpty(n))
             .Distinct()
             .OrderBy(n => n)!;
+    }
+
+    public IDictionary<string, List<string>> GetAvailableFoldersHierarchical()
+    {
+        var result = new Dictionary<string, List<string>>();
+        var root = _storage.RootPath;
+        if (string.IsNullOrWhiteSpace(root)) return result;
+
+        foreach (var path in _imageLocationsMap.Values)
+        {
+            var directoryPath = Path.GetDirectoryName(path);
+            if (string.IsNullOrEmpty(directoryPath)) continue;
+
+            var relativePath = Path.GetRelativePath(root, directoryPath);
+            if (string.IsNullOrEmpty(relativePath) || relativePath == ".") continue;
+
+            var parts = relativePath.Split(Path.DirectorySeparatorChar);
+            if (parts.Length < 1) continue;
+
+            var level1 = parts[0];
+            var level2 = parts.Length > 1 ? parts[1] : null;
+
+            if (!result.ContainsKey(level1))
+            {
+                result[level1] = new List<string>();
+            }
+
+            if (level2 != null && !result[level1].Contains(level2))
+            {
+                result[level1].Add(level2);
+            }
+        }
+
+        foreach (var key in result.Keys)
+        {
+            result[key].Sort();
+        }
+
+        return result;
     }
 
     public async Task<int> IdentifyImageLocations(CancellationToken ct = default)

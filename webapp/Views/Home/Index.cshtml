@@ -131,26 +131,52 @@
                     <div class="folder-input-container">
                         <div id="selectedFoldersChips" class="selected-chips">
                             @{
-                                var selectedFoldersList = (ViewBag.SelectedFolders as IEnumerable<string> ?? Array.Empty<string>()).ToList();
-                                foreach (var folder in selectedFoldersList)
+                                var selectedFoldersL1 = (ViewBag.SelectedFoldersL1 as IEnumerable<string> ?? Array.Empty<string>()).ToList();
+                                var selectedFoldersL2 = (ViewBag.SelectedFoldersL2 as IEnumerable<string> ?? Array.Empty<string>()).ToList();
+                                
+                                foreach (var folder in selectedFoldersL1)
                                 {
-                                    <span class="chip" data-folder="@folder">
+                                    <span class="chip" data-folder="@folder" data-level="1">
+                                        @folder
+                                        <button type="button" class="remove-folder-chip remove-chip" aria-label="Remove @folder">&times;</button>
+                                    </span>
+                                }
+                                foreach (var folder in selectedFoldersL2)
+                                {
+                                    <span class="chip" data-folder="@folder" data-level="2">
                                         @folder
                                         <button type="button" class="remove-folder-chip remove-chip" aria-label="Remove @folder">&times;</button>
                                     </span>
                                 }
                             }
                         </div>
-                        <input type="text" id="folderInput" list="folderHints" class="folder-input" placeholder="Add folder..." autocomplete="off">
-                        <datalist id="folderHints">
-                            @{
-                                var availableFolders = ViewBag.AvailableFolders as IEnumerable<string> ?? Array.Empty<string>();
-                                foreach (var folder in availableFolders)
-                                {
-                                    <option value="@folder"></option>
+                        <div class="folder-inputs">
+                            <div class="l1-wrapper">
+                                <select id="folderLevel1" class="folder-input-l1">
+                                    <option value="">Partition...</option>
+                                    @{
+                                        var level1Folders = ViewBag.AvailableFoldersLevel1 as IEnumerable<string> ?? Enumerable.Empty<string>();
+                                        var currentSelectedL1 = ViewBag.SelectedFoldersL1 as IEnumerable<string> ?? Array.Empty<string>();
+                                        foreach (var partition in level1Folders)
+                                        {
+                                            var isSelected = currentSelectedL1.Contains(partition);
+                                            <option value="@partition" selected="@(isSelected ? "selected" : null)">@partition</option>
+                                        }
+                                    }
+                                </select>
+                                <button type="button" id="addL1Btn" class="btn-add-l1" title="Add all from this partition">+</button>
+                            </div>
+                            <input type="text" id="folderInput" list="folderHints" class="folder-input" placeholder="Add event..." autocomplete="off">
+                            <datalist id="folderHints">
+                                @{
+                                    var availableFolders = ViewBag.AvailableFoldersLevel2 as IEnumerable<string> ?? Array.Empty<string>();
+                                    foreach (var folder in availableFolders)
+                                    {
+                                        <option value="@folder"></option>
+                                    }
                                 }
-                            }
-                        </datalist>
+                            </datalist>
+                        </div>
                     </div>
                 </div>
 
@@ -233,6 +259,45 @@
 @section Styles {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe.css">
     <style>
+        .folder-inputs {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+        .l1-wrapper {
+            display: flex;
+            gap: 2px;
+            align-items: center;
+        }
+        .folder-input-l1 {
+            padding: 0.25rem 0.5rem;
+            border: 1px solid rgba(0,0,0,.1);
+            border-radius: 6px 0 0 6px;
+            background-color: #fff;
+            color: #212529;
+            font-size: 0.95rem;
+            outline: none;
+        }
+        .btn-add-l1 {
+            padding: 0.25rem 0.75rem;
+            border: 1px solid rgba(0,0,0,.1);
+            border-left: none;
+            border-radius: 0 6px 6px 0;
+            background-color: rgba(0,0,0,0.05);
+            color: #212529;
+            font-size: 0.95rem;
+            cursor: pointer;
+        }
+        .btn-add-l1:hover {
+            background-color: rgba(0,0,0,0.1);
+        }
+        .folder-input-l1:focus {
+            outline: none;
+            border-color: rgba(0, 90, 255, .3);
+        }
+        .folder-input {
+            flex-grow: 1;
+        }
         .fluent-toolbar {
             display: flex;
             align-items: center;
@@ -552,17 +617,90 @@
 
             // Folders (updated logic for removal button class)
             const folderInput = document.getElementById('folderInput');
+            const folderLevel1 = document.getElementById('folderLevel1');
+            const folderHints = document.getElementById('folderHints');
+            const foldersHierarchy = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.AvailableFoldersLevel1Level2));
+
+            if (folderLevel1 && folderHints) {
+                const updateL2Hints = () => {
+                    const selectedL1 = folderLevel1.value;
+                    let availableL2 = [];
+                    
+                    if (selectedL1 && foldersHierarchy[selectedL1]) {
+                        availableL2 = foldersHierarchy[selectedL1];
+                    } else {
+                        // If no L1 selected in dropdown, check if any L1 are in selected chips
+                        const activeL1s = [];
+                        const selectedChips = document.querySelectorAll('#selectedFoldersChips .chip[data-level="1"]');
+                        selectedChips.forEach(chip => {
+                            const folder = chip.getAttribute('data-folder');
+                            if (foldersHierarchy[folder]) {
+                                activeL1s.push(folder);
+                            }
+                        });
+
+                        if (activeL1s.length > 0) {
+                            const l2Set = new Set();
+                            activeL1s.forEach(l1 => {
+                                if (foldersHierarchy[l1]) {
+                                    foldersHierarchy[l1].forEach(l2 => l2Set.add(l2));
+                                }
+                            });
+                            availableL2 = Array.from(l2Set).sort();
+                        } else {
+                            // If no L1 selected at all, show all unique L2 folders
+                            const allL2 = new Set();
+                            for (const l1 in foldersHierarchy) {
+                                foldersHierarchy[l1].forEach(l2 => allL2.add(l2));
+                            }
+                            availableL2 = Array.from(allL2).sort();
+                        }
+                    }
+
+                    folderHints.innerHTML = '';
+                    availableL2.forEach(l2 => {
+                        const option = document.createElement('option');
+                        option.value = l2;
+                        folderHints.appendChild(option);
+                    });
+                };
+
+                folderLevel1.addEventListener('change', () => {
+                    updateL2Hints();
+                    folderInput.value = '';
+                });
+
+                const addL1Btn = document.getElementById('addL1Btn');
+                if (addL1Btn) {
+                    addL1Btn.addEventListener('click', () => {
+                        const selectedL1 = folderLevel1.value;
+                        if (selectedL1) {
+                            const url = new URL(window.location.href);
+                            let foldersL1 = url.searchParams.getAll('foldersL1');
+                            if (!foldersL1.includes(selectedL1)) {
+                                url.searchParams.append('foldersL1', selectedL1);
+                                url.searchParams.set('page', '1');
+                                window.location.href = url.toString();
+                            }
+                        }
+                    });
+                }
+
+                // Initial hints
+                updateL2Hints();
+            }
+
             if (folderInput) {
                 folderInput.addEventListener('change', () => {
                     const folder = folderInput.value.trim();
                     if (!folder) return;
                     
                     const url = new URL(window.location.href);
-                    let folders = url.searchParams.getAll('folders');
-                    if (!folders.includes(folder)) {
-                        folders.push(folder);
-                        url.searchParams.delete('folders');
-                        folders.forEach(f => url.searchParams.append('folders', f));
+                    let foldersL2 = url.searchParams.getAll('foldersL2');
+                    if (!foldersL2.includes(folder)) {
+                        foldersL2.push(folder);
+                        url.searchParams.delete('foldersL2');
+                        foldersL2.forEach(f => url.searchParams.append('foldersL2', f));
                         url.searchParams.set('page', '1');
                         window.location.href = url.toString();
                     }
@@ -581,11 +719,14 @@
                 btn.addEventListener('click', (e) => {
                     const chip = e.target.closest('.chip');
                     const folder = chip.getAttribute('data-folder');
+                    const level = chip.getAttribute('data-level');
+                    const paramName = level === '1' ? 'foldersL1' : 'foldersL2';
+                    
                     const url = new URL(window.location.href);
-                    let folders = url.searchParams.getAll('folders');
-                    folders = folders.filter(f => f !== folder);
-                    url.searchParams.delete('folders');
-                    folders.forEach(f => url.searchParams.append('folders', f));
+                    let items = url.searchParams.getAll(paramName);
+                    items = items.filter(f => f !== folder);
+                    url.searchParams.delete(paramName);
+                    items.forEach(f => url.searchParams.append(paramName, f));
                     url.searchParams.set('page', '1');
                     window.location.href = url.toString();
                 });
@@ -660,6 +801,10 @@
                 crs.forEach(cr => {
                     url.searchParams.append('commerceRatings', cr);
                 });
+                
+                // Carry over folder filters
+                params.getAll('foldersL1').forEach(f => url.searchParams.append('foldersL1', f));
+                params.getAll('foldersL2').forEach(f => url.searchParams.append('foldersL2', f));
                 
                 window.location.href = url.toString();
             });

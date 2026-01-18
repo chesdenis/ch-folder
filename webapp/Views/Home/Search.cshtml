@@ -195,6 +195,18 @@
                     }
                 </div>
                 <input type="hidden" name="orderBy" value="@orderBy" />
+                <div id="foldersL1Inputs">
+                    @foreach (var f in ViewBag.SelectedFoldersL1 as IEnumerable<string> ?? Array.Empty<string>())
+                    {
+                        <input type="hidden" name="foldersL1" value="@f" />
+                    }
+                </div>
+                <div id="foldersL2Inputs">
+                    @foreach (var f in ViewBag.SelectedFoldersL2 as IEnumerable<string> ?? Array.Empty<string>())
+                    {
+                        <input type="hidden" name="foldersL2" value="@f" />
+                    }
+                </div>
                 <div id="extensionsInputs">
                     @foreach (var ext in selectedExtensions)
                     {
