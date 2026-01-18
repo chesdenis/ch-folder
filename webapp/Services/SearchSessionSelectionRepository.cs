@@ -11,9 +11,11 @@ public interface ISearchSessionSelectionRepository
     Task<bool> AddSelectionAsync(Guid sessionId, string md5, CancellationToken ct = default);
     Task<bool> RemoveSelectionAsync(Guid sessionId, string md5, CancellationToken ct = default);
     Task ClearSelectionAsync(Guid sessionId, CancellationToken ct = default);
+    Task<Guid> CreateSelectionSessionAsync(Guid sourceSessionId, string queryText, CancellationToken ct = default);
+    Task<(IReadOnlyList<SearchSessionRow> Items, int Total)> GetRecentSelectionSessionsAsync(int offset, int limit, CancellationToken ct = default);
 }
 
-public sealed class SearchSessionSelectionRepository(IFileSystem fileSystem,IOptions<ConnectionStringOptions> connectionStringsOptions)
+public sealed class SearchSessionSelectionRepository(IFileSystem fileSystem, IOptions<ConnectionStringOptions> connectionStringsOptions)
     : ISearchSessionSelectionRepository
 {
     private readonly ConnectionStringOptions _connectionStrings = connectionStringsOptions.Value;
@@ -28,10 +30,13 @@ public sealed class SearchSessionSelectionRepository(IFileSystem fileSystem,IOpt
 
         var list = new List<SelectedPhotoInfo>();
         await using var cmd = new NpgsqlCommand(@"SELECT p.md5_hash, p.short_details, il.real_path, p.tags
-            FROM search_session_selected s
+            FROM (
+                SELECT md5_hash, created_at FROM search_session_selected WHERE session_id = @sid
+                UNION ALL
+                SELECT md5_hash, created_at FROM selection_session_photo WHERE session_id = @sid
+            ) s
             INNER JOIN photo p ON p.md5_hash = s.md5_hash
             INNER JOIN image_location il on p.md5_hash = il.md5_hash
-            WHERE s.session_id = @sid
             ORDER BY s.created_at ASC", conn);
         cmd.Parameters.AddWithValue("@sid", NpgsqlTypes.NpgsqlDbType.Uuid, sessionId);
 
@@ -115,6 +120,89 @@ public sealed class SearchSessionSelectionRepository(IFileSystem fileSystem,IOpt
         cmd.Parameters.AddWithValue("@sid", NpgsqlTypes.NpgsqlDbType.Uuid, sessionId);
 
         await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    public async Task<Guid> CreateSelectionSessionAsync(Guid sourceSessionId, string queryText, CancellationToken ct = default)
+    {
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(ct);
+        await using var tx = await conn.BeginTransactionAsync(ct);
+
+        try
+        {
+            var newSessionId = Guid.NewGuid();
+
+            // 1. Create a new selection_session entry
+            await using (var cmd = new NpgsqlCommand(@"INSERT INTO selection_session
+                (id, created_at, name, item_count)
+                VALUES (@id, now(), @name, 
+                       (SELECT COUNT(1) FROM search_session_selected WHERE session_id = @sid))", conn, tx))
+            {
+                cmd.Parameters.AddWithValue("@id", newSessionId);
+                cmd.Parameters.AddWithValue("@name", queryText);
+                cmd.Parameters.AddWithValue("@sid", sourceSessionId);
+                await cmd.ExecuteNonQueryAsync(ct);
+            }
+
+            // 2. Copy selected items from source session to selection_session_photo
+            await using (var cmd = new NpgsqlCommand(@"INSERT INTO selection_session_photo (session_id, md5_hash, created_at)
+                SELECT @newId, md5_hash, created_at
+                FROM search_session_selected
+                WHERE session_id = @sid", conn, tx))
+            {
+                cmd.Parameters.AddWithValue("@newId", newSessionId);
+                cmd.Parameters.AddWithValue("@sid", sourceSessionId);
+                await cmd.ExecuteNonQueryAsync(ct);
+            }
+
+            await tx.CommitAsync(ct);
+            return newSessionId;
+        }
+        catch
+        {
+            await tx.RollbackAsync(ct);
+            throw;
+        }
+    }
+
+    public async Task<(IReadOnlyList<SearchSessionRow> Items, int Total)> GetRecentSelectionSessionsAsync(int offset, int limit, CancellationToken ct = default)
+    {
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(ct);
+
+        // total count of selection sessions
+        int total;
+        await using (var countCmd = new NpgsqlCommand("SELECT COUNT(1) FROM selection_session", conn))
+        {
+            var scalar = await countCmd.ExecuteScalarAsync(ct);
+            total = Convert.ToInt32(scalar);
+        }
+
+        var list = new List<SearchSessionRow>(Math.Max(0, limit));
+        await using (var cmd = new NpgsqlCommand(@"SELECT id, created_at, name, item_count
+            FROM selection_session
+            ORDER BY created_at DESC
+            OFFSET @off LIMIT @lim", conn))
+        {
+            cmd.Parameters.AddWithValue("@off", NpgsqlTypes.NpgsqlDbType.Integer, Math.Max(0, offset));
+            cmd.Parameters.AddWithValue("@lim", NpgsqlTypes.NpgsqlDbType.Integer, Math.Max(1, limit));
+
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                list.Add(new SearchSessionRow
+                {
+                    Id = reader.GetGuid(0),
+                    CreatedAt = reader.GetDateTime(1),
+                    QueryText = reader.GetString(2),
+                    EmbeddingModel = "selection",
+                    ResultCount = reader.GetInt32(3),
+                    ScoreThreshold = null
+                });
+            }
+        }
+
+        return (list, total);
     }
 }
 

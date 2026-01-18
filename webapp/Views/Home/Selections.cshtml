@@ -1,6 +1,6 @@
 @model IReadOnlyList<webapp.Services.SearchSessionRow>
 @{ 
-    ViewData["Title"] = "Sessions";
+    ViewData["Title"] = "Selections";
     var total = (int)(ViewBag.Total ?? 0);
     var page = (int)(ViewBag.Page ?? 1);
     var pageSize = (int)(ViewBag.PageSize ?? 20);
@@ -14,14 +14,11 @@
     var nextPage = Math.Min(totalPages, page + 1);
 }
 
-<h3 class="mb-3">Search Sessions</h3>
+<h3 class="mb-3">Saved Selections</h3>
 
 <div class="mb-3">
-    <a class="btn btn-outline-primary" asp-controller="Home" asp-action="Selected" asp-route-sessionId="@Guid.Empty">
-        <i class="bi bi-star-fill me-1"></i> View Navigation Selections
-    </a>
-    <a class="btn btn-outline-success ms-2" asp-controller="Home" asp-action="Selections">
-        <i class="bi bi-collection-fill me-1"></i> View Saved Selections
+    <a class="btn btn-outline-primary" asp-controller="Home" asp-action="Sessions">
+        <i class="bi bi-search me-1"></i> View Search Sessions
     </a>
 </div>
 
@@ -30,10 +27,8 @@
         <thead>
         <tr>
             <th scope="col">Created</th>
-            <th scope="col">Query</th>
-            <th scope="col">Model</th>
-            <th scope="col">Results</th>
-            <th scope="col">Min Score</th>
+            <th scope="col">Name</th>
+            <th scope="col">Items</th>
             <th scope="col">Open</th>
         </tr>
         </thead>
@@ -45,13 +40,11 @@
                 <tr>
                     <td class="text-nowrap">@s.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                     <td class="text-truncate" style="max-width: 420px;" title="@s.QueryText">@s.QueryText</td>
-                    <td class="text-nowrap">@s.EmbeddingModel</td>
                     <td>@s.ResultCount</td>
-                    <td>@(s.ScoreThreshold?.ToString("0.00") ?? "-")</td>
                     <td>
                         <a class="btn btn-sm btn-primary"
                            asp-controller="Home"
-                           asp-action="Search"
+                           asp-action="Selected"
                            asp-route-sessionId="@s.Id">Open</a>
                     </td>
                 </tr>
@@ -60,7 +53,7 @@
         else
         {
             <tr>
-                <td colspan="6" class="text-center text-muted">No sessions yet</td>
+                <td colspan="4" class="text-center text-muted">No selections yet</td>
             </tr>
         }
         </tbody>
@@ -70,20 +63,20 @@
         <nav aria-label="Pagination">
             <ul class="pagination mb-0">
                 <li class="page-item @prevDisabled">
-                    <a class="page-link" href='@Url.Action("Sessions", new { page = prevPage, pageSize = pageSize })'>Prev</a>
+                    <a class="page-link" href='@Url.Action("Selections", new { page = prevPage, pageSize = pageSize })'>Prev</a>
                 </li>
                 <li class="page-item disabled"><span class="page-link">@($"Page {page} / {totalPages}")</span></li>
                 <li class="page-item @nextDisabled">
-                    <a class="page-link" href='@Url.Action("Sessions", new { page = nextPage, pageSize = pageSize })'>Next</a>
+                    <a class="page-link" href='@Url.Action("Selections", new { page = nextPage, pageSize = pageSize })'>Next</a>
                 </li>
             </ul>
         </nav>
     </div>
     <div class="mt-2">
         <div class="btn-group" role="group" aria-label="Page size">
-            <a class="btn btn-outline-secondary @ps10" href='@Url.Action("Sessions", new { page = 1, pageSize = 10 })'>10</a>
-            <a class="btn btn-outline-secondary @ps20" href='@Url.Action("Sessions", new { page = 1, pageSize = 20 })'>20</a>
-            <a class="btn btn-outline-secondary @ps50" href='@Url.Action("Sessions", new { page = 1, pageSize = 50 })'>50</a>
+            <a class="btn btn-outline-secondary @ps10" href='@Url.Action("Selections", new { page = 1, pageSize = 10 })'>10</a>
+            <a class="btn btn-outline-secondary @ps20" href='@Url.Action("Selections", new { page = 1, pageSize = 20 })'>20</a>
+            <a class="btn btn-outline-secondary @ps50" href='@Url.Action("Selections", new { page = 1, pageSize = 50 })'>50</a>
         </div>
     </div>
 </div>

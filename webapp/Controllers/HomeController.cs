@@ -802,4 +802,28 @@ public class HomeController(
 
         return View(items);
     }
+
+    [HttpGet]
+    public async Task<IActionResult> Selections([FromQuery] int? page, [FromQuery] int? pageSize)
+    {
+        var p = Math.Max(1, page ?? 1);
+        var ps = Math.Max(1, pageSize ?? 20);
+        var offset = (p - 1) * ps;
+
+        var (items, total) = await selectionRepo.GetRecentSelectionSessionsAsync(offset, ps, HttpContext.RequestAborted);
+
+        ViewBag.Total = total;
+        ViewBag.Page = p;
+        ViewBag.PageSize = ps;
+
+        return View(items);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> SaveSelection([FromQuery] Guid sessionId, [FromForm] string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) name = $"Selection {DateTime.Now:yyyy-MM-dd HH:mm}";
+        var newSessionId = await selectionRepo.CreateSelectionSessionAsync(sessionId, name, HttpContext.RequestAborted);
+        return RedirectToAction("Selected", new { sessionId = newSessionId });
+    }
 }
