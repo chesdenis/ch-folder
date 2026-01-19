@@ -7,14 +7,30 @@
     <div class="col-md-10 col-lg-8">
         <h1 class="mb-3">Content quality details</h1>
 
+        @if (TempData["Message"] != null)
+        {
+            <div class="alert alert-info alert-dismissible fade show" role="alert">
+                @TempData["Message"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        }
+
         <div class="card mb-3">
             <div class="card-body">
                 <div class="row g-2 align-items-center">
                     <div class="col-12 col-md-8">
                         <div class="form-control-plaintext">Storage: @ViewBag.StoragePath</div>
+                        @if (!string.IsNullOrEmpty(ViewBag.ExtractionPath))
+                        {
+                            <div class="form-control-plaintext">Extraction: <code>@ViewBag.ExtractionPath</code></div>
+                        }
                         <div class="form-control-plaintext">Folder: <code>@Model.Folder</code></div>
                     </div>
                     <div class="col-12 col-md-4 text-md-end">
+                        <form asp-action="ExtractFailedFiles" method="post" class="d-inline">
+                            <input type="hidden" name="folder" value="@Model.Folder" />
+                            <button type="submit" class="btn btn-outline-danger me-1">Extract Failures</button>
+                        </form>
                         <a class="btn btn-outline-secondary" href="@Url.Action("ContentQualityDetails", new { folder = Model.Folder })">Refresh</a>
                     </div>
                 </div>

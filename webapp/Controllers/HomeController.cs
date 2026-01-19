@@ -604,6 +604,7 @@ public class HomeController(
             return BadRequest("folder is required");
 
         ViewBag.StoragePath = _storage.RootPath ?? string.Empty;
+        ViewBag.ExtractionPath = _storage.ExtractionPath ?? string.Empty;
 
         var rows = await contentValidationRepository.GetLatestDetailsByFolderAsync(folder, HttpContext.RequestAborted);
 
@@ -661,6 +662,70 @@ public class HomeController(
         };
 
         return View(vm);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> ExtractFailedFiles([FromForm] string folder)
+    {
+        if (string.IsNullOrWhiteSpace(folder))
+            return BadRequest("folder is required");
+
+        if (string.IsNullOrWhiteSpace(_storage.ExtractionPath))
+            return BadRequest("ExtractionPath is not configured");
+
+        var rows = await contentValidationRepository.GetLatestDetailsByFolderAsync(folder, HttpContext.RequestAborted);
+        var extractionCount = 0;
+
+        foreach (var row in rows)
+        {
+            if (string.IsNullOrWhiteSpace(row.DetailsJson)) continue;
+
+            var payload = JsonSerializer.Deserialize<ValidationDetailPayload>(row.DetailsJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (payload?.Failures == null) continue;
+
+            foreach (var failure in payload.Failures)
+            {
+                if (string.IsNullOrWhiteSpace(failure.File)) continue;
+
+                try
+                {
+                    // Use CalculateMd5Async to extract md5 (it handles files already having md5 in name)
+                    var md5 = await failure.File.CalculateMd5Async();
+                    
+                    // Identify location on disk
+                    var realPath = await imageLocationRepository.GetPathByMd5Async(md5, HttpContext.RequestAborted);
+                    if (string.IsNullOrEmpty(realPath) || !System.IO.File.Exists(realPath))
+                    {
+                        logger.LogWarning("Could not find real path for md5 {Md5} (file: {File})", md5, failure.File);
+                        continue;
+                    }
+
+                    // Move to ExtractionPath preserving folder name
+                    // "It is important to put it into folder with same name as it was before but under ExtractionPath folder"
+                    var fileName = Path.GetFileName(realPath);
+                    var targetFolder = Path.Combine(_storage.ExtractionPath, folder);
+                    if (!Directory.Exists(targetFolder))
+                    {
+                        Directory.CreateDirectory(targetFolder);
+                    }
+
+                    var targetPath = Path.Combine(targetFolder, fileName);
+                    
+                    if (System.IO.File.Exists(realPath))
+                    {
+                        System.IO.File.Move(realPath, targetPath, overwrite: true);
+                        extractionCount++;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Failed to extract file {File}", failure.File);
+                }
+            }
+        }
+
+        TempData["Message"] = $"Extracted {extractionCount} failed files to {_storage.ExtractionPath}/{folder}";
+        return RedirectToAction(nameof(ContentQualityDetails), new { folder });
     }
 
     [HttpGet("/api/storage/folders")]
