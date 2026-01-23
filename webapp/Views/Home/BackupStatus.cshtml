@@ -64,18 +64,24 @@
                     <table class="table table-sm align-middle mb-0">
                         <thead>
                         <tr>
-                            <th scope="col" style="width:70%">MD5 Hash</th>
+                            <th scope="col" style="width:50%">Folder</th>
+                            <th scope="col">Files</th>
                             <th scope="col">Status</th>
                         </tr>
                         </thead>
                         <tbody>
-                        @foreach (var item in Model.Items.OrderBy(x => x.Md5Hash))
+                        @foreach (var folder in Model.Folders.OrderBy(x => x.FolderName))
                         {
                             <tr>
-                                <td><code>@item.Md5Hash</code></td>
+                                <td>
+                                    <strong>@folder.FolderName</strong>
+                                </td>
+                                <td>
+                                    @folder.BackedUpFiles / @folder.TotalFiles
+                                </td>
                                 <td>
                                     @{
-                                        var status = item.Status;
+                                        var status = folder.Status;
                                         var color = status switch
                                         {
                                             "Completed" => "#28a745",
@@ -84,7 +90,7 @@
                                             _ => "#6c757d"
                                         };
                                     }
-                                    <span class="badge" style="background-color: @color" title="@item.ErrorMessage">
+                                    <span class="badge" style="background-color: @color">
                                         @status
                                     </span>
                                 </td>

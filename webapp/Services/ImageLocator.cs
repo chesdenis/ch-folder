@@ -8,6 +8,7 @@ namespace webapp.Services;
 
 public interface IImageLocator
 {
+    public IDictionary<string, string> GetAllLocations();
     Task<int> IdentifyImageLocations(CancellationToken ct = default);
     public ImageLinks? GetImageLinks(string md5);
     IEnumerable<string> GetAvailableFolders();
@@ -23,6 +24,8 @@ public sealed class ImageLocator(
     private readonly StorageOptions _storage = storage.Value;
     private readonly ConcurrentDictionary<string, string> _imageLocationsMap = new();
     
+    public IDictionary<string, string> GetAllLocations() => _imageLocationsMap;
+
     private static (int width, int height)? TryReadJpegSize(string path)
     {
         try
