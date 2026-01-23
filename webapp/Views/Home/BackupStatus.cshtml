@@ -1,0 +1,74 @@
+@model webapp.Models.BackupStatusViewModel
+@{
+    ViewData["Title"] = "Backup Status";
+}
+
+<div class="row">
+    <div class="col-md-12 col-lg-12">
+        <h1 class="mb-3">Backup Status</h1>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row g-2 align-items-center">
+                    <div class="col-12 col-md-8">
+                        <div class="form-control-plaintext">Root Storage: @ViewBag.StoragePath</div>
+                    </div>
+                    <div class="col-12 col-md-4 text-md-end">
+                        <form asp-action="TruncateBackupResults" method="post" class="d-inline" 
+                              onsubmit="return confirm('Are you sure you want to restart backup process? This will clear all tracking state.');">
+                            <button type="submit" class="btn btn-outline-danger">Truncate / Restart</button>
+                        </form>
+                        <a class="btn btn-outline-secondary" href="@Url.Action("BackupStatus")">Refresh</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">Backup Activities Progress</div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                        <tr>
+                            <th scope="col" style="width:15%">Partition</th>
+                            <th scope="col" style="width:30%">Folder</th>
+                            <th scope="col">Progress</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var item in Model.Items.OrderBy(x => x.Partition).ThenBy(x => x.Folder))
+                        {
+                            <tr>
+                                <td><code>@item.Partition</code></td>
+                                <td><code>@item.Folder</code></td>
+                                <td>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        @foreach (var activity in Model.Activities)
+                                        {
+                                            var status = item.ActivityStatuses.GetValueOrDefault(activity, "Pending");
+                                            var color = status switch
+                                            {
+                                                "Completed" => "#28a745",
+                                                "Failed" => "#dc3545",
+                                                "InProgress" => "#ffc107",
+                                                _ => "#6c757d"
+                                            };
+
+                                            <div class="d-inline-flex align-items-center justify-content-center text-decoration-none text-white rounded"
+                                               style="background-color: @color; min-width: 24px; height: 24px; font-size: 0.7rem; padding: 2px;"
+                                               title="@activity: @status">
+                                                @activity[0]
+                                            </div>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

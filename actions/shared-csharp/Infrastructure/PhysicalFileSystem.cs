@@ -17,6 +17,9 @@ public class PhysicalFileSystem : IFileSystem
 
     public void MoveFile(string sourceFileName, string destFileName) => File.Move(sourceFileName, destFileName);
     
+    public void CopyFile(string sourceFileName, string destFileName, bool overwrite) => File.Copy(sourceFileName, destFileName, overwrite);
+    public void CreateDirectory(string path) => Directory.CreateDirectory(path);
+
     public async Task<string> GetEmbAnswer(string filePath) => await File.ReadAllTextAsync(PathExtensions.ResolveEmbAnswer(filePath));
     public async Task<string> GetEmbConversation(string filePath) => await File.ReadAllTextAsync(PathExtensions.ResolveEmbConversation(filePath));
     public async Task<string> GetDqQuestion(string filePath) => await File.ReadAllTextAsync(PathExtensions.ResolveDqQuestionPath(filePath));

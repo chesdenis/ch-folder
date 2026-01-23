@@ -23,6 +23,7 @@ builder.Services.AddSingleton<IImageLocationRepository, ImageLocationRepository>
 builder.Services.AddSingleton<IImageLocator, ImageLocator>();
 builder.Services.AddSingleton<IFileSystem, PhysicalFileSystem>();
 builder.Services.AddSingleton<IContentValidationRepository, ContentValidationRepository>();
+builder.Services.AddSingleton<IBackupRepository, BackupRepository>();
 builder.Services.AddSingleton<IPublishTrackerRepository, PublishTrackerRepository>();
 
 var app = builder.Build();

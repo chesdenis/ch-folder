@@ -8,6 +8,7 @@ docker build -f ai_content_query_builder.Dockerfile -t ai_content_query_builder 
 docker build -f embedding_downloader.Dockerfile -t embedding_downloader .
 docker build -f group_folder_extractor.Dockerfile -t group_folder_extractor .
 docker build -f content_validator.Dockerfile -t content_validator .
+docker build -f mirror_service.Dockerfile -t mirror_service .
 docker build \
 -f ai_content_answer_builder.Dockerfile \
 --build-arg EXT_REPO_URL="https://github.com/chesdenis/ask-ai.git" \

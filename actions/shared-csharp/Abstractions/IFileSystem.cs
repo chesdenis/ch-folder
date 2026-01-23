@@ -8,6 +8,8 @@ public interface IFileSystem
     IEnumerable<string> EnumerateFiles(string path, string searchPattern, SearchOption searchOption);
     IEnumerable<string> EnumerateDirectories(string path, string searchPattern, SearchOption searchOption);
     void MoveFile(string sourceFileName, string destFileName);
+    void CopyFile(string sourceFileName, string destFileName, bool overwrite);
+    void CreateDirectory(string path);
     Task<string> GetEmbAnswer(string filePath);
     Task<string> GetEmbConversation(string filePath);
     Task<string> GetDqQuestion(string filePath);
