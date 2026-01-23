@@ -276,7 +276,7 @@ public class JobRunner : IJobRunner
             JobType.AverageImageMarker => (hf, o, e, ct) =>
                 _dockerFolderRunner.RunAverageImageMarkerAsync(hf, o, e, ct),
             JobType.Backup => (hf, o, e, ct) =>
-                _dockerFolderRunner.RunMirrorServiceAsync(hf, _storageOptions.BackupPath ?? throw new InvalidOperationException("Backup path is not configured"), o, e, ct),
+                _dockerFolderRunner.RunMirrorServiceAsync(hf, o, e, ct),
             JobType.ContentValidator => (hf, o, e, ct) =>
                 _dockerFolderRunner.RunContentValidatorAsync(hf, testKind ?? "All", Path.GetFileName(hf), o, e, ct),
             _ => (hf, o, e, ct) => _dockerFolderRunner.RunMetaUploaderAsync(hf, o, e, ct)

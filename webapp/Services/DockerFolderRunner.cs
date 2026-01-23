@@ -39,7 +39,7 @@ public interface IDockerFolderRunner
     Task<int> RunAverageImageMarkerAsync(string hostFolderAbs,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
 
-    Task<int> RunMirrorServiceAsync(string hostFolderAbs, string backupRootAbs,
+    Task<int> RunMirrorServiceAsync(string hostFolderAbs,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
 
     Task<int> RunContentValidatorAsync(string hostFolderAbs, string testKind, string folderName,
@@ -85,14 +85,19 @@ public class DockerFolderRunner(IOptions<StorageOptions> storage) : IDockerFolde
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
         => RunDockerAsync("average_image_marker", hostFolderAbs, onStdout, onStderr, ct);
 
-    public Task<int> RunMirrorServiceAsync(string hostFolderAbs, string backupRootAbs,
+    public Task<int> RunMirrorServiceAsync(string hostFolderAbs,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
     {
-        var backupHost = Path.GetFullPath(backupRootAbs);
+        var storagePath = storage.Value.RootPath!;
+        var backupPath = storage.Value.BackupPath!;
+        
+        var relativeSourcePath = Path.GetRelativePath(storagePath, hostFolderAbs);
+        var absoluteBackupPath = Path.Combine(backupPath, relativeSourcePath);
+        Directory.CreateDirectory(absoluteBackupPath);
         var containerBackupFolder = "/out";
         return RunDockerAsync("mirror_service", hostFolderAbs, onStdout, onStderr, ct,
             extraArgs: containerBackupFolder,
-            extraVolumes: $"-v \"{backupHost}\":{containerBackupFolder}:rw");
+            extraVolumes: $"-v \"{absoluteBackupPath}\":{containerBackupFolder}:rw");
     }
 
     public Task<int> RunContentValidatorAsync(string hostFolderAbs, string testKind, string folderName,
