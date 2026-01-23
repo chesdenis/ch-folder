@@ -17,14 +17,15 @@ public static class ArgsExtensions
         return args;
     }
 
-    public static async Task WalkThrough(this IFileSystem fileSystem, string[] args, Func<string, Task> processPath)
+    public static async Task WalkThrough(this IFileSystem fileSystem, string[] args, Func<string, Task> processPath, bool recursive = false)
     {
         foreach (var arg in args)
         {
             if (fileSystem.DirectoryExists(arg))
             {
                 // evaluate query result to avoid processing files again during async run
-                var filesToProcess = fileSystem.EnumerateFiles(arg, "*", SearchOption.TopDirectoryOnly).ToArray();
+                var so = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+                var filesToProcess = fileSystem.EnumerateFiles(arg, "*", so).ToArray();
                     
                 foreach (var filePath in filesToProcess)
                 {

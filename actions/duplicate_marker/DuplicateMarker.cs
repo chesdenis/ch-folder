@@ -38,7 +38,8 @@ public class DuplicateMarker(IFileSystem fileSystem)
 
         async Task Handler(string filePath) => await ProcessSingleFile(filePath, map);
 
-        await fileSystem.WalkThrough(args, Handler);
+        // we use recursive here to handle nested folders they can be because input can be anything
+        await fileSystem.WalkThrough(args, Handler, recursive: true);
     }
 
     private async Task ProcessSingleFile(string filePath, IReadOnlyDictionary<string, string> md5ToRealPath)
