@@ -47,6 +47,26 @@
             <div class="mt-2 text-center text-lg-start">
                 <small class="text-muted">MD5: <code class="user-select-all">@it.Md5</code></small>
             </div>
+            @if (Model.SimilarPhotos.Any())
+            {
+                <div class="mt-5 mb-5">
+                    <h4 class="mb-4">Similar Photos in Group</h4>
+                    <div id="group-gallery">
+                        @await Component.InvokeAsync("Gallery", new { 
+                            items = Model.SimilarPhotos.Select(s => new webapp.Components.GalleryItem {
+                                FullUrl = Url.Action("ByMd5", "Images", new { md5 = s.Md5 })!,
+                                FullWidth = s.Width ?? 2000,
+                                FullHeight = s.Height ?? 2000,
+                                Alt = s.Md5,
+                                Md5 = s.Md5,
+                                ShortDetails = s.ShortDetails
+                            }).ToList(),
+                            pageSize = 100,
+                            thumbSize = 256
+                        })
+                    </div>
+                </div>
+            }
         </div>
         <div class="col-lg-6 col-md-12">
             <div class="card shadow-sm">
@@ -136,26 +156,7 @@
         </div>
     </div>
 
-    @if (Model.SimilarPhotos.Any())
-    {
-        <div class="mt-5 mb-5">
-            <h4 class="mb-4">Similar Photos in Group</h4>
-            <div id="group-gallery">
-                @await Component.InvokeAsync("Gallery", new { 
-                    items = Model.SimilarPhotos.Select(s => new webapp.Components.GalleryItem {
-                        FullUrl = Url.Action("ByMd5", "Images", new { md5 = s.Md5 })!,
-                        FullWidth = s.Width ?? 2000,
-                        FullHeight = s.Height ?? 2000,
-                        Alt = s.Md5,
-                        Md5 = s.Md5,
-                        ShortDetails = s.ShortDetails
-                    }).ToList(),
-                    pageSize = 100,
-                    thumbSize = 256
-                })
-            </div>
-        </div>
-    }
+   
 </div>
 
 @section Scripts {
