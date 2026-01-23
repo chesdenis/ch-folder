@@ -10,7 +10,7 @@ public interface IBackupRepository
     Task TruncateAsync(CancellationToken ct = default);
 }
 
-public sealed record BackupStatusRow(string Partition, string Folder, string ActivityKind, string Status, string? ErrorMessage);
+public sealed record BackupStatusRow(string Md5Hash, string Status, string? ErrorMessage);
 
 public sealed class BackupRepository(IOptions<ConnectionStringOptions> connectionStrings) : IBackupRepository
 {
@@ -24,7 +24,7 @@ public sealed class BackupRepository(IOptions<ConnectionStringOptions> connectio
         var list = new List<BackupStatusRow>();
         await using var conn = Create();
         await conn.OpenAsync(ct);
-        var sql = "SELECT partition, folder, activity_kind, status, error_message FROM backup_status";
+        var sql = "SELECT md5_hash, status, error_message FROM backup_status";
         await using var cmd = new NpgsqlCommand(sql, conn);
         await using var rdr = await cmd.ExecuteReaderAsync(ct);
         while (await rdr.ReadAsync(ct))
@@ -32,9 +32,7 @@ public sealed class BackupRepository(IOptions<ConnectionStringOptions> connectio
             list.Add(new BackupStatusRow(
                 rdr.GetString(0),
                 rdr.GetString(1),
-                rdr.GetString(2),
-                rdr.GetString(3),
-                rdr.IsDBNull(4) ? null : rdr.GetString(4)
+                rdr.IsDBNull(2) ? null : rdr.GetString(2)
             ));
         }
         return list;

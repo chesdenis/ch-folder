@@ -2,13 +2,12 @@ namespace webapp.Models;
 
 public sealed class BackupStatusViewModel
 {
-    public IReadOnlyList<BackupFolderStatus> Items { get; init; } = Array.Empty<BackupFolderStatus>();
-    public IReadOnlyList<string> Activities { get; init; } = Array.Empty<string>();
+    public IReadOnlyList<BackupItemStatus> Items { get; init; } = Array.Empty<BackupItemStatus>();
 }
 
-public sealed class BackupFolderStatus
+public sealed class BackupItemStatus
 {
-    public required string Partition { get; init; }
-    public required string Folder { get; init; }
-    public Dictionary<string, string> ActivityStatuses { get; init; } = new();
+    public required string Md5Hash { get; init; }
+    public required string Status { get; init; }
+    public string? ErrorMessage { get; init; }
 }

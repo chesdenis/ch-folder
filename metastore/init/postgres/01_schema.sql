@@ -188,15 +188,10 @@ CREATE INDEX IF NOT EXISTS ix_photo_publish_tracker_md5 ON photo_publish_tracker
 -- =============================================================
 
 CREATE TABLE IF NOT EXISTS backup_status (
-    partition text NOT NULL,
-    folder text NOT NULL,
-    activity_kind text NOT NULL,
+    md5_hash text PRIMARY KEY,
     status text NOT NULL CHECK (status IN ('Pending', 'InProgress', 'Completed', 'Failed')),
     last_updated timestamptz NOT NULL DEFAULT now(),
-    error_message text NULL,
-    PRIMARY KEY (partition, folder, activity_kind)
+    error_message text NULL
 );
 
-CREATE INDEX IF NOT EXISTS ix_backup_status_partition ON backup_status (partition);
-CREATE INDEX IF NOT EXISTS ix_backup_status_folder ON backup_status (folder);
 CREATE INDEX IF NOT EXISTS ix_backup_status_status ON backup_status (status);

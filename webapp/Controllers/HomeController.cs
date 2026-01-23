@@ -600,46 +600,19 @@ public class HomeController(
 
     public async Task<IActionResult> BackupStatus()
     {
-        var activities = new[]
-        {
-            "OriginalImage", "PreviewImages", "DescriptionQueries", "CommercialMark", "Emb", "Eng30Tags", "EngShort", "Fv"
-        };
-
         var results = await backupRepository.GetAllAsync(HttpContext.RequestAborted);
-        var grouped = results.GroupBy(r => new { r.Partition, r.Folder })
-            .Select(g => new BackupFolderStatus
-            {
-                Partition = g.Key.Partition,
-                Folder = g.Key.Folder,
-                ActivityStatuses = g.ToDictionary(x => x.ActivityKind, x => x.Status)
-            }).ToList();
-
-        // Also include folders that are not in DB yet but exist on disk
-        var root = _storage.RootPath;
-        if (!string.IsNullOrWhiteSpace(root) && Directory.Exists(root))
+        var items = results.Select(r => new BackupItemStatus
         {
-            var allFolders = PathExtensions.GetStorageFolders(root);
-            foreach (var f in allFolders)
-            {
-                var parts = f.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                if (parts.Length == 2)
-                {
-                    var partition = parts[0];
-                    var folder = parts[1];
-                    if (!grouped.Any(g => g.Partition == partition && g.Folder == folder))
-                    {
-                        grouped.Add(new BackupFolderStatus { Partition = partition, Folder = folder });
-                    }
-                }
-            }
-        }
+            Md5Hash = r.Md5Hash,
+            Status = r.Status,
+            ErrorMessage = r.ErrorMessage
+        }).ToList();
 
         var vm = new BackupStatusViewModel
         {
-            Items = grouped,
-            Activities = activities
+            Items = items
         };
-        ViewBag.StoragePath = root ?? string.Empty;
+        ViewBag.StoragePath = _storage.RootPath ?? string.Empty;
         ViewBag.BackupPath = _storage.BackupPath ?? string.Empty;
         return View(vm);
     }

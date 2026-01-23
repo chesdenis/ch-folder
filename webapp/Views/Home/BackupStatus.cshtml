@@ -64,37 +64,29 @@
                     <table class="table table-sm align-middle mb-0">
                         <thead>
                         <tr>
-                            <th scope="col" style="width:15%">Partition</th>
-                            <th scope="col" style="width:30%">Folder</th>
-                            <th scope="col">Progress</th>
+                            <th scope="col" style="width:70%">MD5 Hash</th>
+                            <th scope="col">Status</th>
                         </tr>
                         </thead>
                         <tbody>
-                        @foreach (var item in Model.Items.OrderBy(x => x.Partition).ThenBy(x => x.Folder))
+                        @foreach (var item in Model.Items.OrderBy(x => x.Md5Hash))
                         {
                             <tr>
-                                <td><code>@item.Partition</code></td>
-                                <td><code>@item.Folder</code></td>
+                                <td><code>@item.Md5Hash</code></td>
                                 <td>
-                                    <div class="d-flex flex-wrap gap-1">
-                                        @foreach (var activity in Model.Activities)
+                                    @{
+                                        var status = item.Status;
+                                        var color = status switch
                                         {
-                                            var status = item.ActivityStatuses.GetValueOrDefault(activity, "Pending");
-                                            var color = status switch
-                                            {
-                                                "Completed" => "#28a745",
-                                                "Failed" => "#dc3545",
-                                                "InProgress" => "#ffc107",
-                                                _ => "#6c757d"
-                                            };
-
-                                            <div class="d-inline-flex align-items-center justify-content-center text-decoration-none text-white rounded"
-                                               style="background-color: @color; min-width: 24px; height: 24px; font-size: 0.7rem; padding: 2px;"
-                                               title="@activity: @status">
-                                                @activity[0]
-                                            </div>
-                                        }
-                                    </div>
+                                            "Completed" => "#28a745",
+                                            "Failed" => "#dc3545",
+                                            "InProgress" => "#ffc107",
+                                            _ => "#6c757d"
+                                        };
+                                    }
+                                    <span class="badge" style="background-color: @color" title="@item.ErrorMessage">
+                                        @status
+                                    </span>
                                 </td>
                             </tr>
                         }
