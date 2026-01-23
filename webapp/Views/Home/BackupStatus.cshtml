@@ -1,4 +1,5 @@
 @model webapp.Models.BackupStatusViewModel
+@using shared_csharp
 @{
     ViewData["Title"] = "Backup Status";
 }
@@ -10,10 +11,18 @@
         <div class="card mb-3">
             <div class="card-body">
                 <div class="row g-2 align-items-center">
-                    <div class="col-12 col-md-8">
+                    <div class="col-12 col-md-4">
                         <div class="form-control-plaintext">Root Storage: @ViewBag.StoragePath</div>
                     </div>
-                    <div class="col-12 col-md-4 text-md-end">
+                    <div class="col-12 col-md-4">
+                        <div class="form-control-plaintext">Backup Storage: @ViewBag.BackupPath</div>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label for="dop" class="form-label">Threads</label>
+                        <input id="dop" class="form-control" type="number" min="1" max="32" value="8" />
+                    </div>
+                    <div class="col-12 col-md-6 text-md-end">
+                        <button id="startBtn" class="btn btn-primary">Run Backup</button>
                         <form asp-action="TruncateBackupResults" method="post" class="d-inline" 
                               onsubmit="return confirm('Are you sure you want to restart backup process? This will clear all tracking state.');">
                             <button type="submit" class="btn btn-outline-danger">Truncate / Restart</button>
@@ -21,6 +30,30 @@
                         <a class="btn btn-outline-secondary" href="@Url.Action("BackupStatus")">Refresh</a>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <div>
+                        <strong>Progress:</strong>
+                        <span id="progressText">0%</span>
+                    </div>
+                    <div>
+                        <span class="badge bg-secondary" id="jobIdBadge" style="display:none"></span>
+                    </div>
+                </div>
+                <div class="progress" role="progressbar" aria-label="Job progress" aria-valuemin="0" aria-valuemax="100">
+                    <div id="progressBar" class="progress-bar progress-bar-striped" style="width: 0%">0%</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">Live log</div>
+            <div class="card-body">
+                <pre id="log" class="mb-0" style="white-space: pre-wrap; max-height: 200px; overflow: auto"></pre>
             </div>
         </div>
 
@@ -72,3 +105,103 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script src="~/lib/signalr/dist/browser/signalr.min.js"></script>
+    <script>
+        (function () {
+            const startBtn = document.getElementById('startBtn');
+            const bar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            const log = document.getElementById('log');
+            const jobIdBadge = document.getElementById('jobIdBadge');
+            const dopEl = document.getElementById('dop');
+
+            let currentJobId = null;
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl('/hubs/jobstatus')
+                .withAutomaticReconnect()
+                .build();
+
+            function setProgress(p) {
+                p = Math.max(0, Math.min(100, p|0));
+                bar.style.width = p + '%';
+                bar.textContent = p + '%';
+                progressText.textContent = p + '%';
+            }
+
+            function addLog(msg) {
+                const time = new Date().toLocaleTimeString();
+                log.textContent += `[${time}] ${msg}\n`;
+                log.scrollTop = log.scrollHeight;
+            }
+
+            function clearLogs() { log.textContent = ""; }
+
+            connection.on('ReceiveProgress', payload => {
+                if (!payload || !currentJobId || payload.jobId !== currentJobId) return;
+                setProgress(payload.percent || 0);
+                if (payload.message) addLog(payload.message);
+            });
+
+            connection.on('ReceiveCompleted', payload => {
+                if (!payload || !currentJobId || payload.jobId !== currentJobId) return;
+                setProgress(100);
+                addLog(payload.message || 'Completed');
+                startBtn.disabled = false;
+            });
+
+            connection.on('ReceiveError', payload => {
+                addLog('Error: ' + (payload?.message || 'Unknown error'));
+                startBtn.disabled = false;
+            });
+
+            (async () => {
+                try { await connection.start(); addLog('Connected to hub.'); } catch { }
+            })();
+
+            async function startJob() {
+                setProgress(0);
+                clearLogs();
+                addLog('Starting backup job...');
+                startBtn.disabled = true;
+
+                const newJobId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID().replace(/-/g,'') : (Date.now().toString(36) + Math.random().toString(36).slice(2));
+                currentJobId = newJobId;
+                jobIdBadge.textContent = currentJobId;
+                jobIdBadge.style.display = '';
+
+                if (connection.state !== signalR.HubConnectionState.Connected) {
+                    try { await connection.start(); } catch { addLog('Hub connection failed'); startBtn.disabled=false; return; }
+                }
+                try { await connection.invoke('JoinJobGroup', currentJobId); } catch(e) { addLog('Join failed: '+e); startBtn.disabled=false; return; }
+
+                const body = new URLSearchParams({
+                    jobId: currentJobId,
+                    type: 'Backup',
+                    dop: (dopEl.value || '').toString()
+                });
+                
+                const resp = await fetch('@Url.Action("IndexJob", "Home")', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body
+                });
+                if (!resp.ok) {
+                    addLog('Failed to start job: ' + resp.status);
+                    startBtn.disabled = false;
+                    return;
+                }
+                addLog('Job started: ' + currentJobId);
+            }
+
+            startBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                startJob().catch(err => {
+                    addLog('Failed: ' + err);
+                    startBtn.disabled = false;
+                });
+            });
+        })();
+    </script>
+}

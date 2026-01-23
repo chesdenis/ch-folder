@@ -6,4 +6,5 @@ public class StorageOptions
     public string? ActionsPath { get; set; }
     public string? InputPath { get; set; }
     public string? ExtractionPath { get; set; }
+    public string? BackupPath { get; set; }
 }

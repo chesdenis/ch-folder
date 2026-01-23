@@ -39,6 +39,9 @@ public interface IDockerFolderRunner
     Task<int> RunAverageImageMarkerAsync(string hostFolderAbs,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
 
+    Task<int> RunMirrorServiceAsync(string hostFolderAbs, string backupRootAbs,
+        Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
+
     Task<int> RunContentValidatorAsync(string hostFolderAbs, string testKind, string folderName,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
 }
@@ -82,6 +85,16 @@ public class DockerFolderRunner(IOptions<StorageOptions> storage) : IDockerFolde
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
         => RunDockerAsync("average_image_marker", hostFolderAbs, onStdout, onStderr, ct);
 
+    public Task<int> RunMirrorServiceAsync(string hostFolderAbs, string backupRootAbs,
+        Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
+    {
+        var backupHost = Path.GetFullPath(backupRootAbs);
+        var containerBackupFolder = "/out";
+        return RunDockerAsync("mirror_service", hostFolderAbs, onStdout, onStderr, ct,
+            extraArgs: containerBackupFolder,
+            extraVolumes: $"-v \"{backupHost}\":{containerBackupFolder}:rw");
+    }
+
     public Task<int> RunContentValidatorAsync(string hostFolderAbs, string testKind, string folderName,
         Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
         => RunDockerAsync("content_validator", hostFolderAbs, onStdout, onStderr, ct,
@@ -94,15 +107,17 @@ public class DockerFolderRunner(IOptions<StorageOptions> storage) : IDockerFolde
         Action<string>? onStdout,
         Action<string>? onStderr,
         CancellationToken ct,
-        string? extraArgs = null)
+        string? extraArgs = null,
+        string? extraVolumes = null)
     {
         var containerFolder = "/in";
         var actionsPath = this._storageOptions.ActionsPath ?? throw new InvalidOperationException();
         var host = Path.GetFullPath(hostFolderAbs);
         var envFile = Path.Combine(actionsPath, image, ".env");
         var argsTail = string.IsNullOrWhiteSpace(extraArgs) ? string.Empty : $" {extraArgs}";
+        var vols = string.IsNullOrWhiteSpace(extraVolumes) ? string.Empty : $" {extraVolumes}";
         var arguments =
-            $"run --env-file {envFile} --rm -v \"{host}\":{containerFolder}:rw {image} {containerFolder}{argsTail}";
+            $"run --env-file {envFile} --rm -v \"{host}\":{containerFolder}:rw{vols} {image} {containerFolder}{argsTail}";
 
         var psi = new ProcessStartInfo
         {

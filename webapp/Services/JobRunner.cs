@@ -18,7 +18,8 @@ public enum JobType
     FaceHashBuilder,
     GroupFolderExtractor,
     AverageImageMarker,
-    ContentValidator
+    ContentValidator,
+    Backup
 }
 
 public interface IJobRunner
@@ -108,7 +109,7 @@ public class JobRunner : IJobRunner
                                     if (!folderPath.StartsWith("_"))
                                     {
                                         // Map job to appropriate docker runner function (unify signatures via wrappers)
-                                        var jobFunc = BuildJobFunc(jobType);
+                                        var jobFunc = BuildJobFunc(jobType, testKind);
 
                                         exit = await jobFunc(
                                             folderAbs,
@@ -127,24 +128,14 @@ public class JobRunner : IJobRunner
                                 case JobType.FaceHashBuilder:
                                 case JobType.GroupFolderExtractor:
                                 case JobType.AverageImageMarker:
+                                case JobType.Backup:
+                                case JobType.ContentValidator:
                                 {
                                     // Map job to appropriate docker runner function (unify signatures via wrappers)
-                                    var jobFunc = BuildJobFunc(jobType);
+                                    var jobFunc = BuildJobFunc(jobType, testKind);
 
                                     exit = await jobFunc(
                                         folderAbs,
-                                        line => ReportProgress(jobId, group, total, completed,
-                                            line, ct).GetAwaiter().GetResult(),
-                                        line => ReportProgress(jobId, group, total, completed,
-                                            $"[stderr] {line}", ct).GetAwaiter().GetResult(), ct);
-                                }
-                                    break;
-                                case JobType.ContentValidator:
-                                {
-                                    // Pass the real folder name (relative segment) to the container
-                                    exit = await _dockerFolderRunner.RunContentValidatorAsync(folderAbs,
-                                        testKind,
-                                        folderPath,
                                         line => ReportProgress(jobId, group, total, completed,
                                             line, ct).GetAwaiter().GetResult(),
                                         line => ReportProgress(jobId, group, total, completed,
@@ -266,7 +257,7 @@ public class JobRunner : IJobRunner
         return storageFolders.ToArray();
     }
 
-    private Func<string, Action<string>?, Action<string>?, CancellationToken, Task<int>> BuildJobFunc(JobType jobType)
+    private Func<string, Action<string>?, Action<string>?, CancellationToken, Task<int>> BuildJobFunc(JobType jobType, string? testKind)
     {
         Func<string, Action<string>?, Action<string>?, CancellationToken, Task<int>> jobFunc = jobType switch
         {
@@ -284,6 +275,10 @@ public class JobRunner : IJobRunner
                 _dockerFolderRunner.RunGroupFolderExtractorAsync(hf, o, e, ct),
             JobType.AverageImageMarker => (hf, o, e, ct) =>
                 _dockerFolderRunner.RunAverageImageMarkerAsync(hf, o, e, ct),
+            JobType.Backup => (hf, o, e, ct) =>
+                _dockerFolderRunner.RunMirrorServiceAsync(hf, _storageOptions.BackupPath ?? throw new InvalidOperationException("Backup path is not configured"), o, e, ct),
+            JobType.ContentValidator => (hf, o, e, ct) =>
+                _dockerFolderRunner.RunContentValidatorAsync(hf, testKind ?? "All", Path.GetFileName(hf), o, e, ct),
             _ => (hf, o, e, ct) => _dockerFolderRunner.RunMetaUploaderAsync(hf, o, e, ct)
         };
         return jobFunc;

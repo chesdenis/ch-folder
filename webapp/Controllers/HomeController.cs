@@ -640,6 +640,7 @@ public class HomeController(
             Activities = activities
         };
         ViewBag.StoragePath = root ?? string.Empty;
+        ViewBag.BackupPath = _storage.BackupPath ?? string.Empty;
         return View(vm);
     }
 
