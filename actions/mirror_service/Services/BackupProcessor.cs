@@ -57,7 +57,7 @@ public class BackupProcessor(IFileSystem fileSystem, IFileHasher fileHasher)
         {
             if (!file.AllowImageToProcess()) continue;
             
-            var md5 = await fileHasher.ComputeMd5ForceAsync(file);
+            var md5 = await fileHasher.ComputeMd5Async(file);
             if (await IsAlreadyCompleted(md5))
             {
                 Console.WriteLine($"File {file} already backed up. Skipping.");
