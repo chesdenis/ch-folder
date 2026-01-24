@@ -42,136 +42,67 @@ public class BackupProcessor(IFileSystem fileSystem, IFileHasher fileHasher)
             return;
         }
 
-        await BackupOriginalImages(sourceFolder, backupFolder);
-        // await BackupPreviewImages(sourceFolder, partition, folderName);
-        // await BackupDqFiles(sourceFolder, partition, folderName);
-        // await BackupCommerceMarkFiles(sourceFolder, partition, folderName);
-        // await BackupEmbFiles(sourceFolder, partition, folderName);
-        // await BackupEng30TagsFiles(sourceFolder, partition, folderName);
-        // await BackupEngShortFiles(sourceFolder, partition, folderName);
-        // await BackupFvFiles(sourceFolder, partition, folderName);
+        await BackupFolder(sourceFolder, backupFolder);
+        
     }
 
-    private async Task BackupOriginalImages(string sourceFolder, string backupFolder)
+    private async Task BackupFolder(string sourceFolder, string backupFolder)
     {
         var files = fileSystem.EnumerateFiles(sourceFolder, "*", SearchOption.TopDirectoryOnly);
         foreach (var file in files)
         {
-            if (file.AllowImageToProcess())
+            if (!file.AllowImageToProcess()) continue;
+            
+            var md5 = await fileHasher.ComputeMd5ForceAsync(file);
+            if (await IsAlreadyCompleted(md5))
             {
-                var md5 = await fileHasher.ComputeMd5ForceAsync(file);
-                if (await IsAlreadyCompleted(md5))
-                {
-                    Console.WriteLine($"File {file} already backed up. Skipping.");
-                    continue;
-                }
+                Console.WriteLine($"File {file} already backed up. Skipping.");
+                continue;
+            }
 
-                await UpdateStatus(md5, "InProgress");
-                try
-                {
-                    await CopyAndVerify(file, sourceFolder, backupFolder, md5);
-                    await UpdateStatus(md5, "Completed");
-                }
-                catch (Exception ex)
-                {
-                    await UpdateStatus(md5, "Failed", ex.Message);
-                    Console.WriteLine($"Failed to backup {file}: {ex.Message}");
-                }
+            await UpdateStatus(md5, "InProgress");
+            try
+            {
+                await CopyAndVerify(file, sourceFolder, backupFolder);
+                    
+                await CopyAndVerify(file.GetPreview16Path(), sourceFolder, backupFolder);
+                await CopyAndVerify(file.GetPreview32Path(), sourceFolder, backupFolder);
+                await CopyAndVerify(file.GetPreview64Path(), sourceFolder, backupFolder);
+                await CopyAndVerify(file.GetPreview128Path(), sourceFolder, backupFolder);
+                await CopyAndVerify(file.GetPreview512Path(), sourceFolder, backupFolder);
+                await CopyAndVerify(file.GetPreview2000Path(), sourceFolder, backupFolder);
+                
+                await CopyAndVerify(PathExtensions.ResolveDqQuestionPath(file), sourceFolder, backupFolder);
+                await CopyAndVerify(PathExtensions.ResolveDqAnswerPath(file), sourceFolder, backupFolder);
+                await CopyAndVerify(PathExtensions.ResolveDqConversationPath(file), sourceFolder, backupFolder);
+                
+                await CopyAndVerify(PathExtensions.ResolveEmbAnswer(file), sourceFolder, backupFolder);
+                
+                await CopyAndVerify(PathExtensions.ResolveFvAnswer(file), sourceFolder, backupFolder);
+                
+                await CopyAndVerify(PathExtensions.ResolveCommerceMarkQuestionPath(file), sourceFolder, backupFolder);
+                await CopyAndVerify(PathExtensions.ResolveCommerceMarkAnswerPath(file), sourceFolder, backupFolder);
+                await CopyAndVerify(PathExtensions.ResolveCommerceMarkConversationPath(file), sourceFolder, backupFolder);
+                
+                await CopyAndVerify(PathExtensions.ResolveEngShortQuestionPath(file), sourceFolder, backupFolder);
+                await CopyAndVerify(PathExtensions.ResolveEngShortAnswerPath(file), sourceFolder, backupFolder);
+                await CopyAndVerify(PathExtensions.ResolveEngShortConversationPath(file), sourceFolder, backupFolder);
+                
+                await CopyAndVerify(PathExtensions.ResolveEng30TagsQuestionPath(file), sourceFolder, backupFolder);
+                await CopyAndVerify(PathExtensions.ResolveEng30TagsAnswerPath(file), sourceFolder, backupFolder);
+                await CopyAndVerify(PathExtensions.ResolveEng30TagsConversationPath(file), sourceFolder, backupFolder);
+                 
+                await UpdateStatus(md5, "Completed");
+            }
+            catch (Exception ex)
+            {
+                await UpdateStatus(md5, "Failed", ex.Message);
+                Console.WriteLine($"Failed to backup {file}: {ex.Message}");
             }
         }
     }
-
-  
-    // private async Task BackupPreviewImages(string sourceFolder, string partition, string folderName)
-    // {
-    //     var previewFolder = Path.Combine(sourceFolder, "preview");
-    //     if (!fileSystem.DirectoryExists(previewFolder)) return;
-    //
-    //     var files = fileSystem.EnumerateFiles(previewFolder, "*.jpg", SearchOption.TopDirectoryOnly);
-    //     foreach (var file in files)
-    //     {
-    //         var md5 = await fileHasher.ComputeMd5ForceAsync(file);
-    //         if (await IsAlreadyCompleted(md5))
-    //         {
-    //             Console.WriteLine($"File {file} already backed up. Skipping.");
-    //             continue;
-    //         }
-    //
-    //         await UpdateStatus(md5, "InProgress");
-    //         try
-    //         {
-    //             await CopyAndVerify(file, sourceFolder, partition, folderName, md5);
-    //             await UpdateStatus(md5, "Completed");
-    //         }
-    //         catch (Exception ex)
-    //         {
-    //             await UpdateStatus(md5, "Failed", ex.Message);
-    //             Console.WriteLine($"Failed to backup {file}: {ex.Message}");
-    //         }
-    //     }
-    // }
-    //
-    // private async Task BackupDqFiles(string sourceFolder, string partition, string folderName)
-    // {
-    //     await BackupSubFolder(sourceFolder, "dq", partition, folderName);
-    // }
-    //
-    // private async Task BackupCommerceMarkFiles(string sourceFolder, string partition, string folderName)
-    // {
-    //     await BackupSubFolder(sourceFolder, "commerceMark", partition, folderName);
-    // }
-    //
-    // private async Task BackupEmbFiles(string sourceFolder, string partition, string folderName)
-    // {
-    //     await BackupSubFolder(sourceFolder, "emb", partition, folderName);
-    // }
-    //
-    // private async Task BackupEng30TagsFiles(string sourceFolder, string partition, string folderName)
-    // {
-    //     await BackupSubFolder(sourceFolder, "eng30tags", partition, folderName);
-    // }
-    //
-    // private async Task BackupEngShortFiles(string sourceFolder, string partition, string folderName)
-    // {
-    //     await BackupSubFolder(sourceFolder, "engShort", partition, folderName);
-    // }
-    //
-    // private async Task BackupFvFiles(string sourceFolder, string partition, string folderName)
-    // {
-    //     await BackupSubFolder(sourceFolder, "fv", partition, folderName);
-    // }
-
-    // private async Task BackupSubFolder(string sourceFolder, string subFolder, string partition, string folderName)
-    // {
-    //     var path = Path.Combine(sourceFolder, subFolder);
-    //     if (!fileSystem.DirectoryExists(path)) return;
-    //
-    //     var files = fileSystem.EnumerateFiles(path, "*", SearchOption.TopDirectoryOnly);
-    //     foreach (var file in files)
-    //     {
-    //         var md5 = await fileHasher.ComputeMd5ForceAsync(file);
-    //         if (await IsAlreadyCompleted(md5))
-    //         {
-    //             Console.WriteLine($"File {file} already backed up. Skipping.");
-    //             continue;
-    //         }
-    //
-    //         await UpdateStatus(md5, "InProgress");
-    //         try
-    //         {
-    //             await CopyAndVerify(file, sourceFolder, target, md5);
-    //             await UpdateStatus(md5, "Completed");
-    //         }
-    //         catch (Exception ex)
-    //         {
-    //             await UpdateStatus(md5, "Failed", ex.Message);
-    //             Console.WriteLine($"Failed to backup {file}: {ex.Message}");
-    //         }
-    //     }
-    // }
-
-    
-    private async Task CopyAndVerify(string sourceFilePath, string sourceFolder, string backupFolder, string md5)
+ 
+    private async Task CopyAndVerify(string sourceFilePath, string sourceFolder, string backupFolder)
     {
         var relativeFolder = Path.GetRelativePath(sourceFolder, sourceFilePath);
         var destPath = Path.Combine(backupFolder, relativeFolder);
@@ -179,11 +110,12 @@ public class BackupProcessor(IFileSystem fileSystem, IFileHasher fileHasher)
         fileSystem.CopyFile(sourceFilePath, destPath, true);
 
         // MD5 Verification
+        var srcMd5 = await fileHasher.ComputeMd5ForceAsync(sourceFilePath);
         var destMd5 = await fileHasher.ComputeMd5ForceAsync(destPath);
 
-        if (md5 != destMd5)
+        if (srcMd5 != destMd5)
         {
-            throw new Exception($"MD5 mismatch for {sourceFilePath}. Source: {md5}, Dest: {destMd5}");
+            throw new Exception($"MD5 mismatch for {sourceFilePath}. Source: {srcMd5}, Dest: {destMd5}");
         }
     }
 

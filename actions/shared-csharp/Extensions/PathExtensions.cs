@@ -149,6 +149,8 @@ public static class PathExtensions
     
     public static string ResolveEmbAnswer(string filePath) => ResolveAiPath(filePath, "emb", "answer");
     public static string ResolveEmbConversation(string filePath) => ResolveAiPath(filePath, "emb", "conversation");
+    
+    public static string ResolveFvAnswer(string filePath) => ResolveAiPath(filePath, "fv", "answer");
 
     public static string ResolveDqQuestionPath(string filePath) => ResolveAiPath(filePath, "dq", "question");
     public static string ResolveCommerceMarkQuestionPath(string filePath) => ResolveAiPath(filePath, "commerceMark", "question");
