@@ -36,12 +36,6 @@ public class BackupProcessor(IFileSystem fileSystem, IFileHasher fileHasher)
             return;
         } 
         
-        if (!fileSystem.DirectoryExists(backupFolder))
-        {
-            Console.WriteLine($"Backup folder does not exist: {sourceFolder}");
-            return;
-        }
-
         await BackupFolder(sourceFolder, backupFolder);
         
     }
@@ -49,6 +43,16 @@ public class BackupProcessor(IFileSystem fileSystem, IFileHasher fileHasher)
     private async Task BackupFolder(string sourceFolder, string backupFolder)
     {
         var files = fileSystem.EnumerateFiles(sourceFolder, "*", SearchOption.TopDirectoryOnly);
+        
+        Directory.CreateDirectory(backupFolder);
+        Directory.CreateDirectory(Path.Combine(backupFolder, "preview"));
+        Directory.CreateDirectory(Path.Combine(backupFolder, "dq"));
+        Directory.CreateDirectory(Path.Combine(backupFolder, "emb"));
+        Directory.CreateDirectory(Path.Combine(backupFolder, "fv"));
+        Directory.CreateDirectory(Path.Combine(backupFolder, "commerceMark"));
+        Directory.CreateDirectory(Path.Combine(backupFolder, "engShort"));
+        Directory.CreateDirectory(Path.Combine(backupFolder, "eng30tags"));
+         
         foreach (var file in files)
         {
             if (!file.AllowImageToProcess()) continue;
