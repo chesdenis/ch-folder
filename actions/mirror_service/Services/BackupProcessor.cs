@@ -82,7 +82,7 @@ public class BackupProcessor(IFileSystem fileSystem, IFileHasher fileHasher)
                 
                 await CopyAndVerify(PathExtensions.ResolveEmbAnswer(file), sourceFolder, backupFolder);
                 
-                await CopyAndVerify(PathExtensions.ResolveFvAnswer(file), sourceFolder, backupFolder);
+                await CopyAndVerify(PathExtensions.ResolveFvAnswer(file), sourceFolder, backupFolder, byPass:true);
                 
                 await CopyAndVerify(PathExtensions.ResolveCommerceMarkQuestionPath(file), sourceFolder, backupFolder);
                 await CopyAndVerify(PathExtensions.ResolveCommerceMarkAnswerPath(file), sourceFolder, backupFolder);
@@ -106,20 +106,31 @@ public class BackupProcessor(IFileSystem fileSystem, IFileHasher fileHasher)
         }
     }
  
-    private async Task CopyAndVerify(string sourceFilePath, string sourceFolder, string backupFolder)
+    private async Task CopyAndVerify(string sourceFilePath, string sourceFolder, string backupFolder, bool byPass = false)
     {
-        var relativeFolder = Path.GetRelativePath(sourceFolder, sourceFilePath);
-        var destPath = Path.Combine(backupFolder, relativeFolder);
- 
-        fileSystem.CopyFile(sourceFilePath, destPath, true);
-
-        // MD5 Verification
-        var srcMd5 = await fileHasher.ComputeMd5ForceAsync(sourceFilePath);
-        var destMd5 = await fileHasher.ComputeMd5ForceAsync(destPath);
-
-        if (srcMd5 != destMd5)
+        try
         {
-            throw new Exception($"MD5 mismatch for {sourceFilePath}. Source: {srcMd5}, Dest: {destMd5}");
+            var relativeFolder = Path.GetRelativePath(sourceFolder, sourceFilePath);
+            var destPath = Path.Combine(backupFolder, relativeFolder);
+
+            fileSystem.CopyFile(sourceFilePath, destPath, true);
+
+            // MD5 Verification
+            var srcMd5 = await fileHasher.ComputeMd5ForceAsync(sourceFilePath);
+            var destMd5 = await fileHasher.ComputeMd5ForceAsync(destPath);
+
+            if (srcMd5 != destMd5)
+            {
+                throw new Exception($"MD5 mismatch for {sourceFilePath}. Source: {srcMd5}, Dest: {destMd5}");
+            }
+        }
+        catch (Exception e)
+        {
+            if (!byPass)
+            {
+                Console.WriteLine(e);
+                throw;
+            }
         }
     }
 
