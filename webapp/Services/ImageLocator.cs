@@ -206,10 +206,13 @@ public sealed class ImageLocator(
         {
             await imageLocationRepository.UpsertLocationsAsync(_imageLocationsMap, ct);
             logger.LogInformation("PhotoLocator: uploaded {Count} image locations to DB", _imageLocationsMap.Count);
+            
+            // Cleanup dead links
+            await imageLocationRepository.DeleteMissingLocationsAsync(_imageLocationsMap.Keys, ct);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "PhotoLocator: failed to upload image locations to DB");
+            logger.LogError(ex, "PhotoLocator: failed to update image locations in DB");
         }
         
         sw.Stop();

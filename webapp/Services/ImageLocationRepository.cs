@@ -11,6 +11,7 @@ public interface IImageLocationRepository
     Task UpsertLocationsAsync(IEnumerable<KeyValuePair<string, string>> md5ToPath, CancellationToken ct = default);
     Task<string?> GetPathByMd5Async(string md5, CancellationToken ct = default);
     Task<IDictionary<string, string>> GetAllAsync(CancellationToken ct = default);
+    Task DeleteMissingLocationsAsync(IEnumerable<string> existingMd5s, CancellationToken ct = default);
 }
 
 public sealed class ImageLocationRepository(IOptions<ConnectionStringOptions> connectionStringsOptions, ILogger<ImageLocationRepository> logger)
@@ -88,5 +89,56 @@ public sealed class ImageLocationRepository(IOptions<ConnectionStringOptions> co
         cmd.CommandText = sb.ToString();
         await cmd.ExecuteNonQueryAsync(ct);
         await tx.CommitAsync(ct);
+    }
+
+    public async Task DeleteMissingLocationsAsync(IEnumerable<string> existingMd5s, CancellationToken ct = default)
+    {
+        var existingMd5Set = existingMd5s.ToHashSet();
+        
+        // Fetch all MD5s from the database
+        var allDbMd5s = new List<string>();
+        await using (var conn = CreateConnection())
+        {
+            await conn.OpenAsync(ct);
+            await using var cmd = new NpgsqlCommand("SELECT md5_hash FROM image_location", conn);
+            await using var rdr = await cmd.ExecuteReaderAsync(ct);
+            while (await rdr.ReadAsync(ct))
+            {
+                allDbMd5s.Add(rdr.GetString(0));
+            }
+        }
+
+        var toDelete = allDbMd5s.Where(md5 => !existingMd5Set.Contains(md5)).ToList();
+        
+        if (toDelete.Count == 0) return;
+
+        logger.LogInformation("ImageLocationRepository: found {Count} dead links to remove", toDelete.Count);
+
+        // Delete in batches to avoid locking or huge commands
+        for (var offset = 0; offset < toDelete.Count; offset += BatchSize)
+        {
+            var batch = toDelete.Skip(offset).Take(BatchSize).ToList();
+            await using var conn = CreateConnection();
+            await conn.OpenAsync(ct);
+            await using var tx = await conn.BeginTransactionAsync(ct);
+            
+            var sb = new System.Text.StringBuilder();
+            sb.Append("DELETE FROM image_location WHERE md5_hash IN (");
+            await using var cmd = new NpgsqlCommand { Connection = conn, Transaction = tx };
+            
+            for (int i = 0; i < batch.Count; i++)
+            {
+                if (i > 0) sb.Append(",");
+                sb.Append($"@md5_{i}");
+                cmd.Parameters.AddWithValue($"@md5_{i}", NpgsqlDbType.Text, batch[i]);
+            }
+            sb.Append(")");
+            
+            cmd.CommandText = sb.ToString();
+            await cmd.ExecuteNonQueryAsync(ct);
+            await tx.CommitAsync(ct);
+        }
+        
+        logger.LogInformation("ImageLocationRepository: deleted {Count} dead links from image_location", toDelete.Count);
     }
 }
