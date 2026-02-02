@@ -263,8 +263,8 @@ public class HomeController(
             }
 
             // If no query and no session to restore, just show the search page with empty results/form
-            ViewBag.AvailableTags = Array.Empty<string>();
-            ViewBag.AvailablePersons = Array.Empty<string>();
+            ViewBag.AvailableTags = await searchResultsRepo.GetAllDistinctTagsAsync(HttpContext.RequestAborted);
+            ViewBag.AvailablePersons = await searchResultsRepo.GetAllDistinctPersonsAsync(HttpContext.RequestAborted);
             ViewBag.GalleryItems = new List<webapp.Components.GalleryItem>();
             ViewBag.SearchResults = new List<webapp.Services.SearchResultRow>();
             ViewBag.Total = 0;
@@ -406,28 +406,10 @@ public class HomeController(
             })
             .ToList();
         ViewBag.GalleryItems = galleryItems;
-        // Load distinct tags for this session to populate tags selector
-        try
-        {
-            var availableTags = await searchResultsRepo.GetDistinctTagsForSessionAsync(sessionToUse.SessionId, HttpContext.RequestAborted);
-            ViewBag.AvailableTags = availableTags;
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "[Search] Failed to load available tags for session {SessionId}", sessionToUse.SessionId);
-            ViewBag.AvailableTags = Array.Empty<string>();
-        }
-        // Load distinct persons for this session to populate persons selector
-        try
-        {
-            var availablePersons = await searchResultsRepo.GetDistinctPersonsForSessionAsync(sessionToUse.SessionId, HttpContext.RequestAborted);
-            ViewBag.AvailablePersons = availablePersons;
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "[Search] Failed to load available persons for session {SessionId}", sessionToUse.SessionId);
-            ViewBag.AvailablePersons = Array.Empty<string>();
-        }
+        // Load distinct tags and persons for suggestions
+        ViewBag.AvailableTags = await searchResultsRepo.GetAllDistinctTagsAsync(HttpContext.RequestAborted);
+        ViewBag.AvailablePersons = await searchResultsRepo.GetAllDistinctPersonsAsync(HttpContext.RequestAborted);
+        
         ViewBag.Total = filteredResults.Count;
         ViewBag.Page = pageFromQuery; // reflect requested page
         ViewBag.PageSize = pageSizeInt; // strongly-typed int

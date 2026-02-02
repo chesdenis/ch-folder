@@ -1,0 +1,93 @@
+@{
+    var id = ViewBag.Id as string;
+    var parameterName = ViewBag.ParameterName as string;
+    var available = ViewBag.AvailableValues as HashSet<string> ?? new HashSet<string>();
+    var selected = ViewBag.SelectedValues as HashSet<string> ?? new HashSet<string>();
+    var placeholder = ViewBag.Placeholder as string;
+
+    // Filter out already selected values from suggestions
+    var suggestions = available.Except(selected, StringComparer.OrdinalIgnoreCase).OrderBy(v => v).ToList();
+    var suggestionsJson = System.Text.Json.JsonSerializer.Serialize(suggestions);
+}
+
+<div class="multi-selector-container" id="container-@id" data-parameter="@parameterName" data-all-suggestions='@suggestionsJson'>
+    <div class="selected-chips">
+        @foreach (var val in selected)
+        {
+            <span class="chip" data-value="@val">
+                @val
+                <button type="button" class="remove-chip" aria-label="Remove @val">&times;</button>
+            </span>
+        }
+    </div>
+    
+    <input type="text" class="multi-selector-input form-control" placeholder="@placeholder" autocomplete="off">
+    
+    <div class="suggestion-chips mt-2">
+        @* Suggestions will be rendered dynamically by JavaScript after typing *@
+    </div>
+</div>
+
+<style>
+    .multi-selector-container {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        border: 1px solid rgba(0,0,0,.1);
+        border-radius: 10px;
+        padding: 0.5rem;
+        background: rgba(0,0,0,0.02);
+        min-height: 2.5rem;
+        width: 100%;
+    }
+    .selected-chips, .suggestion-chips {
+        display: flex;
+        gap: 0.25rem;
+        flex-wrap: wrap;
+    }
+    .chip {
+        display: inline-flex;
+        align-items: center;
+        background: rgba(0, 90, 255, .12);
+        color: rgb(0, 82, 204);
+        border: 1px solid rgba(0, 90, 255, .3);
+        border-radius: 6px;
+        padding: 0.1rem 0.4rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    .remove-chip {
+        background: transparent;
+        border: none;
+        color: rgb(0, 82, 204);
+        margin-left: 0.25rem;
+        padding: 0;
+        cursor: pointer;
+        font-size: 1.1rem;
+        line-height: 1;
+    }
+    .suggestion-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: .25rem .5rem;
+        border: 1px solid rgba(0,0,0,.1);
+        border-radius: 9999px;
+        background: #fff;
+        font-size: .8rem;
+        line-height: 1;
+        cursor: pointer;
+        user-select: none;
+        color: #6c757d;
+    }
+    .suggestion-chip:hover {
+        background: rgba(0,0,0,.04);
+        color: #212529;
+    }
+    .multi-selector-input {
+        border: 1px solid rgba(0,0,0,.1);
+        border-radius: 6px;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.95rem;
+    }
+</style>

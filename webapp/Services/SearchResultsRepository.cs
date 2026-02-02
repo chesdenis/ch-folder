@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Data;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -32,6 +33,8 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
     : ISearchResultsRepository
 {
     private readonly ConnectionStringOptions _connectionStrings = connectionStringsOptions.Value;
+    private static readonly ConcurrentDictionary<string, (DateTime Expiry, IReadOnlyList<string> Data)> _cache = new();
+    private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(10);
 
     private NpgsqlConnection CreateConnection() =>
         new(_connectionStrings.PgPhMetaDb ?? throw new InvalidOperationException());
@@ -359,6 +362,12 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
 
     public async Task<IReadOnlyList<string>> GetAllDistinctTagsAsync(CancellationToken ct = default)
     {
+        const string key = "all_tags";
+        if (_cache.TryGetValue(key, out var cached) && cached.Expiry > DateTime.UtcNow)
+        {
+            return cached.Data;
+        }
+
         await using var conn = CreateConnection();
         await conn.OpenAsync(ct);
         var tags = new List<string>();
@@ -368,17 +377,25 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
             CROSS JOIN LATERAL unnest(tags) AS t
             WHERE t IS NOT NULL AND length(trim(t)) > 0
             GROUP BY t
-            ORDER BY COUNT(*) DESC, t ASC LIMIT 100", conn);
+            ORDER BY COUNT(*) DESC, t ASC", conn);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
             tags.Add(reader.GetString(0));
         }
-        return tags.OrderBy(t => t).ToList();
+        var result = tags.OrderBy(t => t).ToList();
+        _cache[key] = (DateTime.UtcNow.Add(CacheDuration), result);
+        return result;
     }
 
     public async Task<IReadOnlyList<string>> GetAllDistinctPersonsAsync(CancellationToken ct = default)
     {
+        const string key = "all_persons";
+        if (_cache.TryGetValue(key, out var cached) && cached.Expiry > DateTime.UtcNow)
+        {
+            return cached.Data;
+        }
+
         await using var conn = CreateConnection();
         await conn.OpenAsync(ct);
         var persons = new List<string>();
@@ -388,13 +405,15 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
             CROSS JOIN LATERAL unnest(persons) AS p_name
             WHERE p_name IS NOT NULL AND length(trim(p_name)) > 0
             GROUP BY p_name
-            ORDER BY COUNT(*) DESC, p_name ASC LIMIT 100", conn);
+            ORDER BY COUNT(*) DESC, p_name ASC", conn);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
             persons.Add(reader.GetString(0));
         }
-        return persons.OrderBy(p => p).ToList();
+        var result = persons.OrderBy(p => p).ToList();
+        _cache[key] = (DateTime.UtcNow.Add(CacheDuration), result);
+        return result;
     }
 
     public async Task<IReadOnlyList<string>> GetAllDistinctFoldersAsync(CancellationToken ct = default)

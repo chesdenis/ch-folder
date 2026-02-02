@@ -90,123 +90,58 @@
                 <!-- Tags selector placed inline in the toolbar -->
                 <div class="toolbar-group" role="group" aria-label="Tags selector">
                     <span class="toolbar-label">Tags</span>
-                    @await Component.InvokeAsync("TagsSelector", new {
-                        availableTags = ViewBag.AvailableTags as IEnumerable<string>,
-                        selectedTags = ViewBag.SelectedTags as IEnumerable<string>
+                    @await Component.InvokeAsync("MultiSelector", new {
+                        id = "tagsSelector",
+                        parameterName = "tags",
+                        availableValues = ViewBag.AvailableTags as IEnumerable<string>,
+                        selectedValues = ViewBag.SelectedTags as IEnumerable<string>,
+                        placeholder = "Add tag..."
                     })
                 </div>
 
                 <!-- Persons selector placed inline in the toolbar -->
                 <div class="toolbar-group" role="group" aria-label="Persons selector">
                     <span class="toolbar-label">Persons</span>
-                    <div class="person-input-container">
-                        <div id="selectedPersonsChips" class="selected-chips">
-                            @{
-                                var selectedPersonsList = (ViewBag.SelectedPersons as IEnumerable<string> ?? Array.Empty<string>()).ToList();
-                                foreach (var person in selectedPersonsList)
-                                {
-                                    <span class="chip" data-person="@person">
-                                        @person
-                                        <button type="button" class="remove-person-chip remove-chip" aria-label="Remove @person">&times;</button>
-                                    </span>
-                                }
-                            }
-                        </div>
-                        <input type="text" id="personInput" list="personHints" class="person-input" placeholder="Add person..." autocomplete="off">
-                        <datalist id="personHints">
-                            @{
-                                var availablePersons = ViewBag.AvailablePersons as IEnumerable<string> ?? Array.Empty<string>();
-                                foreach (var person in availablePersons)
-                                {
-                                    <option value="@person"></option>
-                                }
-                            }
-                        </datalist>
-                    </div>
+                    @await Component.InvokeAsync("MultiSelector", new {
+                        id = "personsSelector",
+                        parameterName = "persons",
+                        availableValues = ViewBag.AvailablePersons as IEnumerable<string>,
+                        selectedValues = ViewBag.SelectedPersons as IEnumerable<string>,
+                        placeholder = "Add person..."
+                    })
                 </div>
 
                 <!-- Folders selector with text box and hints -->
                 <div class="toolbar-group" role="group" aria-label="Folders selector">
                     <span class="toolbar-label">Folders</span>
-                    <div class="folder-input-container">
-                        <div id="selectedFoldersChips" class="selected-chips">
-                            @{
-                                var selectedFoldersL1 = (ViewBag.SelectedFoldersL1 as IEnumerable<string> ?? Array.Empty<string>()).ToList();
-                                var selectedFoldersL2 = (ViewBag.SelectedFoldersL2 as IEnumerable<string> ?? Array.Empty<string>()).ToList();
-                                
-                                foreach (var folder in selectedFoldersL1)
-                                {
-                                    <span class="chip" data-folder="@folder" data-level="1">
-                                        @folder
-                                        <button type="button" class="remove-folder-chip remove-chip" aria-label="Remove @folder">&times;</button>
-                                    </span>
-                                }
-                                foreach (var folder in selectedFoldersL2)
-                                {
-                                    <span class="chip" data-folder="@folder" data-level="2">
-                                        @folder
-                                        <button type="button" class="remove-folder-chip remove-chip" aria-label="Remove @folder">&times;</button>
-                                    </span>
-                                }
-                            }
-                        </div>
-                        <div class="folder-inputs">
-                            <div class="l1-wrapper">
-                                <select id="folderLevel1" class="folder-input-l1">
-                                    <option value="">Partition...</option>
-                                    @{
-                                        var level1Folders = ViewBag.AvailableFoldersLevel1 as IEnumerable<string> ?? Enumerable.Empty<string>();
-                                        var currentSelectedL1 = ViewBag.SelectedFoldersL1 as IEnumerable<string> ?? Array.Empty<string>();
-                                        foreach (var partition in level1Folders)
-                                        {
-                                            var isSelected = currentSelectedL1.Contains(partition);
-                                            <option value="@partition" selected="@(isSelected ? "selected" : null)">@partition</option>
-                                        }
-                                    }
-                                </select>
-                                <button type="button" id="addL1Btn" class="btn-add-l1" title="Add all from this partition">+</button>
-                            </div>
-                            <input type="text" id="folderInput" list="folderHints" class="folder-input" placeholder="Add event..." autocomplete="off">
-                            <datalist id="folderHints">
-                                @{
-                                    var availableFolders = ViewBag.AvailableFoldersLevel2 as IEnumerable<string> ?? Array.Empty<string>();
-                                    foreach (var folder in availableFolders)
-                                    {
-                                        <option value="@folder"></option>
-                                    }
-                                }
-                            </datalist>
-                        </div>
+                    <div class="folder-input-container-v2">
+                        @await Component.InvokeAsync("MultiSelector", new {
+                            id = "foldersL1Selector",
+                            parameterName = "foldersL1",
+                            availableValues = ViewBag.AvailableFoldersLevel1 as IEnumerable<string>,
+                            selectedValues = ViewBag.SelectedFoldersL1 as IEnumerable<string>,
+                            placeholder = "Add partition..."
+                        })
+                        @await Component.InvokeAsync("MultiSelector", new {
+                            id = "foldersL2Selector",
+                            parameterName = "foldersL2",
+                            availableValues = ViewBag.AvailableFoldersLevel2 as IEnumerable<string>,
+                            selectedValues = ViewBag.SelectedFoldersL2 as IEnumerable<string>,
+                            placeholder = "Add event..."
+                        })
                     </div>
                 </div>
 
                 <!-- Extensions selector with text box and hints -->
                 <div class="toolbar-group" role="group" aria-label="Extensions selector">
                     <span class="toolbar-label">Ext</span>
-                    <div class="extension-input-container">
-                        <div id="selectedExtensionsChips" class="selected-chips">
-                            @{
-                                var selectedExtensionsList = (ViewBag.SelectedExtensions as IEnumerable<string> ?? Array.Empty<string>()).ToList();
-                                foreach (var ext in selectedExtensionsList)
-                                {
-                                    <span class="chip" data-extension="@ext">
-                                        @ext
-                                        <button type="button" class="remove-extension-chip remove-chip" aria-label="Remove @ext">&times;</button>
-                                    </span>
-                                }
-                            }
-                        </div>
-                        <input type="text" id="extensionInput" list="extensionHints" class="extension-input" placeholder="Add ext..." autocomplete="off">
-                        <datalist id="extensionHints">
-                            @{
-                                var availableExtensions = ViewBag.AvailableExtensions as IEnumerable<string> ?? Array.Empty<string>();
-                                foreach (var ext in availableExtensions)
-                                {
-                                    <option value="@ext"></option>
-                                }
-                            }
-                        </datalist>
-                    </div>
+                    @await Component.InvokeAsync("MultiSelector", new {
+                        id = "extensionsSelector",
+                        parameterName = "extensions",
+                        availableValues = ViewBag.AvailableExtensions as IEnumerable<string>,
+                        selectedValues = ViewBag.SelectedExtensions as IEnumerable<string>,
+                        placeholder = "Add ext..."
+                    })
                 </div>
 
                 <!-- Commerce rating selector -->
@@ -259,44 +194,11 @@
 @section Styles {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/photoswipe@5.4.3/dist/photoswipe.css">
     <style>
-        .folder-inputs {
+        .folder-input-container-v2 {
             display: flex;
-            gap: 5px;
-            align-items: center;
-        }
-        .l1-wrapper {
-            display: flex;
-            gap: 2px;
-            align-items: center;
-        }
-        .folder-input-l1 {
-            padding: 0.25rem 0.5rem;
-            border: 1px solid rgba(0,0,0,.1);
-            border-radius: 6px 0 0 6px;
-            background-color: #fff;
-            color: #212529;
-            font-size: 0.95rem;
-            outline: none;
-        }
-        .btn-add-l1 {
-            padding: 0.25rem 0.75rem;
-            border: 1px solid rgba(0,0,0,.1);
-            border-left: none;
-            border-radius: 0 6px 6px 0;
-            background-color: rgba(0,0,0,0.05);
-            color: #212529;
-            font-size: 0.95rem;
-            cursor: pointer;
-        }
-        .btn-add-l1:hover {
-            background-color: rgba(0,0,0,0.1);
-        }
-        .folder-input-l1:focus {
-            outline: none;
-            border-color: rgba(0, 90, 255, .3);
-        }
-        .folder-input {
-            flex-grow: 1;
+            flex-direction: column;
+            gap: 0.5rem;
+            max-width: 400px;
         }
         .fluent-toolbar {
             display: flex;
@@ -329,16 +231,8 @@
         .btn.touch, .seg-btn { border-radius: 10px; }
 
         /* Folders selector styling */
-        .folder-input-container, .tag-input-container, .person-input-container, .extension-input-container {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            border: 1px solid rgba(0,0,0,.1);
-            border-radius: 10px;
-            padding: 0.5rem;
-            background: rgba(0,0,0,0.02);
-            min-height: 2.5rem;
-            max-width: 400px;
+        .tag-input-container, .person-input-container, .extension-input-container {
+            display: none;
         }
         .selected-chips {
             display: flex;
@@ -541,234 +435,77 @@
         }
 
         function wireFilterButtons() {
-            // Tags (updated for chips)
-            const tagInput = document.getElementById('tagInput');
-            if (tagInput) {
-                tagInput.addEventListener('change', () => {
-                    const tag = tagInput.value.trim();
-                    if (!tag) return;
-                    
-                    const url = new URL(window.location.href);
-                    let tags = url.searchParams.getAll('tags');
-                    if (!tags.includes(tag)) {
-                        tags.push(tag);
-                        url.searchParams.delete('tags');
-                        tags.forEach(t => url.searchParams.append('tags', t));
-                        url.searchParams.set('page', '1');
-                        window.location.href = url.toString();
-                    }
-                    tagInput.value = '';
-                });
-                tagInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') tagInput.dispatchEvent(new Event('change'));
-                });
-            }
-
-            document.querySelectorAll('.remove-tag-chip').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const chip = e.target.closest('.chip');
-                    const tag = chip.getAttribute('data-tag');
-                    const url = new URL(window.location.href);
-                    let tags = url.searchParams.getAll('tags');
-                    tags = tags.filter(t => t !== tag);
-                    url.searchParams.delete('tags');
-                    tags.forEach(t => url.searchParams.append('tags', t));
+            const addValueToQuery = (paramName, value) => {
+                const url = new URL(window.location.href);
+                let values = url.searchParams.getAll(paramName);
+                if (!values.includes(value)) {
+                    url.searchParams.append(paramName, value);
                     url.searchParams.set('page', '1');
                     window.location.href = url.toString();
-                });
-            });
+                }
+            };
 
-            // Persons (updated for chips)
-            const personInput = document.getElementById('personInput');
-            if (personInput) {
-                personInput.addEventListener('change', () => {
-                    const person = personInput.value.trim();
-                    if (!person) return;
-                    
-                    const url = new URL(window.location.href);
-                    let persons = url.searchParams.getAll('persons');
-                    if (!persons.includes(person)) {
-                        persons.push(person);
-                        url.searchParams.delete('persons');
-                        persons.forEach(p => url.searchParams.append('persons', p));
-                        url.searchParams.set('page', '1');
-                        window.location.href = url.toString();
+            const removeValueFromQuery = (paramName, value) => {
+                const url = new URL(window.location.href);
+                let values = url.searchParams.getAll(paramName);
+                values = values.filter(v => v !== value);
+                url.searchParams.delete(paramName);
+                values.forEach(v => url.searchParams.append(paramName, v));
+                url.searchParams.set('page', '1');
+                window.location.href = url.toString();
+            };
+
+            document.querySelectorAll('.multi-selector-container').forEach(container => {
+                const paramName = container.getAttribute('data-parameter');
+                const allSuggestions = JSON.parse(container.getAttribute('data-all-suggestions') || '[]');
+                const input = container.querySelector('.multi-selector-input');
+                const suggestionContainer = container.querySelector('.suggestion-chips');
+                
+                const updateSuggestions = () => {
+                    const val = input.value.trim().toLowerCase();
+                    if (!val) {
+                        suggestionContainer.innerHTML = '';
+                        return;
                     }
-                    personInput.value = '';
-                });
-                personInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') personInput.dispatchEvent(new Event('change'));
-                });
-            }
-
-            document.querySelectorAll('.remove-person-chip').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const chip = e.target.closest('.chip');
-                    const person = chip.getAttribute('data-person');
-                    const url = new URL(window.location.href);
-                    let persons = url.searchParams.getAll('persons');
-                    persons = persons.filter(p => p !== person);
-                    url.searchParams.delete('persons');
-                    persons.forEach(p => url.searchParams.append('persons', p));
-                    url.searchParams.set('page', '1');
-                    window.location.href = url.toString();
-                });
-            });
-
-            // Folders (updated logic for removal button class)
-            const folderInput = document.getElementById('folderInput');
-            const folderLevel1 = document.getElementById('folderLevel1');
-            const folderHints = document.getElementById('folderHints');
-            const foldersHierarchy = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.AvailableFoldersLevel1Level2));
-
-            if (folderLevel1 && folderHints) {
-                const updateL2Hints = () => {
-                    const selectedL1 = folderLevel1.value;
-                    let availableL2 = [];
+                    const filtered = allSuggestions
+                        .filter(s => s.toLowerCase().includes(val))
+                        .slice(0, 3);
                     
-                    if (selectedL1 && foldersHierarchy[selectedL1]) {
-                        availableL2 = foldersHierarchy[selectedL1];
-                    } else {
-                        // If no L1 selected in dropdown, check if any L1 are in selected chips
-                        const activeL1s = [];
-                        const selectedChips = document.querySelectorAll('#selectedFoldersChips .chip[data-level="1"]');
-                        selectedChips.forEach(chip => {
-                            const folder = chip.getAttribute('data-folder');
-                            if (foldersHierarchy[folder]) {
-                                activeL1s.push(folder);
-                            }
-                        });
-
-                        if (activeL1s.length > 0) {
-                            const l2Set = new Set();
-                            activeL1s.forEach(l1 => {
-                                if (foldersHierarchy[l1]) {
-                                    foldersHierarchy[l1].forEach(l2 => l2Set.add(l2));
-                                }
-                            });
-                            availableL2 = Array.from(l2Set).sort();
-                        } else {
-                            // If no L1 selected at all, show all unique L2 folders
-                            const allL2 = new Set();
-                            for (const l1 in foldersHierarchy) {
-                                foldersHierarchy[l1].forEach(l2 => allL2.add(l2));
-                            }
-                            availableL2 = Array.from(allL2).sort();
-                        }
-                    }
-
-                    folderHints.innerHTML = '';
-                    availableL2.forEach(l2 => {
-                        const option = document.createElement('option');
-                        option.value = l2;
-                        folderHints.appendChild(option);
+                    suggestionContainer.innerHTML = '';
+                    filtered.forEach(s => {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'suggestion-chip';
+                        btn.setAttribute('data-value', s);
+                        btn.textContent = s;
+                        btn.addEventListener('click', () => addValueToQuery(paramName, s.toLowerCase()));
+                        suggestionContainer.appendChild(btn);
                     });
                 };
 
-                folderLevel1.addEventListener('change', () => {
-                    updateL2Hints();
-                    folderInput.value = '';
+                input.addEventListener('input', updateSuggestions);
+
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const val = input.value.trim().toLowerCase();
+                        if (val) addValueToQuery(paramName, val);
+                    }
                 });
 
-                const addL1Btn = document.getElementById('addL1Btn');
-                if (addL1Btn) {
-                    addL1Btn.addEventListener('click', () => {
-                        const selectedL1 = folderLevel1.value;
-                        if (selectedL1) {
-                            const url = new URL(window.location.href);
-                            let foldersL1 = url.searchParams.getAll('foldersL1');
-                            if (!foldersL1.includes(selectedL1)) {
-                                url.searchParams.append('foldersL1', selectedL1);
-                                url.searchParams.set('page', '1');
-                                window.location.href = url.toString();
-                            }
-                        }
+                container.querySelectorAll('.suggestion-chip').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const val = btn.getAttribute('data-value');
+                        addValueToQuery(paramName, val.toLowerCase());
                     });
-                }
-
-                // Initial hints
-                updateL2Hints();
-            }
-
-            if (folderInput) {
-                folderInput.addEventListener('change', () => {
-                    const folder = folderInput.value.trim();
-                    if (!folder) return;
-                    
-                    const url = new URL(window.location.href);
-                    let foldersL2 = url.searchParams.getAll('foldersL2');
-                    if (!foldersL2.includes(folder)) {
-                        foldersL2.push(folder);
-                        url.searchParams.delete('foldersL2');
-                        foldersL2.forEach(f => url.searchParams.append('foldersL2', f));
-                        url.searchParams.set('page', '1');
-                        window.location.href = url.toString();
-                    }
-                    folderInput.value = '';
                 });
 
-                // Support Enter key if change event doesn't trigger as expected
-                folderInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') {
-                        folderInput.dispatchEvent(new Event('change'));
-                    }
-                });
-            }
-
-            document.querySelectorAll('.remove-folder-chip').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const chip = e.target.closest('.chip');
-                    const folder = chip.getAttribute('data-folder');
-                    const level = chip.getAttribute('data-level');
-                    const paramName = level === '1' ? 'foldersL1' : 'foldersL2';
-                    
-                    const url = new URL(window.location.href);
-                    let items = url.searchParams.getAll(paramName);
-                    items = items.filter(f => f !== folder);
-                    url.searchParams.delete(paramName);
-                    items.forEach(f => url.searchParams.append(paramName, f));
-                    url.searchParams.set('page', '1');
-                    window.location.href = url.toString();
-                });
-            });
-
-            // Extensions
-            const extensionInput = document.getElementById('extensionInput');
-            if (extensionInput) {
-                extensionInput.addEventListener('change', () => {
-                    const ext = extensionInput.value.trim();
-                    if (!ext) return;
-                    
-                    const url = new URL(window.location.href);
-                    let extensions = url.searchParams.getAll('extensions');
-                    if (!extensions.includes(ext)) {
-                        extensions.push(ext);
-                        url.searchParams.delete('extensions');
-                        extensions.forEach(e => url.searchParams.append('extensions', e));
-                        url.searchParams.set('page', '1');
-                        window.location.href = url.toString();
-                    }
-                    extensionInput.value = '';
-                });
-
-                extensionInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') {
-                        extensionInput.dispatchEvent(new Event('change'));
-                    }
-                });
-            }
-
-            document.querySelectorAll('.remove-extension-chip').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const chip = e.target.closest('.chip');
-                    const ext = chip.getAttribute('data-extension');
-                    const url = new URL(window.location.href);
-                    let extensions = url.searchParams.getAll('extensions');
-                    extensions = extensions.filter(e => e !== ext);
-                    url.searchParams.delete('extensions');
-                    extensions.forEach(e => url.searchParams.append('extensions', e));
-                    url.searchParams.set('page', '1');
-                    window.location.href = url.toString();
+                container.querySelectorAll('.remove-chip').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const chip = e.target.closest('.chip');
+                        const val = chip.getAttribute('data-value');
+                        removeValueFromQuery(paramName, val);
+                    });
                 });
             });
         }
