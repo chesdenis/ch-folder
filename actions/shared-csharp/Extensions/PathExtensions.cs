@@ -89,7 +89,7 @@ public static class PathExtensions
                 !ImageProcessingExtensions.IgnoredExtensions
                     .Contains(Path.GetExtension(f.fileName)));
 
-            files = files.Where(w => !w.fileName.StartsWith("._"));
+            files = files.Where(w => !w.fileName.StartsWith("._")).ToArray();
             
             foreach (var file in files)
             {
