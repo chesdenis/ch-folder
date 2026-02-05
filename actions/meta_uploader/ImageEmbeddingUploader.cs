@@ -31,7 +31,12 @@ public class ImageEmbeddingUploader(IFileSystem fileSystem, IFileHasher fileHash
 
     private async Task ProcessSingleFile(string filePath, HttpClient http)
     {
-        if (!filePath.AllowImageToProcess())
+        if (!filePath.AllowToProcess())
+        {
+            return;
+        }
+        
+        if (filePath.IsVideo())
         {
             return;
         }

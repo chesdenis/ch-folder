@@ -44,7 +44,7 @@ public class DuplicateMarker(IFileSystem fileSystem)
 
     private async Task ProcessSingleFile(string filePath, IReadOnlyDictionary<string, string> md5ToRealPath)
     {
-        if (!filePath.AllowImageToProcess())
+        if (!filePath.AllowToProcess())
         {
             return;
         }

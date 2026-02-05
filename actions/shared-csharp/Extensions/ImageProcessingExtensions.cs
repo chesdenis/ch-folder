@@ -121,12 +121,16 @@ public static class ImageProcessingExtensions
         new(StringComparer.OrdinalIgnoreCase)
         {
             ".ds_store",
-            ".mov",
-            ".mp4",
             "._",
         };
+
+    public static readonly HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".mov",
+        ".mp4",
+    };
     
-    public static bool AllowImageToProcess(this string filePath)
+    public static bool AllowToProcess(this string filePath)
     {
         if (!IgnoredExtensions.Contains(Path.GetExtension(filePath)))
         {
@@ -136,6 +140,16 @@ public static class ImageProcessingExtensions
                 return true;
             }
         }
+        return false;
+    }
+
+    public static bool IsVideo(this string filePath)
+    {
+        if (VideoExtensions.Contains(Path.GetExtension(filePath)))
+        {
+            return true;
+        }
+        
         return false;
     }
     

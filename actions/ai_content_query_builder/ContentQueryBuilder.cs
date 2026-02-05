@@ -21,10 +21,16 @@ public class ContentQueryBuilder
     
     private static async Task ProcessSingleFile(string filePath)
     {
-        if (!filePath.AllowImageToProcess())
+        if (!filePath.AllowToProcess())
         {
             return;
         }
+        
+        if (filePath.IsVideo())
+        {
+            return;
+        }
+
         
         try
         {

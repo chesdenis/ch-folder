@@ -48,7 +48,12 @@ public class ImageMetaUploader
 
     private async Task ProcessSingleFile(string filePath)
     {
-        if (!filePath.AllowImageToProcess())
+        if (!filePath.AllowToProcess())
+        {
+            return;
+        }
+        
+        if (filePath.IsVideo())
         {
             return;
         }

@@ -32,8 +32,14 @@ internal abstract class ContentValidationTest(IFileSystem fs) : IContentValidati
 
         foreach (var filePath in files)
         {
-            if (!filePath.AllowImageToProcess())
+            if (!filePath.AllowToProcess())
                 continue;
+            
+            if (filePath.IsVideo())
+            {
+                continue;
+            }
+
 
             var result = await Validate(log, filePath, failures);
             if(!result) mismatches++;

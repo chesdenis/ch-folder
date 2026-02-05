@@ -47,7 +47,12 @@ public class AiContentAnswerBuilder(IFileSystem fileSystem)
 
     private static async Task CollectQueryFiles(string filePath)
     {
-        if (!filePath.AllowImageToProcess())
+        if (!filePath.AllowToProcess())
+        {
+            return;
+        }
+
+        if (filePath.IsVideo())
         {
             return;
         }

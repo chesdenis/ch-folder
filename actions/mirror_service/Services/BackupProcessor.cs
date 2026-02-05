@@ -55,7 +55,7 @@ public class BackupProcessor(IFileSystem fileSystem, IFileHasher fileHasher)
          
         foreach (var file in files)
         {
-            if (!file.AllowImageToProcess()) continue;
+            if (!file.AllowToProcess()) continue;
             
             var md5 = await fileHasher.ComputeMd5Async(file);
             if (await IsAlreadyCompleted(md5))

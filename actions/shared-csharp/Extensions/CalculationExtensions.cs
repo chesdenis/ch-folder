@@ -28,6 +28,8 @@ public static class CalculationExtensions
             return filePath.GetMd5FromFileName();
         }
         
+        Console.WriteLine($"Missing md5 hash in file: {filePath}. Recomputing...");
+        
         using var md5 = MD5.Create();
 
         // Read the file in a memory-efficient asynchronous manner

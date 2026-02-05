@@ -15,7 +15,7 @@ public class FileNameMd5Processor(IFileSystem fileSystem, IFileHasher fileHasher
 
     private async Task ProcessSingleFile(string filePath)
     {
-        if (!filePath.AllowImageToProcess())
+        if (!filePath.AllowToProcess())
         {
             return;
         }
