@@ -75,6 +75,7 @@ class Program
                 // d. Collect Metadata
                 var metadata = await fs.CollectMetadataAsync(filePath, sourcePath);
                 metadata["md5"] = md5;
+                metadata["ext"] = Path.GetExtension(filePath);
 
                 // e. Prepare Target Path (/ab/cd/md5)
                 string targetDir = targetPath.GetTargetPartitionDir(md5);
