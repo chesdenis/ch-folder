@@ -26,7 +26,7 @@ class Program
         // Target path is either from args[0] or default to the current SSD (where the app runs)
         // Since it's expected to run on the 2TB SSD, let's assume the SSD root or a 'Storage' folder on it.
         string targetPath = args.Length > 0 ? args[0] : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Storage");
-        string sourcePath = args.Length > 1 ? args[1] : (config["Storage:RootPath"] ?? "/Volumes/AnnaX/PhotoHiveProd");
+        string sourcePath = args.Length > 1 ? args[1] : (config["Storage:RootPath"] ?? throw new ArgumentOutOfRangeException("Storage:RootPath"));
         
         Console.WriteLine($"Source Path: {sourcePath}");
         Console.WriteLine($"Target Path: {targetPath}");

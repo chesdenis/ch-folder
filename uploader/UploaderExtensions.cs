@@ -78,17 +78,21 @@ public static class UploaderExtensions
         // Other components from PhysicalFileSystem
         await metadata.AddMetadataIfAvailable("embAnswer", filePath, fs.GetEmbAnswer, PathExtensions.ResolveEmbAnswer);
         await metadata.AddMetadataIfAvailable("embConversation", filePath, fs.GetEmbConversation, PathExtensions.ResolveEmbConversation);
+        
         await metadata.AddMetadataIfAvailable("dqQuestion", filePath, fs.GetDqQuestion, PathExtensions.ResolveDqQuestionPath);
-        await metadata.AddMetadataIfAvailable("commerceMarkQuestion", filePath, fs.GetCommerceMarkQuestion, PathExtensions.ResolveCommerceMarkQuestionPath);
-        await metadata.AddMetadataIfAvailable("eng30TagsQuestion", filePath, fs.GetEng30TagsQuestion, PathExtensions.ResolveEng30TagsQuestionPath);
-        await metadata.AddMetadataIfAvailable("engShortQuestion", filePath, fs.GetEngShortQuestion, PathExtensions.ResolveEngShortQuestionPath);
         await metadata.AddMetadataIfAvailable("dqAnswer", filePath, fs.GetDqAnswer, PathExtensions.ResolveDqAnswerPath);
-        await metadata.AddMetadataIfAvailable("commerceMarkAnswer", filePath, fs.GetCommerceMarkAnswer, PathExtensions.ResolveCommerceMarkAnswerPath);
-        await metadata.AddMetadataIfAvailable("eng30TagsAnswer", filePath, fs.GetEng30TagsAnswer, PathExtensions.ResolveEng30TagsAnswerPath);
-        await metadata.AddMetadataIfAvailable("engShortAnswer", filePath, fs.GetEngShortAnswer, PathExtensions.ResolveEngShortAnswerPath);
         await metadata.AddMetadataIfAvailable("dqConversation", filePath, fs.GetDqConversation, PathExtensions.ResolveDqConversationPath);
+        
+        await metadata.AddMetadataIfAvailable("commerceMarkQuestion", filePath, fs.GetCommerceMarkQuestion, PathExtensions.ResolveCommerceMarkQuestionPath);
+        await metadata.AddMetadataIfAvailable("commerceMarkAnswer", filePath, fs.GetCommerceMarkAnswer, PathExtensions.ResolveCommerceMarkAnswerPath);
         await metadata.AddMetadataIfAvailable("commerceMarkConversation", filePath, fs.GetCommerceMarkConversation, PathExtensions.ResolveCommerceMarkConversationPath);
+        
+        await metadata.AddMetadataIfAvailable("eng30TagsQuestion", filePath, fs.GetEng30TagsQuestion, PathExtensions.ResolveEng30TagsQuestionPath);
+        await metadata.AddMetadataIfAvailable("eng30TagsAnswer", filePath, fs.GetEng30TagsAnswer, PathExtensions.ResolveEng30TagsAnswerPath);
         await metadata.AddMetadataIfAvailable("eng30TagsConversation", filePath, fs.GetEng30TagsConversation, PathExtensions.ResolveEng30TagsConversationPath);
+        
+        await metadata.AddMetadataIfAvailable("engShortQuestion", filePath, fs.GetEngShortQuestion, PathExtensions.ResolveEngShortQuestionPath);
+        await metadata.AddMetadataIfAvailable("engShortAnswer", filePath, fs.GetEngShortAnswer, PathExtensions.ResolveEngShortAnswerPath);
         await metadata.AddMetadataIfAvailable("engShortConversation", filePath, fs.GetEngShortConversation, PathExtensions.ResolveEngShortConversationPath);
 
         return metadata;
