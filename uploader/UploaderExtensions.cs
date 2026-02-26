@@ -102,7 +102,6 @@ public static class UploaderExtensions
     {
         string ab = md5.Substring(0, 2);
         string cd = md5.Substring(2, 2);
-        string ef = md5.Substring(4, 2);
-        return Path.Combine(targetPath, ab, cd, ef);
+        return Path.Combine(targetPath, ab, cd);
     }
 }

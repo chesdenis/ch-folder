@@ -73,8 +73,9 @@ class Program
 
                 // d. Collect Metadata
                 var metadata = await fs.CollectMetadataAsync(filePath, sourcePath);
+                metadata["md5"] = md5;
 
-                // e. Prepare Target Path (/ab/cd/ef/md5)
+                // e. Prepare Target Path (/ab/cd/md5)
                 string targetDir = targetPath.GetTargetPartitionDir(md5);
                 if (!fs.DirectoryExists(targetDir))
                 {
