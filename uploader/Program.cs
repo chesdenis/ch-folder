@@ -65,7 +65,7 @@ class Program
                 }
 
                 // c. Check Disk Space
-                if (!targetPath.HasEnoughSpace(filePath, 100 * 1024 * 1024)) // 100MB buffer
+                if (!targetPath.HasEnoughSpace(filePath, 500 * 1024 * 1024)) // 500MB buffer
                 {
                     Console.WriteLine("Stop: Not enough space on target drive.");
                     break;
