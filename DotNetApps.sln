@@ -42,6 +42,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "content_validator", "action
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "mirror_service", "actions\mirror_service\mirror_service.csproj", "{C37409DA-F405-4481-8AA8-E32EEBBD6B52}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "uploader", "uploader\uploader.csproj", "{B06D59C5-057C-4AB4-A2F8-1C6F3C6400EE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -108,6 +110,10 @@ Global
 		{C37409DA-F405-4481-8AA8-E32EEBBD6B52}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C37409DA-F405-4481-8AA8-E32EEBBD6B52}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C37409DA-F405-4481-8AA8-E32EEBBD6B52}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B06D59C5-057C-4AB4-A2F8-1C6F3C6400EE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B06D59C5-057C-4AB4-A2F8-1C6F3C6400EE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B06D59C5-057C-4AB4-A2F8-1C6F3C6400EE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B06D59C5-057C-4AB4-A2F8-1C6F3C6400EE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{E94BF234-9583-4054-9356-B0AAD9C36194} = {68B14173-6FCA-4D2D-9F5C-6C2B56887904}
