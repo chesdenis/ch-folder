@@ -48,8 +48,8 @@ public static class UploaderExtensions
         string section = pathParts.Length > 2 ? pathParts[1] : "";
 
         var metadata = new Dictionary<string, object?>();
-        metadata["partition"] = partition;
-        metadata["section"] = section;
+        metadata["partition"] = partition.ToBase64();
+        metadata["section"] = section.ToBase64();
 
         // Description and Tags (as used in ImageEmbeddingUploader)
         if (fs.FileExists(PathExtensions.ResolveDqAnswerPath(filePath)))
