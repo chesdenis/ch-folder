@@ -10,7 +10,6 @@ public interface IImageLocationRepository
 {
     Task UpsertLocationsAsync(IEnumerable<KeyValuePair<string, string>> md5ToPath, CancellationToken ct = default);
     Task<string?> GetPathByMd5Async(string md5, CancellationToken ct = default);
-    Task<IDictionary<string, string>> GetAllAsync(CancellationToken ct = default);
     Task DeleteMissingLocationsAsync(IEnumerable<string> existingMd5s, CancellationToken ct = default);
 }
 
@@ -46,20 +45,6 @@ public sealed class ImageLocationRepository(IOptions<ConnectionStringOptions> co
         cmd.Parameters.AddWithValue("@md5", NpgsqlDbType.Text, md5);
         var result = await cmd.ExecuteScalarAsync(ct);
         return result?.ToString();
-    }
-    
-    public async Task<IDictionary<string, string>> GetAllAsync(CancellationToken ct = default)
-    {
-        var dict = new Dictionary<string, string>();
-        await using var conn = CreateConnection();
-        await conn.OpenAsync(ct);
-        await using var cmd = new NpgsqlCommand("SELECT md5_hash, real_path FROM image_location", conn);
-        await using var rdr = await cmd.ExecuteReaderAsync(ct);
-        while (await rdr.ReadAsync(ct))
-        {
-            dict[rdr.GetString(0)] = rdr.GetString(1);
-        }
-        return dict;
     }
 
     private async Task UpsertBatchAsync(IReadOnlyList<KeyValuePair<string, string>> batch, CancellationToken ct)

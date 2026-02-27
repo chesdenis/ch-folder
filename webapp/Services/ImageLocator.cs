@@ -9,10 +9,8 @@ namespace webapp.Services;
 
 public interface IImageLocator
 {
-    public IDictionary<string, string> GetAllLocations();
-    Task<int> IdentifyImageLocations(CancellationToken ct = default);
+    Task<int> FileLocations(CancellationToken ct = default);
     public Task<ImageLinks?> GetImageLinksAsync(string md5);
-    IEnumerable<string> GetAvailableFolders();
     IDictionary<string, List<string>> GetAvailableFoldersHierarchical();
 }
 
@@ -26,61 +24,6 @@ public sealed class ImageLocator(
     private readonly StorageOptions _storage = storage.Value;
     private readonly ConcurrentDictionary<string, string> _imageLocationsMap = new();
     
-    public IDictionary<string, string> GetAllLocations() => _imageLocationsMap;
-
-    private static (int width, int height)? TryReadJpegSize(string path)
-    {
-        try
-        {
-            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return null;
-            using var fs = File.OpenRead(path);
-            using var br = new BinaryReader(fs);
-
-            // Check SOI marker
-            if (br.ReadByte() != 0xFF || br.ReadByte() != 0xD8) return null;
-
-            while (fs.Position < fs.Length)
-            {
-                // Find marker 0xFF
-                byte b = br.ReadByte();
-                if (b != 0xFF) continue;
-                // Skip fill bytes 0xFF
-                byte marker = br.ReadByte();
-                while (marker == 0xFF) marker = br.ReadByte();
-
-                // Markers without length
-                if (marker == 0xD9 || marker == 0xDA) // EOI or SOS (start of scan)
-                    break;
-
-                // Read segment length
-                ushort len = (ushort)((br.ReadByte() << 8) | br.ReadByte());
-                if (len < 2) return null;
-
-                // SOF0..SOF3, SOF5..SOF7, SOF9..SOF11, SOF13..SOF15 carry size
-                if ((marker >= 0xC0 && marker <= 0xC3) ||
-                    (marker >= 0xC5 && marker <= 0xC7) ||
-                    (marker >= 0xC9 && marker <= 0xCB) ||
-                    (marker >= 0xCD && marker <= 0xCF))
-                {
-                    // precision (1 byte) then height (2), width (2)
-                    br.ReadByte();
-                    int height = (br.ReadByte() << 8) | br.ReadByte();
-                    int width = (br.ReadByte() << 8) | br.ReadByte();
-                    return (width, height);
-                }
-
-                // Skip this segment (length includes the 2 length bytes already read)
-                fs.Position += len - 2;
-            }
-        }
-        catch
-        {
-            // ignore and fall back
-        }
-
-        return null;
-    }
-
     public async Task<ImageLinks?> GetImageLinksAsync(string md5)
     {
         if (string.IsNullOrWhiteSpace(md5)) return null;
@@ -97,17 +40,6 @@ public sealed class ImageLocator(
             P2000Height = 1500
         };
         return links;
-    }
-
-    public IEnumerable<string> GetAvailableFolders()
-    {
-        return _imageLocationsMap.Values
-            .Select(Path.GetDirectoryName)
-            .Where(d => !string.IsNullOrEmpty(d))
-            .Select(d => Path.GetFileName(d))
-            .Where(n => !string.IsNullOrEmpty(n))
-            .Distinct()
-            .OrderBy(n => n)!;
     }
 
     public IDictionary<string, List<string>> GetAvailableFoldersHierarchical()
@@ -149,7 +81,7 @@ public sealed class ImageLocator(
         return result;
     }
 
-    public async Task<int> IdentifyImageLocations(CancellationToken ct = default)
+    public async Task<int> FileLocations(CancellationToken ct = default)
     {
         var sw = Stopwatch.StartNew();
         _imageLocationsMap.Clear();
@@ -157,7 +89,7 @@ public sealed class ImageLocator(
         var root = _storage.RootPath;
         if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
         {
-            logger.LogWarning("PhotoLocator: Storage.RootPath is not configured or does not exist: {Root}", root);
+            logger.LogWarning("Storage.RootPath is not configured or does not exist: {Root}", root);
             return 0;
         }
 
@@ -177,7 +109,7 @@ public sealed class ImageLocator(
 
                 if (totalProcessed % 10000 == 0)
                 {
-                    logger.LogInformation("PhotoLocator: processed {Count} files", totalProcessed);
+                    logger.LogInformation("processed {Count} files", totalProcessed);
                 }
             }
             catch (OperationCanceledException)
@@ -186,7 +118,7 @@ public sealed class ImageLocator(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "PhotoLocator: failed to process file {File}", filePath);
+                logger.LogWarning(ex, "failed to process file {File}", filePath);
             }
         }
         
@@ -194,19 +126,19 @@ public sealed class ImageLocator(
         try
         {
             await imageLocationRepository.UpsertLocationsAsync(_imageLocationsMap, ct);
-            logger.LogInformation("PhotoLocator: uploaded {Count} image locations to DB", _imageLocationsMap.Count);
+            logger.LogInformation("uploaded {Count} image locations to DB", _imageLocationsMap.Count);
             
             // Cleanup dead links
             await imageLocationRepository.DeleteMissingLocationsAsync(_imageLocationsMap.Keys, ct);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "PhotoLocator: failed to update image locations in DB");
+            logger.LogError(ex, "failed to update image locations in DB");
         }
         
         sw.Stop();
         logger.LogInformation(
-            "PhotoLocator: indexed {Count} files from {Root} in {ElapsedMs} ms ({Elapsed})",
+            "indexed {Count} files from {Root} in {ElapsedMs} ms ({Elapsed})",
             totalProcessed,
             root,
             sw.ElapsedMilliseconds,

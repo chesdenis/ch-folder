@@ -28,7 +28,7 @@ builder.Services.AddSingleton<IPublishTrackerRepository, PublishTrackerRepositor
 var app = builder.Build();
 
 Console.WriteLine("Building index...");
-app.Services.GetRequiredService<IImageLocator>().IdentifyImageLocations().Wait();
+app.Services.GetRequiredService<IImageLocator>().FileLocations().Wait();
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
