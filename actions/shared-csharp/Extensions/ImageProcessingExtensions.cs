@@ -29,6 +29,8 @@ public static class ImageProcessingExtensions
     {
         ".mov",
         ".mp4",
+        ".avi",
+        ".mkv"
     };
     
     public static bool AllowToProcess(this string filePath)
@@ -58,13 +60,4 @@ public static class ImageProcessingExtensions
         [property: JsonPropertyName("rate")] int rate,
         [property: JsonPropertyName("rate-explanation")] string rateExplanation
     );
-    
-    public record FaceEncoding(
-    string[] detected_faces,
-    int rotation,
-    int[][] face_locations,
-    double[][] face_encodings
-);
-
-
 }
