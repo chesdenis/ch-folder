@@ -22,7 +22,6 @@ public class HomeController(
     IImageLocationRepository imageLocationRepository,
     IFileSystem fileSystem,
     IContentValidationRepository contentValidationRepository,
-    IBackupRepository backupRepository,
     IPublishTrackerRepository publishTrackerRepo) : Controller
 {
     private readonly StorageOptions _storage = storageOptions.Value;
@@ -598,71 +597,6 @@ public class HomeController(
         return RedirectToAction(nameof(ContentQualityStatus));
     }
 
-    public async Task<IActionResult> BackupStatus()
-    {
-        var backupResults = await backupRepository.GetAllAsync(HttpContext.RequestAborted);
-        var backupMap = backupResults.ToDictionary(r => r.Md5Hash);
-
-        var root = _storage.RootPath;
-        var allLocations = imageLocator.GetAllLocations();
-        
-        var folderStatuses = new List<BackupFolderStatus>();
-        
-        var groupedByFolder = allLocations
-            .GroupBy(l => {
-                var dir = Path.GetDirectoryName(l.Value);
-                if (string.IsNullOrEmpty(dir)) return "Unknown";
-                if (string.IsNullOrEmpty(root)) return dir;
-                return Path.GetRelativePath(root, dir);
-            });
-
-        foreach (var group in groupedByFolder)
-        {
-            var totalFiles = 0;
-            var backedUpCount = 0;
-            var hasFailed = false;
-            var hasInProgress = false;
-
-            foreach (var l in group)
-            {
-                totalFiles++;
-                if (backupMap.TryGetValue(l.Key, out var b))
-                {
-                    if (b.Status == "Completed") backedUpCount++;
-                    else if (b.Status == "Failed") hasFailed = true;
-                    else if (b.Status == "InProgress") hasInProgress = true;
-                }
-            }
-
-            var status = "Pending";
-            if (backedUpCount == totalFiles && totalFiles > 0) status = "Completed";
-            else if (hasFailed) status = "Failed";
-            else if (hasInProgress) status = "InProgress";
-
-            folderStatuses.Add(new BackupFolderStatus
-            {
-                FolderName = group.Key,
-                TotalFiles = totalFiles,
-                BackedUpFiles = backedUpCount,
-                Status = status
-            });
-        }
-
-        var vm = new BackupStatusViewModel
-        {
-            Folders = folderStatuses.OrderBy(f => f.FolderName).ToList()
-        };
-        ViewBag.StoragePath = _storage.RootPath ?? string.Empty;
-        ViewBag.BackupPath = _storage.BackupPath ?? string.Empty;
-        return View(vm);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> TruncateBackupResults()
-    {
-        await backupRepository.TruncateAsync(HttpContext.RequestAborted);
-        return RedirectToAction(nameof(BackupStatus));
-    }
 
     [HttpGet]
     public async Task<IActionResult> ContentQualityDetails([FromQuery] string folder)
@@ -806,12 +740,6 @@ public class HomeController(
         return Ok(folders);
     }
 
-    public IActionResult Images()
-    {
-        ViewBag.StoragePath = _storage.RootPath ?? string.Empty;
-        ViewBag.InputPath = _storage.InputPath ?? string.Empty;
-        return View();
-    }
 
     [HttpGet]
     public async Task<IActionResult> SinglePhoto([FromQuery] string md5)
@@ -931,15 +859,6 @@ public class HomeController(
         return Ok(new { jobId = id });
     }
 
-    [HttpPost]
-    public IActionResult AddImagesJob([FromForm] string jobId, [FromForm] JobType type, [FromForm] int? dop)
-    {
-        if (string.IsNullOrWhiteSpace(jobId)) return BadRequest("jobId is required");
-        var inputPath = _storage.InputPath;
-        if (string.IsNullOrWhiteSpace(inputPath)) return BadRequest("Input path is not configured");
-        var id = jobRunner.StartJob(jobId, type, inputPath, dop);
-        return Ok(new { jobId = id });
-    }
 
     [HttpGet]
     public async Task<IActionResult> Sessions([FromQuery] int? page, [FromQuery] int? pageSize)

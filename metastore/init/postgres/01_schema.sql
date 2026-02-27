@@ -182,16 +182,3 @@ CREATE TABLE IF NOT EXISTS photo_publish_tracker (
 );
 
 CREATE INDEX IF NOT EXISTS ix_photo_publish_tracker_md5 ON photo_publish_tracker (md5_hash);
-
--- =============================================================
--- Backup status tracking
--- =============================================================
-
-CREATE TABLE IF NOT EXISTS backup_status (
-    md5_hash text PRIMARY KEY,
-    status text NOT NULL CHECK (status IN ('Pending', 'InProgress', 'Completed', 'Failed')),
-    last_updated timestamptz NOT NULL DEFAULT now(),
-    error_message text NULL
-);
-
-CREATE INDEX IF NOT EXISTS ix_backup_status_status ON backup_status (status);

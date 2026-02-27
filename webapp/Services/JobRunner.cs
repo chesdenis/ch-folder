@@ -10,16 +10,7 @@ namespace webapp.Services;
 public enum JobType
 {
     MetaUploader,
-    AiContentQueryBuilder,
-    AiContentAnswerBuilder,
-    EmbeddingDownloader,
-    Md5ImageMarker,
-    DuplicateMarker,
-    FaceHashBuilder,
-    GroupFolderExtractor,
-    AverageImageMarker,
-    ContentValidator,
-    Backup
+    ContentValidator
 }
 
 public interface IJobRunner
@@ -120,15 +111,6 @@ public class JobRunner : IJobRunner
                                     }
                                 }
                                     break;
-                                case JobType.AiContentQueryBuilder:
-                                case JobType.AiContentAnswerBuilder:
-                                case JobType.EmbeddingDownloader:
-                                case JobType.Md5ImageMarker:
-                                case JobType.DuplicateMarker:
-                                case JobType.FaceHashBuilder:
-                                case JobType.GroupFolderExtractor:
-                                case JobType.AverageImageMarker:
-                                case JobType.Backup:
                                 case JobType.ContentValidator:
                                 {
                                     // Map job to appropriate docker runner function (unify signatures via wrappers)
@@ -262,21 +244,6 @@ public class JobRunner : IJobRunner
         Func<string, Action<string>?, Action<string>?, CancellationToken, Task<int>> jobFunc = jobType switch
         {
             JobType.MetaUploader => (hf, o, e, ct) => _dockerFolderRunner.RunMetaUploaderAsync(hf, o, e, ct),
-            JobType.AiContentQueryBuilder => (hf, o, e, ct) =>
-                _dockerFolderRunner.RunAiContentQueryBuilderAsync(hf, o, e, ct),
-            JobType.AiContentAnswerBuilder => (hf, o, e, ct) =>
-                _dockerFolderRunner.RunAiContentAnswerBuilderAsync(hf, o, e, ct),
-            JobType.EmbeddingDownloader => (hf, o, e, ct) =>
-                _dockerFolderRunner.RunEmbeddingDownloaderAsync(hf, o, e, ct),
-            JobType.Md5ImageMarker => (hf, o, e, ct) => _dockerFolderRunner.RunMd5ImageMarkerAsync(hf, o, e, ct),
-            JobType.DuplicateMarker => (hf, o, e, ct) => _dockerFolderRunner.RunDuplicateMarkerAsync(hf, o, e, ct),
-            JobType.FaceHashBuilder => (hf, o, e, ct) => _dockerFolderRunner.RunFaceHashBuilderAsync(hf, o, e, ct),
-            JobType.GroupFolderExtractor => (hf, o, e, ct) =>
-                _dockerFolderRunner.RunGroupFolderExtractorAsync(hf, o, e, ct),
-            JobType.AverageImageMarker => (hf, o, e, ct) =>
-                _dockerFolderRunner.RunAverageImageMarkerAsync(hf, o, e, ct),
-            JobType.Backup => (hf, o, e, ct) =>
-                _dockerFolderRunner.RunMirrorServiceAsync(hf, o, e, ct),
             JobType.ContentValidator => (hf, o, e, ct) =>
                 _dockerFolderRunner.RunContentValidatorAsync(hf, testKind ?? "All", Path.GetFileName(hf), o, e, ct),
             _ => (hf, o, e, ct) => _dockerFolderRunner.RunMetaUploaderAsync(hf, o, e, ct)
