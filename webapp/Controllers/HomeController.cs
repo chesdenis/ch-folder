@@ -110,27 +110,26 @@ public class HomeController(
         var publishStatuses = await publishTrackerRepo.GetPublishStatusesAsync(md5s, HttpContext.RequestAborted);
         
         // Map to components and store ShortDetails
-        var items = md5s
-            .Where(m => !string.IsNullOrWhiteSpace(m))
-            .Select(m =>
+        var items = new List<webapp.Components.GalleryItem>();
+        foreach (var m in md5s)
+        {
+            if (string.IsNullOrWhiteSpace(m)) continue;
+            var photo = photos.FirstOrDefault(p => p.Md5Hash == m);
+            var links = await imageLocator.GetImageLinksAsync(m);
+            // Prefer actual preview-2000 dimensions if available, otherwise use a safe fallback
+            int pw = Math.Max(1, links?.P2000Width ?? 2000);
+            int ph = Math.Max(1, links?.P2000Height ?? 1500);
+            items.Add(new webapp.Components.GalleryItem
             {
-                var photo = photos.FirstOrDefault(p => p.Md5Hash == m);
-                var links = imageLocator.GetImageLinks(m);
-                // Prefer actual preview-2000 dimensions if available, otherwise use a safe fallback
-                int pw = Math.Max(1, links?.P2000Width ?? 2000);
-                int ph = Math.Max(1, links?.P2000Height ?? 1500);
-                return new webapp.Components.GalleryItem
-                {
-                    FullUrl = Url.Action("ByMd5", "Images", new { md5 = m })!,
-                    FullWidth = pw,
-                    FullHeight = ph,
-                    Alt = m!,
-                    Md5 = m!,
-                    ShortDetails = photo?.ShortDetails,
-                    PublishPlatforms = publishStatuses.TryGetValue(m, out var platforms) ? platforms : Array.Empty<string>()
-                };
-            })
-            .ToList();
+                FullUrl = Url.Action("ByMd5", "Images", new { md5 = m })!,
+                FullWidth = pw,
+                FullHeight = ph,
+                Alt = m!,
+                Md5 = m!,
+                ShortDetails = photo?.ShortDetails,
+                PublishPlatforms = publishStatuses.TryGetValue(m, out var platforms) ? platforms : Array.Empty<string>()
+            });
+        }
 
         ViewBag.GalleryItems = items;
         ViewBag.Total = total;
@@ -387,23 +386,22 @@ public class HomeController(
             .ToList();
         var searchPublishStatuses = await publishTrackerRepo.GetPublishStatusesAsync(searchMd5s, HttpContext.RequestAborted);
 
-        var galleryItems = searchMd5s
-            .Select(m =>
+        var galleryItems = new List<webapp.Components.GalleryItem>();
+        foreach (var m in searchMd5s)
+        {
+            var links = await imageLocator.GetImageLinksAsync(m);
+            int pw = Math.Max(1, links?.P2000Width ?? 2000);
+            int ph = Math.Max(1, links?.P2000Height ?? 1500);
+            galleryItems.Add(new webapp.Components.GalleryItem
             {
-                var links = imageLocator.GetImageLinks(m);
-                int pw = Math.Max(1, links?.P2000Width ?? 2000);
-                int ph = Math.Max(1, links?.P2000Height ?? 1500);
-                return new webapp.Components.GalleryItem
-                {
-                    FullUrl = Url.Action("ByMd5", "Images", new { md5 = m })!,
-                    FullWidth = pw,
-                    FullHeight = ph,
-                    Alt = m,
-                    Md5 = m,
-                    PublishPlatforms = searchPublishStatuses.TryGetValue(m, out var platforms) ? platforms : Array.Empty<string>()
-                };
-            })
-            .ToList();
+                FullUrl = Url.Action("ByMd5", "Images", new { md5 = m })!,
+                FullWidth = pw,
+                FullHeight = ph,
+                Alt = m,
+                Md5 = m,
+                PublishPlatforms = searchPublishStatuses.TryGetValue(m, out var platforms) ? platforms : Array.Empty<string>()
+            });
+        }
         ViewBag.GalleryItems = galleryItems;
         // Load distinct tags for this session to populate tags selector
         try
@@ -753,7 +751,7 @@ public class HomeController(
         var largeDetails = realPath != null ? await fileSystem.GetDqAnswer(realPath) : string.Empty;
         var commerceMarkJson = realPath != null ? await fileSystem.GetCommerceMarkAnswer(realPath) : "{}";
 
-        var links = imageLocator.GetImageLinks(md5);
+        var links = await imageLocator.GetImageLinksAsync(md5);
         var publishStatuses = await publishTrackerRepo.GetPublishStatusesAsync([md5], HttpContext.RequestAborted);
         var item = new SelectedItemViewModel
         {
@@ -782,7 +780,7 @@ public class HomeController(
             {
                 if (s.Md5Hash == md5) continue;
 
-                var sLinks = imageLocator.GetImageLinks(s.Md5Hash);
+                var sLinks = await imageLocator.GetImageLinksAsync(s.Md5Hash);
                 vm.SimilarPhotos.Add(new SelectedItemViewModel
                 {
                     Md5 = s.Md5Hash,
@@ -806,26 +804,30 @@ public class HomeController(
         var md5s = items.Select(i => i.Md5).ToArray();
         var publishStatuses = await publishTrackerRepo.GetPublishStatusesAsync(md5s, HttpContext.RequestAborted);
 
+        var viewModelItems = new List<SelectedItemViewModel>();
+        foreach (var i in items)
+        {
+            var links = await imageLocator.GetImageLinksAsync(i.Md5);
+            viewModelItems.Add(new SelectedItemViewModel
+            {
+                Md5 = i.Md5,
+                ShortDetails = i.ShortDetails,
+                LargeDetails = i.LargeDetails,
+                Tags = i.Tags ?? Array.Empty<string>(),
+                ImageUrl = Url.Action("ByMd5", "Images", new { md5 = i.Md5, w = 128 })!,
+                RealUrl = links?.Real ?? string.Empty,
+                CommerceMark = i.CommerceMark.ThisJsonAs<ImageProcessingExtensions.RateExplanation>().rate.ToString(),
+                ImprovementWays = i.CommerceMark.ThisJsonAs<ImageProcessingExtensions.RateExplanation>().rateExplanation,
+                Width = links?.P2000Width,
+                Height = links?.P2000Height,
+                PublishPlatforms = publishStatuses.TryGetValue(i.Md5, out var platforms) ? platforms : Array.Empty<string>()
+            });
+        }
+
         var vm = new SelectedViewModel
         {
             SessionId = sessionId,
-            Items = items.Select(i => {
-                var links = imageLocator.GetImageLinks(i.Md5);
-                return new SelectedItemViewModel
-                {
-                    Md5 = i.Md5,
-                    ShortDetails = i.ShortDetails,
-                    LargeDetails = i.LargeDetails,
-                    Tags = i.Tags ?? Array.Empty<string>(),
-                    ImageUrl = Url.Action("ByMd5", "Images", new { md5 = i.Md5, w = 128 })!,
-                    RealUrl = links?.Real ?? string.Empty,
-                    CommerceMark = i.CommerceMark.ThisJsonAs<ImageProcessingExtensions.RateExplanation>().rate.ToString(),
-                    ImprovementWays = i.CommerceMark.ThisJsonAs<ImageProcessingExtensions.RateExplanation>().rateExplanation,
-                    Width = links?.P2000Width,
-                    Height = links?.P2000Height,
-                    PublishPlatforms = publishStatuses.TryGetValue(i.Md5, out var platforms) ? platforms : Array.Empty<string>()
-                };
-            }).ToList()
+            Items = viewModelItems
         };
 
         return View(vm);

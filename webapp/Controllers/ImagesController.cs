@@ -13,19 +13,17 @@ public sealed class ImagesController(
     {
         if (string.IsNullOrWhiteSpace(md5)) return BadRequest("md5 is required");
 
-        var photoContent = imageLocator.GetImageLinks(md5);
+        var links = await imageLocator.GetImageLinksAsync(md5);
+        if (links?.Previews == null) return NotFound();
 
-        // choose preview path based on requested width (w). fall back to 512 if not specified.
-        var previewPath = photoContent == null ? null : SelectPreviewPath(photoContent, w);
-
-        if (string.IsNullOrWhiteSpace(previewPath) || !System.IO.File.Exists(previewPath))
+        var previewBase64 = SelectPreviewBase64(links, w);
+        if (string.IsNullOrWhiteSpace(previewBase64))
         {
             return NotFound();
         }
 
-        var contentType = GetContentType(previewPath!);
-        var stream = await System.IO.File.ReadAllBytesAsync(previewPath!, ct);
-        return File(stream, contentType);
+        var bytes = Convert.FromBase64String(previewBase64);
+        return File(bytes, "image/jpeg");
     }
 
     [HttpGet("download/{md5}")]
@@ -33,13 +31,13 @@ public sealed class ImagesController(
     {
         if (string.IsNullOrWhiteSpace(md5)) return BadRequest("md5 is required");
 
-        var photoContent = imageLocator.GetImageLinks(md5);
-        if (photoContent == null || string.IsNullOrWhiteSpace(photoContent.Real) || !System.IO.File.Exists(photoContent.Real))
+        var links = await imageLocator.GetImageLinksAsync(md5);
+        if (links == null || string.IsNullOrWhiteSpace(links.Real) || !System.IO.File.Exists(links.Real))
         {
             return NotFound();
         }
 
-        var path = photoContent.Real;
+        var path = links.Real;
         var contentType = GetContentType(path);
         var fileName = Path.GetFileName(path);
         
@@ -47,20 +45,26 @@ public sealed class ImagesController(
         return File(stream, contentType, fileName);
     }
 
-    private static string SelectPreviewPath(Services.ImageLinks links, int? w)
+    private static string? SelectPreviewBase64(Services.ImageLinks links, int? w)
     {
-        // default to 512 if width is not specified
-        if (w is null) return links.P512;
+        if (links.Previews == null) return null;
+        
+        string key = "512"; // Default
+        if (w.HasValue)
+        {
+            var width = w.Value;
+            if (width <= 16) key = "16";
+            else if (width <= 32) key = "32";
+            else if (width <= 64) key = "64";
+            else if (width <= 128) key = "128";
+            else if (width <= 512) key = "512";
+            else key = "2000";
+        }
 
-        var width = Math.Max(1, w.Value);
-
-        // pick the smallest preview that is >= requested width, otherwise the largest available
-        if (width <= 16) return links.P16;
-        if (width <= 32) return links.P32;
-        if (width <= 64) return links.P64;
-        if (width <= 128) return links.P128;
-        if (width <= 512) return links.P512;
-        return links.P2000;
+        if (links.Previews.TryGetValue(key, out var base64)) return base64;
+        
+        // Fallback to any available preview if requested one is missing
+        return links.Previews.Values.FirstOrDefault();
     }
 
     private static string GetContentType(string path)

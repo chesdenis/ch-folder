@@ -10,6 +10,10 @@ public interface IFileSystem
     void MoveFile(string sourceFileName, string destFileName);
     void CopyFile(string sourceFileName, string destFileName, bool overwrite);
     void CreateDirectory(string path);
+    Task<FileMetadata?> GetMetadata(string filePath);
+    Task<string> GetPartition(string filePath);
+    Task<string> GetSection(string filePath);
+    Task<string> GetGroup(string filePath);
     Task<string> GetEmbAnswer(string filePath);
     Task<string> GetEmbConversation(string filePath);
     Task<string> GetDqQuestion(string filePath);
@@ -20,6 +24,8 @@ public interface IFileSystem
     Task<string> GetCommerceMarkAnswer(string filePath);
     Task<string> GetEng30TagsAnswer(string filePath);
     Task<string> GetEngShortAnswer(string filePath);
+    Task<string[]> GetEng30Tags(string filePath);
+    Task<CommerceJson?> GetCommerceMarkAnswerJson(string filePath);
     Task<string> GetDqConversation(string filePath);
     Task<string> GetCommerceMarkConversation(string filePath);
     Task<string> GetEng30TagsConversation(string filePath);

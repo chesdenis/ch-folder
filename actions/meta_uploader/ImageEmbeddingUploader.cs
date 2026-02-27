@@ -43,23 +43,20 @@ public class ImageEmbeddingUploader(IFileSystem fileSystem, IFileHasher fileHash
         
         var md5 = await fileHasher.ComputeMd5Async(filePath);
         
-        var fileParentFolder = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
+        var metadata = await fileSystem.GetMetadata(filePath);
+        if (metadata == null) return;
         
-        //'/commerceMark/*.commerceMark.md.answer.md' - to get commerce mark with this format {rate, rate-explanation}
-        //'/eng30tags/*.eng30tags.md.answer.md' - to get tags with this format tag1, tag2, tag3, ..
-        // file location - first 2 folders, ... 
-
-        if (!fileSystem.FileExists(PathExtensions.ResolveEmbAnswer(filePath))) return;
-        if (!fileSystem.FileExists(PathExtensions.ResolveEngShortAnswerPath(filePath))) return;
-        if (!fileSystem.FileExists(PathExtensions.ResolveDqAnswerPath(filePath))) return;
-        if (!fileSystem.FileExists(PathExtensions.ResolveCommerceMarkAnswerPath(filePath))) return;
-        if (!fileSystem.FileExists(PathExtensions.ResolveEng30TagsAnswerPath(filePath))) return;
+        if (string.IsNullOrEmpty(metadata.EmbAnswer)) return;
+        if (string.IsNullOrEmpty(metadata.EngShortAnswer)) return;
+        if (string.IsNullOrEmpty(metadata.DqAnswer)) return;
+        if (string.IsNullOrEmpty(metadata.CommerceMarkAnswer)) return;
+        if (string.IsNullOrEmpty(metadata.Eng30TagsAnswer)) return;
 
         var embeddingContent = await fileSystem.GetEmbAnswer(filePath);
         var descriptionContent = await fileSystem.GetDqAnswer(filePath);
         
-        var commerceData = await ImageProcessingExtensions.GetRateExplanation(filePath);
-        var eng30TagsData = ImageProcessingExtensions.GetEng30TagsText(filePath);
+        var commerceData = await fileSystem.GetCommerceMarkAnswerJson(filePath);
+        var eng30TagsData = await fileSystem.GetEng30Tags(filePath);
         string[] persons = Array.Empty<string>();
         try
         {
@@ -69,9 +66,6 @@ public class ImageEmbeddingUploader(IFileSystem fileSystem, IFileHasher fileHash
         {
             // ignore faces extraction errors
         }
-        
-        var eventName = Path.GetFileName(fileParentFolder);
-        var yearName = Path.GetFileName(Directory.GetParent(fileParentFolder)?.FullName);
 
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         var item = JsonSerializer.Deserialize<EmbeddingFile>(embeddingContent, options);
@@ -94,15 +88,15 @@ public class ImageEmbeddingUploader(IFileSystem fileSystem, IFileHasher fileHash
             // New filterable fields
             ["commerceData"] = new Dictionary<string, object>
             {
-                ["rate"] = commerceData?.rate ?? 0,
-                ["rate-explanation"] = commerceData?.rateExplanation ?? string.Empty
+                ["rate"] = commerceData?.Rate ?? 0,
+                ["rate-explanation"] = commerceData?.RateExplanation ?? string.Empty
             },
-            ["commerceRate"] = commerceData?.rate ?? 0,
-            ["commerceRateExplanation"] = commerceData?.rateExplanation ?? string.Empty,
+            ["commerceRate"] = commerceData?.Rate ?? 0,
+            ["commerceRateExplanation"] = commerceData?.RateExplanation ?? string.Empty,
             ["tags"] = eng30TagsData,
             ["persons"] = persons,
-            ["eventName"] = eventName ?? string.Empty,
-            ["yearName"] = yearName ?? string.Empty
+            ["eventName"] = metadata.Section ?? string.Empty,
+            ["yearName"] = metadata.Partition ?? string.Empty
         };
 
         // add to buffer for batch upsert

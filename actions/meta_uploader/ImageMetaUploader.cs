@@ -60,12 +60,6 @@ public class ImageMetaUploader
 
         try
         {
-            var fileName = Path.GetFileName(filePath);
-            var group = fileName.GetGroupName();
-            var extension = Path.GetExtension(filePath).TrimStart('.').ToLowerInvariant();
-            var sizeBytes = new FileInfo(filePath).Length;
-
-            // compute md5 from file content
             var md5 = await _fileHasher.ComputeMd5Async(filePath);
 
             // skip if already in DB
@@ -74,27 +68,23 @@ public class ImageMetaUploader
                 return;
             }
             
-            if (!_fileSystem.FileExists(PathExtensions.ResolveEmbAnswer(filePath))) return;
-            if (!_fileSystem.FileExists(PathExtensions.ResolveDqAnswerPath(filePath))) return;
-            if (!_fileSystem.FileExists(PathExtensions.ResolveEngShortAnswerPath(filePath))) return;
-            if (!_fileSystem.FileExists(PathExtensions.ResolveCommerceMarkAnswerPath(filePath))) return;
-            if (!_fileSystem.FileExists(PathExtensions.ResolveEng30TagsAnswerPath(filePath))) return;
+            var metadata = await _fileSystem.GetMetadata(filePath);
+            if (metadata == null) return;
+            
+            if (string.IsNullOrEmpty(metadata.EmbAnswer)) return;
+            if (string.IsNullOrEmpty(metadata.DqAnswer)) return;
+            if (string.IsNullOrEmpty(metadata.EngShortAnswer)) return;
+            if (string.IsNullOrEmpty(metadata.CommerceMarkAnswer)) return;
+            if (string.IsNullOrEmpty(metadata.Eng30TagsAnswer)) return;
 
 
             // try read commerce rate explanation
             int commerceRate = 0;
-            try
+            var commerceData = await _fileSystem.GetCommerceMarkAnswerJson(filePath);
+            if (commerceData != null)
             {
-                var rate = await ImageProcessingExtensions.GetRateExplanation(filePath);
-                if (rate != null)
-                {
-                    // DB constraint currently allows 0..5
-                    commerceRate = Math.Max(0, Math.Min(5, rate.rate));
-                }
-            }
-            catch
-            {
-                // ignore missing/invalid files, keep default 0
+                // DB constraint currently allows 0..5
+                commerceRate = Math.Max(0, Math.Min(5, commerceData.Rate));
             }
             
             // try read faces information
@@ -108,8 +98,11 @@ public class ImageMetaUploader
                 // ignore missing/invalid files
             }
 
-            var eng30TagsText = ImageProcessingExtensions.GetEng30TagsText(filePath);
-            var shortDetails = ImageProcessingExtensions.GetEngShortText(filePath);
+            var eng30TagsText = await _fileSystem.GetEng30Tags(filePath);
+            var shortDetails = await _fileSystem.GetEngShortAnswer(filePath);
+            var extension = metadata.Ext ?? Path.GetExtension(filePath).TrimStart('.').ToLowerInvariant();
+            var sizeBytes = new FileInfo(filePath).Length;
+            var group = await _fileSystem.GetGroup(filePath);
             
             var record = new PhotoRecord(
                 md5_hash: md5,

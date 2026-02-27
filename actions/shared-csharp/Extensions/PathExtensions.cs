@@ -17,6 +17,21 @@ public static class PathExtensions
         return groupName;
     }
     
+    public static string GetMetadataPath(this string filePath)
+    {
+        var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
+        var md5 = filePath.GetMd5FromFileName();
+        return Path.Combine(directoryName, md5 + ".json");
+    }
+
+    public static string GetStoragePath(string rootPath, string md5, string ext)
+    {
+        if (md5.Length < 4) throw new ArgumentException("MD5 must be at least 4 characters long.");
+        var xx = md5.Substring(0, 2);
+        var yy = md5.Substring(2, 2);
+        return Path.Combine(rootPath, xx, yy, md5 + ext);
+    }
+
     public static string GetPreview16Path(this string filePath) => GetPreviewPath(filePath, "16");
     public static string GetPreview32Path(this string filePath) => GetPreviewPath(filePath, "32");
     public static string GetPreview64Path(this string filePath) => GetPreviewPath(filePath, "64");

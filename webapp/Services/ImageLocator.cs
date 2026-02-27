@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using Microsoft.Extensions.Options;
+using shared_csharp.Abstractions;
 using shared_csharp.Extensions;
 using webapp.Models;
 
@@ -10,7 +11,7 @@ public interface IImageLocator
 {
     public IDictionary<string, string> GetAllLocations();
     Task<int> IdentifyImageLocations(CancellationToken ct = default);
-    public ImageLinks? GetImageLinks(string md5);
+    public Task<ImageLinks?> GetImageLinksAsync(string md5);
     IEnumerable<string> GetAvailableFolders();
     IDictionary<string, List<string>> GetAvailableFoldersHierarchical();
 }
@@ -18,7 +19,8 @@ public interface IImageLocator
 public sealed class ImageLocator(
     IOptions<StorageOptions> storage,
     ILogger<ImageLocator> logger,
-    IImageLocationRepository imageLocationRepository)
+    IImageLocationRepository imageLocationRepository,
+    IFileSystem fileSystem)
     : IImageLocator
 {
     private readonly StorageOptions _storage = storage.Value;
@@ -79,33 +81,20 @@ public sealed class ImageLocator(
         return null;
     }
 
-    public ImageLinks? GetImageLinks(string md5)
+    public async Task<ImageLinks?> GetImageLinksAsync(string md5)
     {
         if (string.IsNullOrWhiteSpace(md5)) return null;
         if (!_imageLocationsMap.TryGetValue(md5, out var path)) return null;
 
-        var p16 = path.GetPreview16Path();
-        var p32 = path.GetPreview32Path();
-        var p64 = path.GetPreview64Path();
-        var p128 = path.GetPreview128Path();
-        var p512 = path.GetPreview512Path();
-        var p2000 = path.GetPreview2000Path();
-
-        // Attempt to read the dimensions of the 2000px preview (used in lightbox href)
-        var size = TryReadJpegSize(p2000);
+        var metadata = await fileSystem.GetMetadata(path);
 
         var links = new ImageLinks
         {
             Md5 = md5,
             Real = path,
-            P16 = p16,
-            P32 = p32,
-            P64 = p64,
-            P128 = p128,
-            P512 = p512,
-            P2000 = p2000,
-            P2000Width = size?.width,
-            P2000Height = size?.height
+            Previews = metadata?.Previews,
+            P2000Width = 2000, // Fallback or could be parsed from metadata if available
+            P2000Height = 1500
         };
         return links;
     }
@@ -232,12 +221,7 @@ public record ImageLinks
 {
     public required string Md5 { get; init; }
     public required string Real { get; init; }
-    public required string P16 { get; init; }
-    public required string P32 { get; init; }
-    public required string P64 { get; init; }
-    public required string P128 { get; init; }
-    public required string P512 { get; init; }
-    public required string P2000 { get; init; }
+    public IReadOnlyDictionary<string, string>? Previews { get; init; }
     // Optional dimensions of the 2000px preview (read from file header if available)
     public int? P2000Width { get; init; }
     public int? P2000Height { get; init; }

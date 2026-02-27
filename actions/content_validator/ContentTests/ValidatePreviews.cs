@@ -12,19 +12,24 @@ internal sealed class ValidatePreviews(IFileSystem fs) : ContentValidationTest(f
     {
         try
         {
-            var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
-            var previewFolder = Path.Combine(directoryName, "preview");
+            var metadata = await fs.GetMetadata(filePath);
+            if (metadata == null) 
+            {
+                failures.Add(new { file = filePath, reason = "Metadata file is missing." });
+                return false;
+            }
+
+            if (metadata.Previews == null) 
+            {
+                failures.Add(new { file = filePath, reason = "Previews are missing in metadata." });
+                return false;
+            }
 
             foreach (var previewKind in GetPreviewKinds())
             {
-                var previewFileName = Path.GetFileNameWithoutExtension(filePath) + "_p" + previewKind + ".jpg";
-                var previewPath = Path.Combine(previewFolder, previewFileName);
-
-                var fileExist = fs.FileExists(previewPath);
-                if (!fileExist)
+                if (!metadata.Previews.ContainsKey(previewKind))
                 {
-                    var s = $"Preview file '{previewPath}' does not exist.";
-                    failures.Add(new { file = filePath, reason = s });
+                    failures.Add(new { file = filePath, reason = $"Preview '{previewKind}' is missing in metadata." });
                     return false;
                 }
             }

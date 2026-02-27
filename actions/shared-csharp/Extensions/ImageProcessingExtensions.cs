@@ -1,5 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Newtonsoft.Json;
+using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace shared_csharp.Extensions;
 
@@ -19,19 +21,14 @@ public static class ImageProcessingExtensions
 
     public static async Task<RateExplanation?> GetRateExplanation(string filePath)
     {
-        var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
-        var commerceFolder = Path.Combine(directoryName, "commerceMark");
-        var groupName = Path.GetFileNameWithoutExtension(filePath).Split("_")[0];
-        if (groupName.Length != 4)
-        {
-            groupName = Path.GetFileNameWithoutExtension(filePath);
-        }
-
-
-        var commerceMarkPath = Path.Combine(commerceFolder, $"{groupName}.commerceMark.md.answer.md");
-        if(!File.Exists(commerceMarkPath)) return null;
+        var metadataPath = filePath.GetMetadataPath();
+        if (!File.Exists(metadataPath)) return null;
         
-        var commerceRawContent = await File.ReadAllTextAsync(commerceMarkPath);
+        var content = await File.ReadAllTextAsync(metadataPath);
+        var metadata = JsonConvert.DeserializeObject<FileMetadata>(content);
+        if (metadata == null || string.IsNullOrEmpty(metadata.CommerceMarkAnswer)) return null;
+        
+        var commerceRawContent = Decode(metadata.CommerceMarkAnswer);
         var commerceData = JsonSerializer.Deserialize<RateExplanation>(commerceRawContent);
 
         return commerceData;
@@ -39,38 +36,39 @@ public static class ImageProcessingExtensions
     
     public static string GetEngShortText(string filePath)
     {
-        var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
-        var dqFolder = Path.Combine(directoryName, "engShort");
+        var metadataPath = filePath.GetMetadataPath();
+        if (!File.Exists(metadataPath)) return string.Empty;
 
-        var groupName = Path.GetFileNameWithoutExtension(filePath).Split("_")[0];
-        if (groupName.Length != 4)
-        {
-            groupName = Path.GetFileNameWithoutExtension(filePath);
-        }
-
-        var dqQuestionPath = Path.Combine(dqFolder, groupName + ".engShort.md");
-        var dqAnswerPath = Path.Combine(dqFolder, groupName + ".engShort.md.answer.md");
-        
-        if (!File.Exists(dqAnswerPath)) return string.Empty;
-
-        return File.ReadAllText(dqAnswerPath);
+        var content = File.ReadAllText(metadataPath);
+        var metadata = JsonConvert.DeserializeObject<FileMetadata>(content);
+        return Decode(metadata?.EngShortAnswer);
     } 
     
     public static string[] GetEng30TagsText(string filePath)
     {
-        var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
-        var dqFolder = Path.Combine(directoryName, "eng30tags");
+        var metadataPath = filePath.GetMetadataPath();
+        if (!File.Exists(metadataPath)) return Array.Empty<string>();
 
-        var groupName = Path.GetFileNameWithoutExtension(filePath).Split("_")[0];
-        if (groupName.Length != 4)
+        var content = File.ReadAllText(metadataPath);
+        var metadata = JsonConvert.DeserializeObject<FileMetadata>(content);
+        var tags = Decode(metadata?.Eng30TagsAnswer);
+        if (string.IsNullOrEmpty(tags)) return Array.Empty<string>();
+
+        return tags.Split(',').Select(s => s.Trim()).ToArray();
+    }
+
+    private static string Decode(string? base64)
+    {
+        if (string.IsNullOrEmpty(base64)) return string.Empty;
+        try 
         {
-            groupName = Path.GetFileNameWithoutExtension(filePath);
+            var bytes = Convert.FromBase64String(base64);
+            return System.Text.Encoding.UTF8.GetString(bytes);
         }
-        
-        var dqAnswerPath = Path.Combine(dqFolder, groupName + ".eng30tags.md.answer.md");
-        if(!File.Exists(dqAnswerPath)) return Array.Empty<string>();
-        
-        return File.ReadAllText(dqAnswerPath).Split(',').Select(s => s.Trim()).ToArray();
+        catch 
+        {
+            return base64; // Fallback if not base64
+        }
     }
 
     public static string[] GetFacesOnPhotos(string filePath)
@@ -122,6 +120,7 @@ public static class ImageProcessingExtensions
         {
             ".ds_store",
             "._",
+            ".json",
         };
 
     public static readonly HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
