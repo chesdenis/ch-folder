@@ -144,7 +144,6 @@ public class ImageMetaUploader
             .Append("extension, ")
             .Append("size_bytes, ")
             .Append("tags, ")
-            .Append("persons, ")
             .Append("short_details, ")
             .Append("commerce_rate, ")
             .Append("group_name) VALUES ");
@@ -161,7 +160,6 @@ public class ImageMetaUploader
                       $"@ext_{i}, " +
                       $"@sz_{i}, " +
                       $"@tags_{i}, " +
-                      $"@persons_{i}, " +
                       $"@sd_{i}, " +
                       $"@cr_{i}, " +
                       $"@group_{i})");
@@ -180,7 +178,6 @@ public class ImageMetaUploader
         sb.Append("extension = EXCLUDED.extension, ");
         sb.Append("size_bytes = EXCLUDED.size_bytes, ");
         sb.Append("tags = EXCLUDED.tags, ");
-        sb.Append("persons = EXCLUDED.persons, ");
         sb.Append("short_details = EXCLUDED.short_details, ");
         sb.Append("commerce_rate = EXCLUDED.commerce_rate, ");
         sb.Append("group_name = EXCLUDED.group_name;");

@@ -24,7 +24,7 @@ public class PhysicalFileSystem : IFileSystem
         return JsonConvert.DeserializeObject<FileMetadata>(content);
     }
 
-    public async Task<string> GetGroup(string filePath) => Decode((await GetMetadata(filePath))?.Group);
+    public async Task<string> GetGroup(string filePath) => (await GetMetadata(filePath))?.Group;
 
     private string Decode(string? base64)
     {

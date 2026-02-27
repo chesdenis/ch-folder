@@ -682,14 +682,12 @@ public class HomeController(
         [FromForm] string jobId,
         [FromForm] JobType type,
         [FromForm] int? dop,
-        [FromForm] string? testKind,
-        [FromForm] string? level1,
-        [FromForm] string? level2)
+        [FromForm] string? testKind)
     {
         if (string.IsNullOrWhiteSpace(jobId)) return BadRequest("jobId is required");
         var rootPath = _storage.RootPath;
         if (string.IsNullOrWhiteSpace(rootPath)) return BadRequest("Storage root path is not configured");
-        var id = jobRunner.StartJob(jobId, type, rootPath, dop, testKind, level1, level2);
+        var id = jobRunner.StartJob(jobId, type, rootPath, dop, testKind);
         return Ok(new { jobId = id });
     }
 

@@ -20,9 +20,7 @@ public interface IJobRunner
         JobType jobType,
         string workingFolder,
         int? degreeOfParallelism = null,
-        string? testKind = null,
-        string? level1 = null,
-        string? level2 = null);
+        string? testKind = null);
 }
 
 public class JobRunner : IJobRunner
@@ -47,9 +45,7 @@ public class JobRunner : IJobRunner
         JobType jobType,
         string workingFolder,
         int? degreeOfParallelism = null,
-        string? testKind = null,
-        string? level1 = null,
-        string? level2 = null)
+        string? testKind = null)
     {
         var group = JobStatusHub.GroupName(jobId);
 
@@ -64,7 +60,7 @@ public class JobRunner : IJobRunner
                     throw new DirectoryNotFoundException($"Working folder '{rootPath}' does not exist");
                 }
 
-                var storageFolders = GetStorageFolders(rootPath, level1, level2).ToArray();
+                var storageFolders = PathExtensions.GetStorageFolders(rootPath).ToArray();
 
                 var total = storageFolders.Length;
                 var completed = 0;
@@ -196,47 +192,6 @@ public class JobRunner : IJobRunner
     private static int ComputeCompleted(int total, int completed)
     {
         return completed * 100 / Math.Max(1, total);
-    }
-
-    private static IEnumerable<string> GetStorageFolders(string rootPath, string? level1, string? level2)
-    {
-        var storageFolders = PathExtensions.GetStorageFolders(rootPath);
-
-        // Optional filtering by level1/level2 folder names
-        var l1 = string.IsNullOrWhiteSpace(level1) ? null : level1.Trim();
-        var l2 = string.IsNullOrWhiteSpace(level2) ? null : level2.Trim();
-        
-        if (l1 == null && l2 == null) return storageFolders.ToArray();
-
-        static string[] SplitParts(string s)
-        {
-            var norm = s.Replace('\\', '/');
-            return norm.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        }
-
-        storageFolders = storageFolders.Where(s =>
-        {
-            var parts = SplitParts(s);
-            if (l1 == null && l2 == null) return true;
-            if (l1 != null && l2 == null)
-            {
-                // include first-level folder itself and its second-levels
-                return parts.Length >= 1 && string.Equals(parts[0], l1, StringComparison.OrdinalIgnoreCase);
-            }
-
-            if (l1 == null && l2 != null)
-            {
-                // any second-level with matching name
-                return parts.Length >= 2 && string.Equals(parts[1], l2, StringComparison.OrdinalIgnoreCase);
-            }
-
-            // both provided
-            return parts.Length >= 2
-                   && string.Equals(parts[0], l1, StringComparison.OrdinalIgnoreCase)
-                   && string.Equals(parts[1], l2, StringComparison.OrdinalIgnoreCase);
-        });
-
-        return storageFolders.ToArray();
     }
 
     private Func<string, Action<string>?, Action<string>?, CancellationToken, Task<int>> BuildJobFunc(JobType jobType, string? testKind)
