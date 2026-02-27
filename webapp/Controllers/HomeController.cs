@@ -6,7 +6,6 @@ using Microsoft.Extensions.Options;
 using shared_csharp.Abstractions;
 using shared_csharp.Extensions;
 using webapp.Services;
-using System.Text.Json;
 
 namespace webapp.Controllers;
 
@@ -21,7 +20,6 @@ public class HomeController(
     IImageLocator imageLocator,
     IImageLocationRepository imageLocationRepository,
     IFileSystem fileSystem,
-    IContentValidationRepository contentValidationRepository,
     IPublishTrackerRepository publishTrackerRepo) : Controller
 {
     private readonly StorageOptions _storage = storageOptions.Value;
@@ -558,174 +556,8 @@ public class HomeController(
         return View();
     }
 
-    public IActionResult ContentQualityValidator()
-    {
-        ViewBag.StoragePath = _storage.RootPath ?? string.Empty;
-        return View();
-    }
-
-    public async Task<IActionResult> ContentQualityStatus()
-    {
-        var root = _storage.RootPath;
-        var folders = (!string.IsNullOrWhiteSpace(root) && Directory.Exists(root))
-            ? PathExtensions.GetStorageFolders(root).ToArray()
-            : Array.Empty<string>();
-
-        var latest = await contentValidationRepository.GetLatestAsync(HttpContext.RequestAborted);
-        
-        ViewBag.StoragePath = root ?? string.Empty;
-
-        var vm = new ValidationStatusViewModel()
-        {
-            Items = latest.Select(s => new FolderStatus
-            {
-                Folder = s.Folder,
-                TestKind = s.TestKind,
-                Status = s.Status,
-                TotalFailures = s.TotalFailures
-            }).ToArray()
-        };
-        return View(vm);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> TruncateAnalysisResults()
-    {
-        await contentValidationRepository.TruncateAsync(HttpContext.RequestAborted);
-        return RedirectToAction(nameof(ContentQualityStatus));
-    }
 
 
-    [HttpGet]
-    public async Task<IActionResult> ContentQualityDetails([FromQuery] string folder)
-    {
-        if (string.IsNullOrWhiteSpace(folder))
-            return BadRequest("folder is required");
-
-        ViewBag.StoragePath = _storage.RootPath ?? string.Empty;
-        ViewBag.ExtractionPath = _storage.ExtractionPath ?? string.Empty;
-
-        var rows = await contentValidationRepository.GetLatestDetailsByFolderAsync(folder, HttpContext.RequestAborted);
-
-        // Prepare pretty JSON once on server side
-        static string? Pretty(string? json)
-        {
-            if (string.IsNullOrWhiteSpace(json)) return null;
-            try
-            {
-                using var doc = JsonDocument.Parse(json);
-                return JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
-            }
-            catch
-            {
-                return json; // fallback to raw
-            }
-        }
-
-        static ValidationDetailPayload? Parse(string? json)
-        {
-            if (string.IsNullOrWhiteSpace(json)) return null;
-            try
-            {
-                var opts = new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                };
-                var payload = JsonSerializer.Deserialize<ValidationDetailPayload>(json, opts);
-                if (payload == null) return null;
-                // Normalize null arrays to empty for easier rendering
-                payload = new ValidationDetailPayload
-                {
-                    Total = payload.Total,
-                    Mismatches = payload.Mismatches,
-                    Failures = payload.Failures ?? Array.Empty<FailureItem>()
-                };
-                return payload;
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        var vm = new ValidationDetailsViewModel
-        {
-            Folder = folder,
-            Items = rows.Select(r => new ValidationDetailItem
-            {
-                TestKind = r.TestKind,
-                Status = r.Status,
-                Details = Pretty(r.DetailsJson),
-                Parsed = Parse(r.DetailsJson)
-            }).OrderBy(i => i.TestKind).ToList()
-        };
-
-        return View(vm);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> ExtractFailedFiles([FromForm] string folder)
-    {
-        if (string.IsNullOrWhiteSpace(folder))
-            return BadRequest("folder is required");
-
-        if (string.IsNullOrWhiteSpace(_storage.ExtractionPath))
-            return BadRequest("ExtractionPath is not configured");
-
-        var rows = await contentValidationRepository.GetLatestDetailsByFolderAsync(folder, HttpContext.RequestAborted);
-        var extractionCount = 0;
-
-        foreach (var row in rows)
-        {
-            if (string.IsNullOrWhiteSpace(row.DetailsJson)) continue;
-
-            var payload = JsonSerializer.Deserialize<ValidationDetailPayload>(row.DetailsJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            if (payload?.Failures == null) continue;
-
-            foreach (var failure in payload.Failures)
-            {
-                if (string.IsNullOrWhiteSpace(failure.File)) continue;
-
-                try
-                {
-                    // Use CalculateMd5Async to extract md5 (it handles files already having md5 in name)
-                    var md5 = await failure.File.CalculateMd5Async();
-                    
-                    // Identify location on disk
-                    var realPath = await imageLocationRepository.GetPathByMd5Async(md5, HttpContext.RequestAborted);
-                    if (string.IsNullOrEmpty(realPath) || !System.IO.File.Exists(realPath))
-                    {
-                        logger.LogWarning("Could not find real path for md5 {Md5} (file: {File})", md5, failure.File);
-                        continue;
-                    }
-
-                    // Move to ExtractionPath preserving folder name
-                    // "It is important to put it into folder with same name as it was before but under ExtractionPath folder"
-                    var fileName = Path.GetFileName(realPath);
-                    var targetFolder = Path.Combine(_storage.ExtractionPath, folder);
-                    if (!Directory.Exists(targetFolder))
-                    {
-                        Directory.CreateDirectory(targetFolder);
-                    }
-
-                    var targetPath = Path.Combine(targetFolder, fileName);
-                    
-                    if (System.IO.File.Exists(realPath))
-                    {
-                        System.IO.File.Move(realPath, targetPath, overwrite: true);
-                        extractionCount++;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, "Failed to extract file {File}", failure.File);
-                }
-            }
-        }
-
-        TempData["Message"] = $"Extracted {extractionCount} failed files to {_storage.ExtractionPath}/{folder}";
-        return RedirectToAction(nameof(ContentQualityDetails), new { folder });
-    }
 
     [HttpGet("/api/storage/folders")]
     public IActionResult GetStorageFolders()
