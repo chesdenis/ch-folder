@@ -39,20 +39,6 @@ public static class ArgsExtensions
             }
         }
     }
-
-    public static async Task WalkFolders(this IFileSystem fileSystem, string[] args, Func<string, Task> processPath)
-    {
-        foreach (var arg in args)
-        {
-            if (!fileSystem.DirectoryExists(arg)) continue;
-
-            var filesToProcess = fileSystem.EnumerateDirectories(arg, "*", SearchOption.TopDirectoryOnly).ToArray();
-            foreach (var filePath in filesToProcess)
-            {
-                await processPath(filePath);
-            }
-        }
-    }
     
     public static string AsBase64String(this string value)
     {

@@ -57,16 +57,7 @@ public class ImageEmbeddingUploader(IFileSystem fileSystem, IFileHasher fileHash
         
         var commerceData = await fileSystem.GetCommerceMarkAnswerJson(filePath);
         var eng30TagsData = await fileSystem.GetEng30Tags(filePath);
-        string[] persons = Array.Empty<string>();
-        try
-        {
-            persons = ImageProcessingExtensions.GetFacesOnPhotos(filePath);
-        }
-        catch
-        {
-            // ignore faces extraction errors
-        }
-
+       
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         var item = JsonSerializer.Deserialize<EmbeddingFile>(embeddingContent, options);
         if (item?.data == null || item.data.Count == 0)
@@ -94,7 +85,6 @@ public class ImageEmbeddingUploader(IFileSystem fileSystem, IFileHasher fileHash
             ["commerceRate"] = commerceData?.Rate ?? 0,
             ["commerceRateExplanation"] = commerceData?.RateExplanation ?? string.Empty,
             ["tags"] = eng30TagsData,
-            ["persons"] = persons,
             ["eventName"] = metadata.Section ?? string.Empty,
             ["yearName"] = metadata.Partition ?? string.Empty
         };

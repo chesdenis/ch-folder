@@ -86,17 +86,6 @@ public class ImageMetaUploader
                 // DB constraint currently allows 0..5
                 commerceRate = Math.Max(0, Math.Min(5, commerceData.Rate));
             }
-            
-            // try read faces information
-            string[] persons = Array.Empty<string>();
-            try
-            {
-                persons = ImageProcessingExtensions.GetFacesOnPhotos(filePath);
-            }
-            catch  
-            {
-                // ignore missing/invalid files
-            }
 
             var eng30TagsText = await _fileSystem.GetEng30Tags(filePath);
             var shortDetails = await _fileSystem.GetEngShortAnswer(filePath);
@@ -109,7 +98,6 @@ public class ImageMetaUploader
                 extension: extension,
                 size_bytes: sizeBytes,
                 tags: eng30TagsText,
-                persons: persons,
                 short_details:  shortDetails,
                 commerce_rate: commerceRate,
                 group_name: group);
@@ -183,8 +171,6 @@ public class ImageMetaUploader
             cmd.Parameters.AddWithValue($"@sz_{i}", NpgsqlDbType.Bigint, r.size_bytes);
             var pTags = new NpgsqlParameter<string[]>($"@tags_{i}", NpgsqlDbType.Array | NpgsqlDbType.Text) { TypedValue = r.tags };
             cmd.Parameters.Add(pTags);
-            var pPersons = new NpgsqlParameter<string[]>($"@persons_{i}", NpgsqlDbType.Array | NpgsqlDbType.Text) { TypedValue = r.persons };
-            cmd.Parameters.Add(pPersons);
             cmd.Parameters.AddWithValue($"@sd_{i}", NpgsqlDbType.Text, r.short_details);
             cmd.Parameters.AddWithValue($"@cr_{i}", NpgsqlDbType.Integer, r.commerce_rate);
             cmd.Parameters.AddWithValue($"@group_{i}", NpgsqlDbType.Text, r.group_name);
@@ -209,7 +195,6 @@ public class ImageMetaUploader
         string extension,
         long size_bytes,
         string[] tags,
-        string[] persons,
         string short_details,
         int commerce_rate,
         string group_name
