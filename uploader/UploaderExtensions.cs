@@ -30,7 +30,33 @@ public static class UploaderExtensions
     {
         try
         {
-            var driveInfo = new DriveInfo(Path.GetPathRoot(Path.GetFullPath(targetPath))!);
+            var targetFullPath = Path.GetFullPath(targetPath);
+            DriveInfo? driveInfo = null;
+
+            // On Windows, Path.GetPathRoot works well for identifying the drive.
+            // On Unix, it usually returns "/", which might not be the actual mount point for the path.
+            if (OperatingSystem.IsWindows())
+            {
+                driveInfo = new DriveInfo(Path.GetPathRoot(targetFullPath)!);
+            }
+            else
+            {
+                // For macOS/Linux, we find the closest mount point by traversing up the directory tree.
+                var drives = DriveInfo.GetDrives();
+                var currentDir = new DirectoryInfo(targetFullPath);
+
+                while (currentDir != null && driveInfo == null)
+                {
+                    driveInfo = drives.FirstOrDefault(d => 
+                        string.Equals(d.RootDirectory.FullName.TrimEnd(Path.DirectorySeparatorChar), 
+                                      currentDir.FullName.TrimEnd(Path.DirectorySeparatorChar), 
+                                      StringComparison.OrdinalIgnoreCase));
+                    currentDir = currentDir.Parent;
+                }
+            }
+
+            if (driveInfo == null) return true;
+
             var fileInfo = new FileInfo(sourceFilePath);
             return driveInfo.AvailableFreeSpace > (fileInfo.Length + bufferBytes);
         }
@@ -50,6 +76,11 @@ public static class UploaderExtensions
         var metadata = new Dictionary<string, object?>();
         metadata["partition"] = partition.ToBase64();
         metadata["section"] = section.ToBase64();
+        
+        metadata["group"] = ImageProcessingExtensions.GetNameParts(filePath)[0];
+        metadata["averageHash"] = ImageProcessingExtensions.GetNameParts(filePath)[1];
+        metadata["colorHash"] = ImageProcessingExtensions.GetNameParts(filePath)[2];
+        
 
         // Description and Tags (as used in ImageEmbeddingUploader)
         if (fs.FileExists(PathExtensions.ResolveDqAnswerPath(filePath)))

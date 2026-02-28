@@ -51,7 +51,7 @@ class Program
         int skipped = 0;
         int errors = 0;
 
-        foreach (var filePath in PathExtensions.GetFilesInFolder(sourcePath, folders))
+        foreach (var filePath in PathExtensions.GetFilesInFolder(sourcePath, folders).Take(70000))
         {
             try
             {

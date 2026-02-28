@@ -54,8 +54,36 @@ public static class ImageProcessingExtensions
         if (!File.Exists(dqAnswerPath)) return string.Empty;
 
         return File.ReadAllText(dqAnswerPath);
-    } 
-    
+    }
+
+    public static string[] GetNameParts(string filePath)
+    {
+        var groupName = Path.GetFileNameWithoutExtension(filePath).Split("_")[0];
+        if (groupName.Length != 4)
+        {
+            groupName = Path.GetFileNameWithoutExtension(filePath);
+        }
+
+        var averageHash = string.Empty;
+        var colorHash = string.Empty;
+
+        if (Path.GetFileNameWithoutExtension(filePath).Split("_").Length > 2)
+        {
+            if (Path.GetFileNameWithoutExtension(filePath).Split("_")[0].Length != 4)
+            {
+                averageHash = Path.GetFileNameWithoutExtension(filePath).Split("_")[0];
+                colorHash = Path.GetFileNameWithoutExtension(filePath).Split("_")[1];
+            }
+            else
+            {
+                averageHash = Path.GetFileNameWithoutExtension(filePath).Split("_")[1];
+                colorHash = Path.GetFileNameWithoutExtension(filePath).Split("_")[2];
+            }
+        }
+        
+        return [groupName, averageHash, colorHash];   
+    }
+     
     public static string[] GetEng30TagsText(string filePath)
     {
         var directoryName = Path.GetDirectoryName(filePath) ?? throw new Exception("Invalid file path.");
