@@ -8,7 +8,7 @@ public static class ArgsExtensions
     {
         if (args.Length == 0)
         {
-            Console.WriteLine("Please provide file paths as arguments.");
+            Console.WriteLine("Please arguments for processing");
             var path = Console.ReadLine() ?? throw new Exception("Invalid file path.");
             path = path.Trim('\'', '\"');
             args = args.Append(path).ToArray();
@@ -17,26 +17,17 @@ public static class ArgsExtensions
         return args;
     }
 
-    public static async Task WalkThrough(this IFileSystem fileSystem, string[] args, Func<string, Task> processPath, bool recursive = false)
+    public static async Task WalkThrough(this IContentProvider contentProvider, string[] args, Func<string, Task> processPath)
     {
         foreach (var arg in args)
         {
-            if (fileSystem.DirectoryExists(arg))
+            var md5List = await contentProvider.GetFilePointers(Convert.ToUInt32(arg));
+            Console.WriteLine($"Found {md5List.Length} items to process");
+            foreach (var md5 in md5List)
             {
-                // evaluate query result to avoid processing files again during async run
-                var so = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-                var filesToProcess = fileSystem.EnumerateFiles(arg, "*", so).ToArray();
-                    
-                foreach (var filePath in filesToProcess)
-                {
-                    await processPath(filePath);
-                }
+                await processPath(md5);
             }
-            else
-            {
-                var filePath = arg;
-                await processPath(filePath);
-            }
+            Console.WriteLine($"Done {md5List.Length} items");
         }
     }
     

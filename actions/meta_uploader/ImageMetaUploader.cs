@@ -7,17 +7,15 @@ namespace meta_uploader;
 
 public class ImageMetaUploader
 {
-    private readonly IFileSystem _fileSystem;
-    private readonly IFileHasher _fileHasher;
+    private readonly IContentProvider _contentProvider;
     private readonly string _connectionString;
     private const int BatchSize = 200;
     private readonly List<PhotoRecord> _buffer = new();
-    private readonly HashSet<string> _existingMd5 = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _filePointersInDb = new(StringComparer.OrdinalIgnoreCase);
 
-    public ImageMetaUploader(IFileSystem fileSystem, IFileHasher fileHasher)
+    public ImageMetaUploader(IContentProvider contentProvider)
     {
-        _fileSystem = fileSystem;
-        _fileHasher = fileHasher;
+        _contentProvider = contentProvider;
         _connectionString =
             string.Join(";",
                 $"Host={Environment.GetEnvironmentVariable("PG_HOST")}",
@@ -36,7 +34,7 @@ public class ImageMetaUploader
     {
         args = args.ValidateArgs();
         await LoadExistingMd5Async();
-        await _fileSystem.WalkThrough(args, ProcessSingleFile);
+        await _contentProvider.WalkThrough(args, ProcessSingleFile);
 
         // flush remaining buffer
         if (_buffer.Count > 0)
@@ -46,29 +44,23 @@ public class ImageMetaUploader
         }
     }
 
-    private async Task ProcessSingleFile(string filePath)
+    private async Task ProcessSingleFile(string filePointer)
     {
-        if (!filePath.AllowToProcess())
-        {
-            return;
-        }
-        
-        if (filePath.IsVideo())
+        var ext = await _contentProvider.GetExtension(filePointer);
+        if (ext.IsVideo())
         {
             return;
         }
 
         try
         {
-            var md5 = await _fileHasher.ComputeMd5Async(filePath);
-
             // skip if already in DB
-            if (_existingMd5.Contains(md5))
+            if (_filePointersInDb.Contains(filePointer))
             {
                 return;
             }
             
-            var metadata = await _fileSystem.GetMetadata(filePath);
+            var metadata = await _contentProvider.GetMetadataByMd5(filePointer);
             if (metadata == null) return;
             
             if (string.IsNullOrEmpty(metadata.EmbAnswer)) return;
@@ -76,27 +68,24 @@ public class ImageMetaUploader
             if (string.IsNullOrEmpty(metadata.EngShortAnswer)) return;
             if (string.IsNullOrEmpty(metadata.CommerceMarkAnswer)) return;
             if (string.IsNullOrEmpty(metadata.Eng30TagsAnswer)) return;
-
-
+            
             // try read commerce rate explanation
             int commerceRate = 0;
-            var commerceData = await _fileSystem.GetCommerceMarkAnswerJson(filePath);
+            var commerceData = await _contentProvider.GetCommerceMarkAnswerJson(filePointer);
             if (commerceData != null)
             {
                 // DB constraint currently allows 0..5
                 commerceRate = Math.Max(0, Math.Min(5, commerceData.Rate));
             }
 
-            var eng30TagsText = await _fileSystem.GetEng30Tags(filePath);
-            var shortDetails = await _fileSystem.GetEngShortAnswer(filePath);
-            var extension = metadata.Ext ?? Path.GetExtension(filePath).TrimStart('.').ToLowerInvariant();
-            var sizeBytes = new FileInfo(filePath).Length;
-            var group = await _fileSystem.GetGroup(filePath);
+            var eng30TagsText = await _contentProvider.GetEng30Tags(filePointer);
+            var shortDetails = await _contentProvider.GetEngShortAnswer(filePointer);
+            var extension = await _contentProvider.GetExtension(filePointer);
+            var group = await _contentProvider.GetGroup(filePointer);
             
             var record = new PhotoRecord(
-                md5_hash: md5,
+                md5_hash: filePointer,
                 extension: extension,
-                size_bytes: sizeBytes,
                 tags: eng30TagsText,
                 short_details:  shortDetails,
                 commerce_rate: commerceRate,
@@ -105,13 +94,15 @@ public class ImageMetaUploader
             _buffer.Add(record);
             if (_buffer.Count >= BatchSize)
             {
+                Console.WriteLine($"Writing {_buffer.Count} to DB");
                 await UpsertBatchAsync(_buffer);
+                Console.WriteLine($"Done {_buffer.Count} writing to DB");
                 _buffer.Clear();
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error processing file '{filePath}': {ex.Message}");
+            Console.WriteLine($"Error processing file '{filePointer}': {ex.Message}");
         }
     }
 
@@ -124,7 +115,7 @@ public class ImageMetaUploader
         while (await reader.ReadAsync())
         {
             var hash = reader.GetString(0);
-            _existingMd5.Add(hash);
+            _filePointersInDb.Add(hash);
         }
     }
 
@@ -142,7 +133,6 @@ public class ImageMetaUploader
         sb.Append("INSERT INTO photo (")
             .Append("md5_hash, ")
             .Append("extension, ")
-            .Append("size_bytes, ")
             .Append("tags, ")
             .Append("short_details, ")
             .Append("commerce_rate, ")
@@ -158,7 +148,6 @@ public class ImageMetaUploader
             if (i > 0) sb.Append(",");
             sb.Append($"(@md5_{i}, " +
                       $"@ext_{i}, " +
-                      $"@sz_{i}, " +
                       $"@tags_{i}, " +
                       $"@sd_{i}, " +
                       $"@cr_{i}, " +
@@ -166,7 +155,6 @@ public class ImageMetaUploader
 
             cmd.Parameters.AddWithValue($"@md5_{i}", NpgsqlDbType.Text, r.md5_hash);
             cmd.Parameters.AddWithValue($"@ext_{i}", NpgsqlDbType.Text, r.extension);
-            cmd.Parameters.AddWithValue($"@sz_{i}", NpgsqlDbType.Bigint, r.size_bytes);
             var pTags = new NpgsqlParameter<string[]>($"@tags_{i}", NpgsqlDbType.Array | NpgsqlDbType.Text) { TypedValue = r.tags };
             cmd.Parameters.Add(pTags);
             cmd.Parameters.AddWithValue($"@sd_{i}", NpgsqlDbType.Text, r.short_details);
@@ -176,7 +164,6 @@ public class ImageMetaUploader
 
         sb.Append(" ON CONFLICT (md5_hash) DO UPDATE SET ");
         sb.Append("extension = EXCLUDED.extension, ");
-        sb.Append("size_bytes = EXCLUDED.size_bytes, ");
         sb.Append("tags = EXCLUDED.tags, ");
         sb.Append("short_details = EXCLUDED.short_details, ");
         sb.Append("commerce_rate = EXCLUDED.commerce_rate, ");
@@ -190,7 +177,6 @@ public class ImageMetaUploader
     private sealed record PhotoRecord(
         string md5_hash,
         string extension,
-        long size_bytes,
         string[] tags,
         string short_details,
         int commerce_rate,

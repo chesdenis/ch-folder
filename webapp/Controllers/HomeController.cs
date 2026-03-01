@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Routing;
 using webapp.Models;
 using Microsoft.Extensions.Options;
 using shared_csharp.Abstractions;
@@ -12,17 +11,16 @@ namespace webapp.Controllers;
 public class HomeController(
     ILogger<HomeController> logger,
     IJobRunner jobRunner,
-    IOptions<StorageOptions> storageOptions,
+    IOptions<WebAppOptions> storageOptions,
     IDockerSearchRunner dockerSearchRunner,
     ISearchResultsRepository searchResultsRepo,
     ISearchSessionRepository sessionsRepo,
     ISearchSessionSelectionRepository selectionRepo,
     IImageLocator imageLocator,
-    IImageLocationRepository imageLocationRepository,
-    IFileSystem fileSystem,
+    IContentProvider contentProvider,
     IPublishTrackerRepository publishTrackerRepo) : Controller
 {
-    private readonly StorageOptions _storage = storageOptions.Value;
+    private readonly WebAppOptions _webApp = storageOptions.Value;
 
     [HttpPost]
     public async Task<IActionResult> TogglePublish(string md5, string platform)
@@ -69,8 +67,8 @@ public class HomeController(
         ViewBag.AvailableTags = await searchResultsRepo.GetAllDistinctTagsAsync(HttpContext.RequestAborted);
         ViewBag.AvailablePersons = await searchResultsRepo.GetAllDistinctPersonsAsync(HttpContext.RequestAborted);
         
-        // Use ImageLocator for folders as it has in-memory map which is faster/more accurate for current session
-        var foldersHierarchy = imageLocator.GetAvailableFoldersHierarchical();
+        /*// Use ImageLocator for folders as it has in-memory map which is faster/more accurate for current session
+        var foldersHierarchy = 
         ViewBag.AvailableFoldersLevel1Level2 = foldersHierarchy;
         
         var selectedFoldersL1 = foldersL1 ?? Array.Empty<string>();
@@ -89,7 +87,7 @@ public class HomeController(
             ViewBag.AvailableFoldersLevel2 = foldersHierarchy.Values.SelectMany(x => x).Distinct().OrderBy(x => x).ToList();
         }
 
-        ViewBag.AvailableFoldersLevel1 = foldersHierarchy.Keys.OrderByDescending(x => x).ToList();
+        ViewBag.AvailableFoldersLevel1 = foldersHierarchy.Keys.OrderByDescending(x => x).ToList();*/
         ViewBag.AvailableExtensions = await searchResultsRepo.GetAllDistinctExtensionsAsync(HttpContext.RequestAborted);
 
         // Pull paging and size from query to load real data for the gallery
@@ -281,7 +279,7 @@ public class HomeController(
         var persons = personsValues.Split(',', StringSplitOptions.RemoveEmptyEntries);
         var searchExtensions = Request.Query["extensions"].ToString().Split(',', StringSplitOptions.RemoveEmptyEntries);
 
-        var actionsPath = _storage.ActionsPath ?? string.Empty;
+        var actionsPath = _webApp.ActionsPath ?? string.Empty;
         if (string.IsNullOrWhiteSpace(actionsPath))
         {
             logger.LogWarning("[Search] Storage.ActionsPath is not configured. Falling back to redirect.");
@@ -552,25 +550,10 @@ public class HomeController(
 
     public IActionResult Meta()
     {
-        ViewBag.StoragePath = _storage.RootPath ?? string.Empty;
+        ViewBag.StoragePath = "Remote!";
         return View();
     }
-
-
-
-
-    [HttpGet("/api/storage/folders")]
-    public IActionResult GetStorageFolders()
-    {
-        var root = _storage.RootPath;
-        if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
-            return Ok(Array.Empty<string>());
-
-        var folders = PathExtensions.GetStorageFolders(root).ToArray();
-        return Ok(folders);
-    }
-
-
+ 
     [HttpGet]
     public async Task<IActionResult> SinglePhoto([FromQuery] string md5)
     {
@@ -579,9 +562,8 @@ public class HomeController(
         var photo = await searchResultsRepo.GetPhotoInfoByMd5Async(md5, HttpContext.RequestAborted);
         if (photo == null) return NotFound();
 
-        var realPath = await imageLocationRepository.GetPathByMd5Async(md5, HttpContext.RequestAborted);
-        var largeDetails = realPath != null ? await fileSystem.GetDqAnswer(realPath) : string.Empty;
-        var commerceMarkJson = realPath != null ? await fileSystem.GetCommerceMarkAnswer(realPath) : "{}";
+        var largeDetails = await contentProvider.GetDqAnswer(md5);
+        var commerceMarkJson = await contentProvider.GetCommerceMarkAnswer(md5);
 
         var links = await imageLocator.GetImageLinksAsync(md5);
         var publishStatuses = await publishTrackerRepo.GetPublishStatusesAsync([md5], HttpContext.RequestAborted);
@@ -592,7 +574,7 @@ public class HomeController(
             LargeDetails = largeDetails,
             Tags = photo.Tags ?? Array.Empty<string>(),
             ImageUrl = Url.Action("ByMd5", "Images", new { md5 = md5, w = 128 })!,
-            RealUrl = links?.Real ?? string.Empty,
+            RealUrl = "#",
             CommerceMark = commerceMarkJson.ThisJsonAs<ImageProcessingExtensions.RateExplanation>().rate.ToString(),
             ImprovementWays = commerceMarkJson.ThisJsonAs<ImageProcessingExtensions.RateExplanation>().rateExplanation,
             Width = links?.P2000Width,
@@ -619,7 +601,7 @@ public class HomeController(
                     ShortDetails = s.ShortDetails,
                     Tags = s.Tags ?? Array.Empty<string>(),
                     ImageUrl = Url.Action("ByMd5", "Images", new { md5 = s.Md5Hash, w = 128 })!,
-                    RealUrl = sLinks?.Real ?? string.Empty,
+                    RealUrl = string.Empty,
                     Width = sLinks?.P2000Width,
                     Height = sLinks?.P2000Height
                 });
@@ -647,7 +629,7 @@ public class HomeController(
                 LargeDetails = i.LargeDetails,
                 Tags = i.Tags ?? Array.Empty<string>(),
                 ImageUrl = Url.Action("ByMd5", "Images", new { md5 = i.Md5, w = 128 })!,
-                RealUrl = links?.Real ?? string.Empty,
+                RealUrl = string.Empty,
                 CommerceMark = i.CommerceMark.ThisJsonAs<ImageProcessingExtensions.RateExplanation>().rate.ToString(),
                 ImprovementWays = i.CommerceMark.ThisJsonAs<ImageProcessingExtensions.RateExplanation>().rateExplanation,
                 Width = links?.P2000Width,
@@ -681,13 +663,10 @@ public class HomeController(
     public IActionResult IndexJob(
         [FromForm] string jobId,
         [FromForm] JobType type,
-        [FromForm] int? dop,
-        [FromForm] string? testKind)
+        [FromForm] int? dop)
     {
         if (string.IsNullOrWhiteSpace(jobId)) return BadRequest("jobId is required");
-        var rootPath = _storage.RootPath;
-        if (string.IsNullOrWhiteSpace(rootPath)) return BadRequest("Storage root path is not configured");
-        var id = jobRunner.StartJob(jobId, type, rootPath, dop, testKind);
+        var id = jobRunner.StartJob(jobId, type, dop);
         return Ok(new { jobId = id });
     }
 

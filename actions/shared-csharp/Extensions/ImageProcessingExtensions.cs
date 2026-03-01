@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace shared_csharp.Extensions;
@@ -16,15 +15,7 @@ public static class ImageProcessingExtensions
         }
         return closest;
     }
-
-    public static readonly HashSet<string> IgnoredExtensions =
-        new(StringComparer.OrdinalIgnoreCase)
-        {
-            ".ds_store",
-            "._",
-            ".json",
-        };
-
+    
     public static readonly HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".mov",
@@ -33,22 +24,9 @@ public static class ImageProcessingExtensions
         ".mkv"
     };
     
-    public static bool AllowToProcess(this string filePath)
+    public static bool IsVideo(this string extension)
     {
-        if (!IgnoredExtensions.Contains(Path.GetExtension(filePath)))
-        {
-            // ignore system files
-            if (!Path.GetFileName(filePath).StartsWith("._"))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public static bool IsVideo(this string filePath)
-    {
-        if (VideoExtensions.Contains(Path.GetExtension(filePath)))
+        if (VideoExtensions.Contains(extension.ToLowerInvariant()))
         {
             return true;
         }

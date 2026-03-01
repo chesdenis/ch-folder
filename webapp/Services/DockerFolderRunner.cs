@@ -5,46 +5,32 @@ using webapp.Models;
 
 namespace webapp.Services;
 
-public interface IDockerFolderRunner
+public interface IDockerPartitionRunner
 {
-    Task<int> RunMetaUploaderAsync(string hostFolderAbs, Action<string>? onStdout = null,
-        Action<string>? onStderr = null, CancellationToken ct = default);
-
-    Task<int> RunContentValidatorAsync(string hostFolderAbs, string testKind, string folderName,
-        Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default);
+    Task<int> RunMetaUploaderAsync(Action<string>? onStdout = null,
+        Action<string>? onStderr = null, CancellationToken ct = default, string? extraArgs = "");
 }
 
-public class DockerFolderRunner(IOptions<StorageOptions> storage) : IDockerFolderRunner
+public class DockerPartitionRunner(IOptions<WebAppOptions> storage) : IDockerPartitionRunner
 {
-    private readonly StorageOptions _storageOptions = storage.Value;
+    private readonly WebAppOptions _webAppOptions = storage.Value;
 
-    public Task<int> RunMetaUploaderAsync(string hostFolderAbs, Action<string>? onStdout = null,
-        Action<string>? onStderr = null, CancellationToken ct = default)
-        => RunDockerAsync("meta_uploader", hostFolderAbs, onStdout, onStderr, ct);
-
-    public Task<int> RunContentValidatorAsync(string hostFolderAbs, string testKind, string folderName,
-        Action<string>? onStdout = null, Action<string>? onStderr = null, CancellationToken ct = default)
-        => RunDockerAsync("content_validator", hostFolderAbs, onStdout, onStderr, ct,
-            extraArgs: $"--test-kind {testKind.AsBase64String()} --folder-name {folderName.AsBase64String()}");
-
+    public Task<int> RunMetaUploaderAsync(Action<string>? onStdout = null,
+        Action<string>? onStderr = null, CancellationToken ct = default, string? extraArgs = "")
+        => RunDockerAsync("meta_uploader", onStdout, onStderr, ct, extraArgs);
 
     private Task<int> RunDockerAsync(
         string image,
-        string hostFolderAbs,
         Action<string>? onStdout,
         Action<string>? onStderr,
         CancellationToken ct,
-        string? extraArgs = null,
-        string? extraVolumes = null)
+        string? extraArgs = null)
     {
-        var containerFolder = "/in";
-        var actionsPath = this._storageOptions.ActionsPath ?? throw new InvalidOperationException();
-        var host = Path.GetFullPath(hostFolderAbs);
+        var actionsPath = this._webAppOptions.ActionsPath ?? throw new InvalidOperationException();
         var envFile = Path.Combine(actionsPath, image, ".env");
         var argsTail = string.IsNullOrWhiteSpace(extraArgs) ? string.Empty : $" {extraArgs}";
-        var vols = string.IsNullOrWhiteSpace(extraVolumes) ? string.Empty : $" {extraVolumes}";
         var arguments =
-            $"run --env-file {envFile} --rm -v \"{host}\":{containerFolder}:rw{vols} {image} {containerFolder}{argsTail}";
+            $"run --env-file {envFile} --rm {image} {argsTail}";
 
         var psi = new ProcessStartInfo
         {

@@ -1,7 +1,6 @@
 CREATE TABLE IF NOT EXISTS photo (
     md5_hash text PRIMARY KEY,
     extension text NOT NULL,
-    size_bytes bigint NOT NULL CHECK (size_bytes >= 0),
     tags text[] NOT NULL DEFAULT '{}',
     persons text[] NOT NULL DEFAULT '{}',
     short_details text NOT NULL CHECK (short_details <> ''),

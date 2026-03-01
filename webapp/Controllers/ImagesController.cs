@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
+using shared_csharp.Abstractions;
 using webapp.Services;
 
 namespace webapp.Controllers;
 
 [Route("images")]
 public sealed class ImagesController(
+    IContentProvider contentProvider,
     IImageLocator imageLocator)
     : Controller
 {
@@ -13,10 +15,19 @@ public sealed class ImagesController(
     {
         if (string.IsNullOrWhiteSpace(md5)) return BadRequest("md5 is required");
 
-        var links = await imageLocator.GetImageLinksAsync(md5);
-        if (links?.Previews == null) return NotFound();
+        var metadataWithPreviews = await contentProvider.GetMetadataWithPreviews(md5);
+        var previews = metadataWithPreviews.Previews;
 
-        var previewBase64 = SelectPreviewBase64(links, w);
+        if (previews == null) return NotFound();
+        
+        var previewBase64 = SelectPreviewBase64(new ImageLinks
+        {
+            Md5 = md5,
+            Previews = previews,
+            P2000Width = 2000, // Fallback or could be parsed from metadata if available
+            P2000Height = 1500
+        }, w);
+        
         if (string.IsNullOrWhiteSpace(previewBase64))
         {
             return NotFound();
@@ -31,17 +42,11 @@ public sealed class ImagesController(
     {
         if (string.IsNullOrWhiteSpace(md5)) return BadRequest("md5 is required");
 
-        var links = await imageLocator.GetImageLinksAsync(md5);
-        if (links == null || string.IsNullOrWhiteSpace(links.Real) || !System.IO.File.Exists(links.Real))
-        {
-            return NotFound();
-        }
+        var extension = await contentProvider.GetExtension(md5);
+        var contentType = GetContentType(extension);
+        var fileName = md5 + extension;
 
-        var path = links.Real;
-        var contentType = GetContentType(path);
-        var fileName = Path.GetFileName(path);
-        
-        var stream = await System.IO.File.ReadAllBytesAsync(path, ct);
+        var stream = await contentProvider.GetReal(md5);
         return File(stream, contentType, fileName);
     }
 
@@ -67,10 +72,9 @@ public sealed class ImagesController(
         return links.Previews.Values.FirstOrDefault();
     }
 
-    private static string GetContentType(string path)
+    private static string GetContentType(string ext)
     {
-        var ext = Path.GetExtension(path).ToLowerInvariant();
-        return ext switch
+        return ext.ToLowerInvariant() switch
         {
             ".jpg" or ".jpeg" => "image/jpeg",
             ".png" => "image/png",

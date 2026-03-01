@@ -15,7 +15,7 @@ public interface ISearchSessionSelectionRepository
     Task<(IReadOnlyList<SearchSessionRow> Items, int Total)> GetRecentSelectionSessionsAsync(int offset, int limit, CancellationToken ct = default);
 }
 
-public sealed class SearchSessionSelectionRepository(IFileSystem fileSystem, IOptions<ConnectionStringOptions> connectionStringsOptions)
+public sealed class SearchSessionSelectionRepository(IContentProvider contentProvider, IOptions<ConnectionStringOptions> connectionStringsOptions)
     : ISearchSessionSelectionRepository
 {
     private readonly ConnectionStringOptions _connectionStrings = connectionStringsOptions.Value;
@@ -46,8 +46,8 @@ public sealed class SearchSessionSelectionRepository(IFileSystem fileSystem, IOp
             var md5 = reader.GetString(0);
             var shortDetails = reader.GetString(1);
             var realPath = reader.GetString(2);
-            var largeDetails = await fileSystem.GetDqAnswer(realPath);
-            var commerceMark = await fileSystem.GetCommerceMarkAnswer(realPath);
+            var largeDetails = await contentProvider.GetDqAnswer(realPath);
+            var commerceMark = await contentProvider.GetCommerceMarkAnswer(realPath);
             var tags = reader.IsDBNull(3) ? Array.Empty<string>() : reader.GetFieldValue<string[]>(3);
 
             // Fetch publish platforms for this photo

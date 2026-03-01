@@ -9,26 +9,25 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 builder.Services.AddSignalR();
+builder.Services.AddHttpClient();
 
 // app services
-builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection("Storage"));
+builder.Services.Configure<WebAppOptions>(builder.Configuration.GetSection("Storage"));
 builder.Services.Configure<ConnectionStringOptions>(builder.Configuration.GetSection("ConnectionStrings"));
 builder.Services.AddSingleton<IJobRunner, JobRunner>();
-builder.Services.AddSingleton<IDockerFolderRunner, DockerFolderRunner>();
+builder.Services.AddSingleton<IDockerPartitionRunner, DockerPartitionRunner>();
 builder.Services.AddSingleton<IDockerSearchRunner, DockerSearchRunner>();
 builder.Services.AddSingleton<ISearchResultsRepository, SearchResultsRepository>();
 builder.Services.AddSingleton<ISearchSessionSelectionRepository, SearchSessionSelectionRepository>();
 builder.Services.AddSingleton<ISearchSessionRepository, SearchSessionRepository>();
-builder.Services.AddSingleton<IImageLocationRepository, ImageLocationRepository>();
 builder.Services.AddSingleton<IImageLocator, ImageLocator>();
-builder.Services.AddSingleton<IFileSystem, PhysicalFileSystem>();
+builder.Services.AddSingleton<IContentProvider, RemoteContentProvider>(x=>
+    new RemoteContentProvider(x.GetService<IHttpClientFactory>(), 
+        builder.Configuration.GetSection("Storage:RemoteStorageBaseUrl").Get<string>()));
 builder.Services.AddSingleton<IContentValidationRepository, ContentValidationRepository>();
 builder.Services.AddSingleton<IPublishTrackerRepository, PublishTrackerRepository>();
 
 var app = builder.Build();
-
-Console.WriteLine("Building index...");
-app.Services.GetRequiredService<IImageLocator>().FileLocations().Wait();
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

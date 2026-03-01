@@ -143,7 +143,6 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         await conn.OpenAsync(ct);
         await using var cmd = new NpgsqlCommand(@"SELECT md5_hash,
             extension,
-            size_bytes,
             tags,
             short_details,
             created_at,
@@ -160,13 +159,12 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         {
             Md5Hash = reader.GetString(0),
             Extension = reader.GetString(1),
-            SizeBytes = reader.GetInt64(2),
-            Tags = reader.IsDBNull(3) ? Array.Empty<string>() : reader.GetFieldValue<string[]>(3),
-            ShortDetails = reader.GetString(4),
-            CreatedAt = reader.GetDateTime(5), // UTC DateTime for timestamptz
-            UpdatedAt = reader.GetDateTime(6),
-            CommerceRate = reader.GetInt32(7),
-            GroupName = reader.GetString(8)
+            Tags = reader.IsDBNull(2) ? Array.Empty<string>() : reader.GetFieldValue<string[]>(2),
+            ShortDetails = reader.GetString(3),
+            CreatedAt = reader.GetDateTime(4), // UTC DateTime for timestamptz
+            UpdatedAt = reader.GetDateTime(5),
+            CommerceRate = reader.GetInt32(6),
+            GroupName = reader.GetString(7)
         };
 
         return photo;
@@ -180,7 +178,6 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         var list = new List<Photo>();
         await using var cmd = new NpgsqlCommand(@"SELECT md5_hash,
             extension,
-            size_bytes,
             tags,
             short_details,
             created_at,
@@ -196,13 +193,12 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
             {
                 Md5Hash = reader.GetString(0),
                 Extension = reader.GetString(1),
-                SizeBytes = reader.GetInt64(2),
-                Tags = reader.IsDBNull(3) ? Array.Empty<string>() : reader.GetFieldValue<string[]>(3),
-                ShortDetails = reader.GetString(4),
-                CreatedAt = reader.GetDateTime(5),
-                UpdatedAt = reader.GetDateTime(6),
-                CommerceRate = reader.GetInt32(7),
-                GroupName = reader.GetString(8)
+                Tags = reader.IsDBNull(2) ? Array.Empty<string>() : reader.GetFieldValue<string[]>(2),
+                ShortDetails = reader.GetString(3),
+                CreatedAt = reader.GetDateTime(4),
+                UpdatedAt = reader.GetDateTime(5),
+                CommerceRate = reader.GetInt32(6),
+                GroupName = reader.GetString(7)
             });
         }
         return list;
@@ -442,7 +438,6 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         await using var cmd = new NpgsqlCommand(@"
             SELECT md5_hash,
             extension,
-            size_bytes,
             tags,
             short_details,
             created_at,
@@ -458,13 +453,12 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
             {
                 Md5Hash = reader.GetString(0),
                 Extension = reader.GetString(1),
-                SizeBytes = reader.GetInt64(2),
-                Tags = reader.IsDBNull(3) ? Array.Empty<string>() : reader.GetFieldValue<string[]>(3),
-                ShortDetails = reader.GetString(4),
-                CreatedAt = reader.GetDateTime(5),
-                UpdatedAt = reader.GetDateTime(6),
-                CommerceRate = reader.GetInt32(7),
-                GroupName = reader.GetString(8)
+                Tags = reader.IsDBNull(2) ? Array.Empty<string>() : reader.GetFieldValue<string[]>(2),
+                ShortDetails = reader.GetString(3),
+                CreatedAt = reader.GetDateTime(4),
+                UpdatedAt = reader.GetDateTime(5),
+                CommerceRate = reader.GetInt32(6),
+                GroupName = reader.GetString(7)
             });
         }
         return list;
@@ -535,7 +529,6 @@ public sealed record Photo
 {
     public string Md5Hash { get; init; }
     public string Extension { get; set; }
-    public long SizeBytes { get; set; }
     public string[] Tags { get; set; }
     public string ShortDetails { get; set; }
     public DateTime CreatedAt { get; set; }
