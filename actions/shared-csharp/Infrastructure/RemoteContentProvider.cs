@@ -113,13 +113,7 @@ public class RemoteContentProvider : IContentProvider
 
     public async Task<FileMetadata?> GetMetadataWithPreviews(string md5)
     {
-        var fields = new HashSet<string>
-        {
-            "md5",
-            "previews"
-        };
-
-        var response = await _client.GetAsync($"/meta/{md5}?{string.Join("&", fields.Select(s => $"fields={s}"))}");
+        var response = await _client.GetAsync($"/previews/{md5}");
         var responseContent = await response.Content.ReadAsStringAsync();
         return (JsonConvert.DeserializeObject<FileMetadata[]>(responseContent) ?? throw new InvalidOperationException()).First();
     }
