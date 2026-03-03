@@ -195,16 +195,16 @@
                     }
                 </div>
                 <input type="hidden" name="orderBy" value="@orderBy" />
-                <div id="foldersL1Inputs">
-                    @foreach (var f in ViewBag.SelectedFoldersL1 as IEnumerable<string> ?? Array.Empty<string>())
+                <div id="partitionsInputs">
+                    @foreach (var f in ViewBag.SelectedPartitions as IEnumerable<string> ?? Array.Empty<string>())
                     {
-                        <input type="hidden" name="foldersL1" value="@f" />
+                        <input type="hidden" name="partitions" value="@f" />
                     }
                 </div>
-                <div id="foldersL2Inputs">
-                    @foreach (var f in ViewBag.SelectedFoldersL2 as IEnumerable<string> ?? Array.Empty<string>())
+                <div id="sectionsInputs">
+                    @foreach (var f in ViewBag.SelectedSections as IEnumerable<string> ?? Array.Empty<string>())
                     {
-                        <input type="hidden" name="foldersL2" value="@f" />
+                        <input type="hidden" name="sections" value="@f" />
                     }
                 </div>
                 <div id="extensionsInputs">

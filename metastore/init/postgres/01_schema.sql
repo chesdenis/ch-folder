@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS photo (
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     commerce_rate integer NOT NULL DEFAULT 0 CHECK (commerce_rate >= 0 AND commerce_rate <= 5),
+    "partition" text NOT NULL DEFAULT '',
+    "section" text NOT NULL DEFAULT '',
     group_name text NOT NULL DEFAULT ''
     );
 

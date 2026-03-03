@@ -32,7 +32,7 @@ public class HomeController(
         return Ok();
     }
 
-    public async Task<IActionResult> Index([FromQuery] string[]? tags, [FromQuery] string[]? persons, [FromQuery] int[]? commerceRatings, [FromQuery] string[]? foldersL1, [FromQuery] string[]? foldersL2, [FromQuery] string[]? extensions)
+    public async Task<IActionResult> Index([FromQuery] string[]? tags, [FromQuery] string[]? persons, [FromQuery] int[]? commerceRatings, [FromQuery] string[]? partitions, [FromQuery] string[]? sections, [FromQuery] string[]? extensions)
     {
         // Default values for Navigation page when not explicitly provided
         var effectiveCommerceRatings = (commerceRatings == null || commerceRatings.Length == 0) ? [4, 5] : commerceRatings;
@@ -57,8 +57,8 @@ public class HomeController(
         // Expose selected filters to the view
         ViewBag.SelectedTags = tags ?? Array.Empty<string>();
         ViewBag.SelectedPersons = persons ?? Array.Empty<string>();
-        ViewBag.SelectedFoldersL1 = foldersL1 ?? Array.Empty<string>();
-        ViewBag.SelectedFoldersL2 = foldersL2 ?? Array.Empty<string>();
+        ViewBag.SelectedPartitions = partitions ?? Array.Empty<string>();
+        ViewBag.SelectedSections = sections ?? Array.Empty<string>();
         ViewBag.SelectedExtensions = extensions ?? Array.Empty<string>();
         ViewBag.CommerceRatings = effectiveCommerceRatings;
         ViewBag.SessionId = Guid.Empty; // Static empty guid for navigation search result id
@@ -67,27 +67,27 @@ public class HomeController(
         ViewBag.AvailableTags = await searchResultsRepo.GetAllDistinctTagsAsync(HttpContext.RequestAborted);
         ViewBag.AvailablePersons = await searchResultsRepo.GetAllDistinctPersonsAsync(HttpContext.RequestAborted);
         
-        /*// Use ImageLocator for folders as it has in-memory map which is faster/more accurate for current session
-        var foldersHierarchy = 
-        ViewBag.AvailableFoldersLevel1Level2 = foldersHierarchy;
+        // Use partition/section hierarchy from repository
+        var partitionsHierarchy = await searchResultsRepo.GetPartitionSectionHierarchyAsync(HttpContext.RequestAborted);
+        ViewBag.AvailablePartitionsSections = partitionsHierarchy;
         
-        var selectedFoldersL1 = foldersL1 ?? Array.Empty<string>();
+        var selectedPartitions = partitions ?? Array.Empty<string>();
 
-        if (selectedFoldersL1.Any())
+        if (selectedPartitions.Any())
         {
-            ViewBag.AvailableFoldersLevel2 = selectedFoldersL1
-                .Where(l1 => foldersHierarchy.ContainsKey(l1))
-                .SelectMany(l1 => foldersHierarchy[l1])
+            ViewBag.AvailableSections = selectedPartitions
+                .Where(p => partitionsHierarchy.ContainsKey(p))
+                .SelectMany(p => partitionsHierarchy[p])
                 .Distinct()
                 .OrderBy(x => x)
                 .ToList();
         }
         else
         {
-            ViewBag.AvailableFoldersLevel2 = foldersHierarchy.Values.SelectMany(x => x).Distinct().OrderBy(x => x).ToList();
+            ViewBag.AvailableSections = partitionsHierarchy.Values.SelectMany(x => x).Distinct().OrderBy(x => x).ToList();
         }
 
-        ViewBag.AvailableFoldersLevel1 = foldersHierarchy.Keys.OrderByDescending(x => x).ToList();*/
+        ViewBag.AvailablePartitions = partitionsHierarchy.Keys.OrderByDescending(x => x).ToList();
         ViewBag.AvailableExtensions = await searchResultsRepo.GetAllDistinctExtensionsAsync(HttpContext.RequestAborted);
 
         // Pull paging and size from query to load real data for the gallery
@@ -97,9 +97,9 @@ public class HomeController(
         thumbSize = thumbSize.SnapToAllowed();
 
         // Load photos as the gallery content with hard filters
-        var total = await searchResultsRepo.GetPhotosCountAsync(tags, persons, effectiveCommerceRatings, foldersL1, foldersL2, extensions, groupByGroup: true, HttpContext.RequestAborted);
+        var total = await searchResultsRepo.GetPhotosCountAsync(tags, persons, effectiveCommerceRatings, partitions, sections, extensions, groupByGroup: true, HttpContext.RequestAborted);
         var offset = (page - 1) * pageSize;
-        var md5s = await searchResultsRepo.GetRecentPhotoMd5Async(offset, pageSize, tags, persons, effectiveCommerceRatings, foldersL1, foldersL2, extensions, groupByGroup: true, HttpContext.RequestAborted);
+        var md5s = await searchResultsRepo.GetRecentPhotoMd5Async(offset, pageSize, tags, persons, effectiveCommerceRatings, partitions, sections, extensions, groupByGroup: true, HttpContext.RequestAborted);
 
         // Fetch full photo info to get ShortDetails for "Jump to Search"
         var photos = await searchResultsRepo.GetPhotosByMd5sAsync(md5s, HttpContext.RequestAborted);
@@ -139,7 +139,7 @@ public class HomeController(
     
 
     [HttpGet]
-    public async Task<IActionResult> Search([FromQuery] string[]? extensions, [FromQuery] string[]? foldersL1, [FromQuery] string[]? foldersL2)
+    public async Task<IActionResult> Search([FromQuery] string[]? extensions, [FromQuery] string[]? partitions, [FromQuery] string[]? sections)
     {
         // Log invocation to verify this endpoint is being triggered
         logger.LogInformation(
@@ -152,10 +152,28 @@ public class HomeController(
         var effExtensions = extensions ?? Array.Empty<string>();
         ViewBag.AvailableExtensions = await searchResultsRepo.GetAllDistinctExtensionsAsync(HttpContext.RequestAborted);
         ViewBag.SelectedExtensions = effExtensions;
-        ViewBag.SelectedFoldersL1 = foldersL1 ?? Array.Empty<string>();
-        ViewBag.SelectedFoldersL2 = foldersL2 ?? Array.Empty<string>();
+        ViewBag.SelectedPartitions = partitions ?? Array.Empty<string>();
+        ViewBag.SelectedSections = sections ?? Array.Empty<string>();
 
-        // Build route values from full incoming query/model state, normalize some options
+        // Folders hierarchy for sidebar filters
+        var partitionsHierarchy = await searchResultsRepo.GetPartitionSectionHierarchyAsync(HttpContext.RequestAborted);
+        ViewBag.AvailablePartitionsSections = partitionsHierarchy;
+        ViewBag.AvailablePartitions = partitionsHierarchy.Keys.OrderByDescending(x => x).ToList();
+
+        var selectedPartitions = partitions ?? Array.Empty<string>();
+        if (selectedPartitions.Any())
+        {
+            ViewBag.AvailableSections = selectedPartitions
+                .Where(p => partitionsHierarchy.ContainsKey(p))
+                .SelectMany(p => partitionsHierarchy[p])
+                .Distinct()
+                .OrderBy(x => x)
+                .ToList();
+        }
+        else
+        {
+            ViewBag.AvailableSections = partitionsHierarchy.Values.SelectMany(x => x).Distinct().OrderBy(x => x).ToList();
+        }
         var route = new RouteValueDictionary();
 
         // Copy all existing query parameters (supports multi-values)

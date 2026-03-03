@@ -125,54 +125,54 @@
                     </div>
                 </div>
 
-                <!-- Folders selector with text box and hints -->
-                <div class="toolbar-group" role="group" aria-label="Folders selector">
-                    <span class="toolbar-label">Folders</span>
+                <!-- Storage selector with text box and hints -->
+                <div class="toolbar-group" role="group" aria-label="Storage selector">
+                    <span class="toolbar-label">Storage</span>
                     <div class="folder-input-container">
-                        <div id="selectedFoldersChips" class="selected-chips">
+                        <div id="selectedStorageChips" class="selected-chips">
                             @{
-                                var selectedFoldersL1 = (ViewBag.SelectedFoldersL1 as IEnumerable<string> ?? Array.Empty<string>()).ToList();
-                                var selectedFoldersL2 = (ViewBag.SelectedFoldersL2 as IEnumerable<string> ?? Array.Empty<string>()).ToList();
+                                var selectedPartitions = (ViewBag.SelectedPartitions as IEnumerable<string> ?? Array.Empty<string>()).ToList();
+                                var selectedSections = (ViewBag.SelectedSections as IEnumerable<string> ?? Array.Empty<string>()).ToList();
                                 
-                                foreach (var folder in selectedFoldersL1)
+                                foreach (var partition in selectedPartitions)
                                 {
-                                    <span class="chip" data-folder="@folder" data-level="1">
-                                        @folder
-                                        <button type="button" class="remove-folder-chip remove-chip" aria-label="Remove @folder">&times;</button>
+                                    <span class="chip" data-folder="@partition" data-level="partition">
+                                        @partition
+                                        <button type="button" class="remove-folder-chip remove-chip" aria-label="Remove @partition">&times;</button>
                                     </span>
                                 }
-                                foreach (var folder in selectedFoldersL2)
+                                foreach (var sec in selectedSections)
                                 {
-                                    <span class="chip" data-folder="@folder" data-level="2">
-                                        @folder
-                                        <button type="button" class="remove-folder-chip remove-chip" aria-label="Remove @folder">&times;</button>
+                                    <span class="chip" data-folder="@sec" data-level="section">
+                                        @sec
+                                        <button type="button" class="remove-folder-chip remove-chip" aria-label="Remove @sec">&times;</button>
                                     </span>
                                 }
                             }
                         </div>
                         <div class="folder-inputs">
                             <div class="l1-wrapper">
-                                <select id="folderLevel1" class="folder-input-l1">
+                                <select id="partitionSelect" class="folder-input-l1">
                                     <option value="">Partition...</option>
                                     @{
-                                        var level1Folders = ViewBag.AvailableFoldersLevel1 as IEnumerable<string> ?? Enumerable.Empty<string>();
-                                        var currentSelectedL1 = ViewBag.SelectedFoldersL1 as IEnumerable<string> ?? Array.Empty<string>();
-                                        foreach (var partition in level1Folders)
+                                        var availablePartitions = ViewBag.AvailablePartitions as IEnumerable<string> ?? Enumerable.Empty<string>();
+                                        var currentSelectedPartitions = ViewBag.SelectedPartitions as IEnumerable<string> ?? Array.Empty<string>();
+                                        foreach (var partition in availablePartitions)
                                         {
-                                            var isSelected = currentSelectedL1.Contains(partition);
+                                            var isSelected = currentSelectedPartitions.Contains(partition);
                                             <option value="@partition" selected="@(isSelected ? "selected" : null)">@partition</option>
                                         }
                                     }
                                 </select>
-                                <button type="button" id="addL1Btn" class="btn-add-l1" title="Add all from this partition">+</button>
+                                <button type="button" id="addPartitionBtn" class="btn-add-l1" title="Add all from this partition">+</button>
                             </div>
-                            <input type="text" id="folderInput" list="folderHints" class="folder-input" placeholder="Add event..." autocomplete="off">
-                            <datalist id="folderHints">
+                            <input type="text" id="sectionInput" list="sectionHints" class="folder-input" placeholder="Add section..." autocomplete="off">
+                            <datalist id="sectionHints">
                                 @{
-                                    var availableFolders = ViewBag.AvailableFoldersLevel2 as IEnumerable<string> ?? Array.Empty<string>();
-                                    foreach (var folder in availableFolders)
+                                    var availableSections = ViewBag.AvailableSections as IEnumerable<string> ?? Array.Empty<string>();
+                                    foreach (var sec in availableSections)
                                     {
-                                        <option value="@folder"></option>
+                                        <option value="@sec"></option>
                                     }
                                 }
                             </datalist>
@@ -615,70 +615,70 @@
                 });
             });
 
-            /*// Folders (updated logic for removal button class)
-            const folderInput = document.getElementById('folderInput');
-            const folderLevel1 = document.getElementById('folderLevel1');
-            const folderHints = document.getElementById('folderHints');
-            const foldersHierarchy = "";
+            // Storage (updated logic for removal button class)
+            const sectionInput = document.getElementById('sectionInput');
+            const partitionSelect = document.getElementById('partitionSelect');
+            const sectionHints = document.getElementById('sectionHints');
+            const partitionsHierarchy = @Html.Raw(Json.Serialize(ViewBag.AvailablePartitionsSections));
 
-            if (folderLevel1 && folderHints) {
-                const updateL2Hints = () => {
-                    const selectedL1 = folderLevel1.value;
-                    let availableL2 = [];
+            if (partitionSelect && sectionHints) {
+                const updateSectionHints = () => {
+                    const selectedPartition = partitionSelect.value;
+                    let availableSections = [];
                     
-                    if (selectedL1 && foldersHierarchy[selectedL1]) {
-                        availableL2 = foldersHierarchy[selectedL1];
+                    if (selectedPartition && partitionsHierarchy[selectedPartition]) {
+                        availableSections = partitionsHierarchy[selectedPartition];
                     } else {
-                        // If no L1 selected in dropdown, check if any L1 are in selected chips
-                        const activeL1s = [];
-                        const selectedChips = document.querySelectorAll('#selectedFoldersChips .chip[data-level="1"]');
+                        // If no partition selected in dropdown, check if any partitions are in selected chips
+                        const activePartitions = [];
+                        const selectedChips = document.querySelectorAll('#selectedStorageChips .chip[data-level="partition"]');
                         selectedChips.forEach(chip => {
                             const folder = chip.getAttribute('data-folder');
-                            if (foldersHierarchy[folder]) {
-                                activeL1s.push(folder);
+                            if (partitionsHierarchy[folder]) {
+                                activePartitions.push(folder);
                             }
                         });
 
-                        if (activeL1s.length > 0) {
-                            const l2Set = new Set();
-                            activeL1s.forEach(l1 => {
-                                if (foldersHierarchy[l1]) {
-                                    foldersHierarchy[l1].forEach(l2 => l2Set.add(l2));
+                        if (activePartitions.length > 0) {
+                            const sectionSet = new Set();
+                            activePartitions.forEach(p => {
+                                if (partitionsHierarchy[p]) {
+                                    partitionsHierarchy[p].forEach(s => sectionSet.add(s));
                                 }
                             });
-                            availableL2 = Array.from(l2Set).sort();
+                            availableSections = Array.from(sectionSet).sort();
                         } else {
-                            // If no L1 selected at all, show all unique L2 folders
-                            const allL2 = new Set();
-                            for (const l1 in foldersHierarchy) {
-                                foldersHierarchy[l1].forEach(l2 => allL2.add(l2));
+                            // If no partition selected at all, show all unique sections
+                            const allSections = new Set();
+                            for (const p in partitionsHierarchy) {
+                                partitionsHierarchy[p].forEach(s => allSections.add(s));
                             }
-                            availableL2 = Array.from(allL2).sort();
+                            availableSections = Array.from(allSections).sort();
                         }
                     }
 
-                    folderHints.innerHTML = '';
-                    availableL2.forEach(l2 => {
+                    sectionHints.innerHTML = '';
+                    availableSections.forEach(s => {
                         const option = document.createElement('option');
-                        option.value = l2;
-                        folderHints.appendChild(option);
+                        option.value = s;
+                        sectionHints.appendChild(option);
                     });
                 };
 
-                folderLevel1.addEventListener('change', () => {
-                    updateL2Hints();
-                    folderInput.value = '';
+                partitionSelect.addEventListener('change', () => {
+                    updateSectionHints();
+                    sectionInput.value = '';
                 });
 
-                const addL1Btn = document.getElementById('addL1Btn');
-                if (addL1Btn) {
-                    addL1Btn.addEventListener('click', () => {
-                        const selectedL1 = folderLevel1.value;
-                        if (selectedL1) {
+                const addPartitionBtn = document.getElementById('addPartitionBtn');
+                if (addPartitionBtn) {
+                    addPartitionBtn.addEventListener('click', () => {
+                        const selectedPartition = partitionSelect.value;
+                        if (selectedPartition) {
                             const url = new URL(window.location.href);
-                            let foldersL1 = url.searchParams.getAll('foldersL1');
-                            if (!foldersL1.includes(selectedL1)) {
-                                url.searchParams.append('foldersL1', selectedL1);
+                            let partitions = url.searchParams.getAll('partitions');
+                            if (!partitions.includes(selectedPartition)) {
+                                url.searchParams.append('partitions', selectedPartition);
                                 url.searchParams.set('page', '1');
                                 window.location.href = url.toString();
                             }
@@ -687,30 +687,30 @@
                 }
 
                 // Initial hints
-                updateL2Hints();
+                updateSectionHints();
             }
 
-            if (folderInput) {
-                folderInput.addEventListener('change', () => {
-                    const folder = folderInput.value.trim();
-                    if (!folder) return;
+            if (sectionInput) {
+                sectionInput.addEventListener('change', () => {
+                    const section = sectionInput.value.trim();
+                    if (!section) return;
                     
                     const url = new URL(window.location.href);
-                    let foldersL2 = url.searchParams.getAll('foldersL2');
-                    if (!foldersL2.includes(folder)) {
-                        foldersL2.push(folder);
-                        url.searchParams.delete('foldersL2');
-                        foldersL2.forEach(f => url.searchParams.append('foldersL2', f));
+                    let sections = url.searchParams.getAll('sections');
+                    if (!sections.includes(section)) {
+                        sections.push(section);
+                        url.searchParams.delete('sections');
+                        sections.forEach(s => url.searchParams.append('sections', s));
                         url.searchParams.set('page', '1');
                         window.location.href = url.toString();
                     }
-                    folderInput.value = '';
+                    sectionInput.value = '';
                 });
 
                 // Support Enter key if change event doesn't trigger as expected
-                folderInput.addEventListener('keypress', (e) => {
+                sectionInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') {
-                        folderInput.dispatchEvent(new Event('change'));
+                        sectionInput.dispatchEvent(new Event('change'));
                     }
                 });
             }
@@ -720,7 +720,7 @@
                     const chip = e.target.closest('.chip');
                     const folder = chip.getAttribute('data-folder');
                     const level = chip.getAttribute('data-level');
-                    const paramName = level === '1' ? 'foldersL1' : 'foldersL2';
+                    const paramName = level === 'partition' ? 'partitions' : 'sections';
                     
                     const url = new URL(window.location.href);
                     let items = url.searchParams.getAll(paramName);
@@ -730,7 +730,7 @@
                     url.searchParams.set('page', '1');
                     window.location.href = url.toString();
                 });
-            });*/
+            });
 
             // Extensions
             const extensionInput = document.getElementById('extensionInput');
@@ -802,9 +802,9 @@
                     url.searchParams.append('commerceRatings', cr);
                 });
                 
-                // Carry over folder filters
-                params.getAll('foldersL1').forEach(f => url.searchParams.append('foldersL1', f));
-                params.getAll('foldersL2').forEach(f => url.searchParams.append('foldersL2', f));
+                // Carry over storage filters
+                params.getAll('partitions').forEach(f => url.searchParams.append('partitions', f));
+                params.getAll('sections').forEach(f => url.searchParams.append('sections', f));
                 
                 window.location.href = url.toString();
             });

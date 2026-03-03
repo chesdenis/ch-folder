@@ -140,8 +140,8 @@ public class ImageMetaUploader
             .Append("tags, ")
             .Append("short_details, ")
             .Append("commerce_rate, ")
-            .Append("partition, ")
-            .Append("section, ")
+            .Append("\"partition\", ")
+            .Append("\"section\", ")
             .Append("group_name) VALUES ");
 
         var cmd = new NpgsqlCommand();
@@ -177,8 +177,8 @@ public class ImageMetaUploader
         sb.Append("tags = EXCLUDED.tags, ");
         sb.Append("short_details = EXCLUDED.short_details, ");
         sb.Append("commerce_rate = EXCLUDED.commerce_rate, ");
-        sb.Append("partition = EXCLUDED.partition, ");
-        sb.Append("section = EXCLUDED.section, ");
+        sb.Append("\"partition\" = EXCLUDED.\"partition\", ");
+        sb.Append("\"section\" = EXCLUDED.\"section\", ");
         sb.Append("group_name = EXCLUDED.group_name;");
 
         cmd.CommandText = sb.ToString();

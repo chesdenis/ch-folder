@@ -17,11 +17,12 @@ public interface ISearchResultsRepository
     Task<SearchSessionResults?> GetResultsBySessionIdAsync(Guid sessionId, float? minScore = null, ResultsOrderBy orderBy = ResultsOrderBy.ScoreDesc, CancellationToken ct = default);
     Task<Photo?> GetPhotoInfoByMd5Async(string md5, CancellationToken ct = default);
     Task<IReadOnlyList<Photo>> GetPhotosByGroupAsync(string groupName, CancellationToken ct = default);
-    Task<int> GetPhotosCountAsync(string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, string[]? foldersL1 = null, string[]? foldersL2 = null, string[]? extensions = null, bool groupByGroup = false, CancellationToken ct = default);
-    Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, string[]? foldersL1 = null, string[]? foldersL2 = null, string[]? extensions = null, bool groupByGroup = false, CancellationToken ct = default);
+    Task<int> GetPhotosCountAsync(string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, string[]? partitions = null, string[]? sections = null, string[]? extensions = null, bool groupByGroup = false, CancellationToken ct = default);
+    Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, string[]? partitions = null, string[]? sections = null, string[]? extensions = null, bool groupByGroup = false, CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetAllDistinctTagsAsync(CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetAllDistinctPersonsAsync(CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetAllDistinctFoldersAsync(CancellationToken ct = default);
+    Task<IDictionary<string, List<string>>> GetPartitionSectionHierarchyAsync(CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetAllDistinctExtensionsAsync(CancellationToken ct = default);
     Task<IReadOnlyList<Photo>> GetPhotosByMd5sAsync(IReadOnlyList<string> md5s, CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetDistinctTagsForSessionAsync(Guid sessionId, CancellationToken ct = default);
@@ -148,7 +149,9 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
             created_at,
             updated_at,
             commerce_rate,
-            group_name FROM photo WHERE md5_hash = @md5 LIMIT 1", conn);
+            group_name,
+            ""partition"",
+            ""section"" FROM photo WHERE md5_hash = @md5 LIMIT 1", conn);
         cmd.Parameters.AddWithValue("@md5", NpgsqlTypes.NpgsqlDbType.Text, md5);
 
         await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -164,7 +167,9 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
             CreatedAt = reader.GetDateTime(4), // UTC DateTime for timestamptz
             UpdatedAt = reader.GetDateTime(5),
             CommerceRate = reader.GetInt32(6),
-            GroupName = reader.GetString(7)
+            GroupName = reader.GetString(7),
+            Partition = reader.GetString(8),
+            Section = reader.GetString(9)
         };
 
         return photo;
@@ -183,7 +188,9 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
             created_at,
             updated_at,
             commerce_rate,
-            group_name FROM photo WHERE group_name = @group ORDER BY created_at ASC", conn);
+            group_name,
+            ""partition"",
+            ""section"" FROM photo WHERE group_name = @group ORDER BY created_at ASC", conn);
         cmd.Parameters.AddWithValue("@group", NpgsqlTypes.NpgsqlDbType.Text, groupName);
 
         await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -198,13 +205,15 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
                 CreatedAt = reader.GetDateTime(4),
                 UpdatedAt = reader.GetDateTime(5),
                 CommerceRate = reader.GetInt32(6),
-                GroupName = reader.GetString(7)
+                GroupName = reader.GetString(7),
+                Partition = reader.GetString(8),
+                Section = reader.GetString(9)
             });
         }
         return list;
     }
 
-    private void AddCommonParameters(NpgsqlCommand cmd, string[]? tags, string[]? persons, int[]? commerceRatings, string[]? foldersL1, string[]? foldersL2, string[]? extensions)
+    private void AddCommonParameters(NpgsqlCommand cmd, string[]? tags, string[]? persons, int[]? commerceRatings, string[]? partitions, string[]? sections, string[]? extensions)
     {
         if (tags != null && tags.Length > 0)
         {
@@ -218,15 +227,13 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         {
             cmd.Parameters.AddWithValue("@commerceRatings", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Integer, commerceRatings);
         }
-        if (foldersL1 != null && foldersL1.Length > 0)
+        if (partitions != null && partitions.Length > 0)
         {
-            var patterns = foldersL1.Select(f => $"%/{f}/%").ToArray();
-            cmd.Parameters.AddWithValue("@folderL1Patterns", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text, patterns);
+            cmd.Parameters.AddWithValue("@partitions", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text, partitions);
         }
-        if (foldersL2 != null && foldersL2.Length > 0)
+        if (sections != null && sections.Length > 0)
         {
-            var patterns = foldersL2.Select(f => $"%/{f}/%").ToArray();
-            cmd.Parameters.AddWithValue("@folderL2Patterns", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text, patterns);
+            cmd.Parameters.AddWithValue("@sections", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text, sections);
         }
         if (extensions != null && extensions.Length > 0)
         {
@@ -234,22 +241,17 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         }
     }
 
-    public async Task<int> GetPhotosCountAsync(string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, string[]? foldersL1 = null, string[]? foldersL2 = null, string[]? extensions = null, bool groupByGroup = false, CancellationToken ct = default)
+    public async Task<int> GetPhotosCountAsync(string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, string[]? partitions = null, string[]? sections = null, string[]? extensions = null, bool groupByGroup = false, CancellationToken ct = default)
     {
         await using var conn = CreateConnection();
         await conn.OpenAsync(ct);
 
-        var useFoldersL1 = foldersL1 != null && foldersL1.Length > 0;
-        var useFoldersL2 = foldersL2 != null && foldersL2.Length > 0;
+        var usePartitions = partitions != null && partitions.Length > 0;
+        var useSections = sections != null && sections.Length > 0;
         var useExtensions = extensions != null && extensions.Length > 0;
         var sql = groupByGroup 
             ? "SELECT COUNT(DISTINCT group_name) FROM photo p"
             : "SELECT COUNT(*) FROM photo p";
-
-        if (useFoldersL1 || useFoldersL2)
-        {
-            sql += " JOIN image_location l ON p.md5_hash = l.md5_hash";
-        }
 
         sql += " WHERE 1=1";
 
@@ -265,13 +267,13 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         {
             sql += " AND p.commerce_rate = ANY(@commerceRatings)";
         }
-        if (useFoldersL1)
+        if (usePartitions)
         {
-            sql += " AND (l.real_path LIKE ANY(@folderL1Patterns))";
+            sql += " AND p.\"partition\" = ANY(@partitions)";
         }
-        if (useFoldersL2)
+        if (useSections)
         {
-            sql += " AND (l.real_path LIKE ANY(@folderL2Patterns))";
+            sql += " AND p.\"section\" = ANY(@sections)";
         }
         if (useExtensions)
         {
@@ -279,21 +281,21 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         }
 
         await using var cmd = new NpgsqlCommand(sql, conn);
-        AddCommonParameters(cmd, tags, persons, commerceRatings, foldersL1, foldersL2, extensions);
+        AddCommonParameters(cmd, tags, persons, commerceRatings, partitions, sections, extensions);
 
         var result = await cmd.ExecuteScalarAsync(ct);
         return Convert.ToInt32(result);
     }
 
-    public async Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, string[]? foldersL1 = null, string[]? foldersL2 = null, string[]? extensions = null, bool groupByGroup = false, CancellationToken ct = default)
+    public async Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, string[]? partitions = null, string[]? sections = null, string[]? extensions = null, bool groupByGroup = false, CancellationToken ct = default)
     {
         if (limit <= 0) return Array.Empty<string>();
         await using var conn = CreateConnection();
         await conn.OpenAsync(ct);
         var list = new List<string>(limit);
         
-        var useFoldersL1 = foldersL1 != null && foldersL1.Length > 0;
-        var useFoldersL2 = foldersL2 != null && foldersL2.Length > 0;
+        var usePartitions = partitions != null && partitions.Length > 0;
+        var useSections = sections != null && sections.Length > 0;
         var useExtensions = extensions != null && extensions.Length > 0;
         string sql;
         if (groupByGroup)
@@ -304,18 +306,13 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
                     SELECT DISTINCT ON (p.group_name) p.md5_hash, p.created_at
                     FROM photo p";
             
-            if (useFoldersL1 || useFoldersL2)
-            {
-                sql += " JOIN image_location l ON p.md5_hash = l.md5_hash";
-            }
-
             sql += " WHERE 1=1";
             
             if (tags != null && tags.Length > 0) sql += " AND p.tags @> @tags";
             if (persons != null && persons.Length > 0) sql += " AND p.persons @> @persons";
             if (commerceRatings != null && commerceRatings.Length > 0) sql += " AND p.commerce_rate = ANY(@commerceRatings)";
-            if (useFoldersL1) sql += " AND (l.real_path LIKE ANY(@folderL1Patterns))";
-            if (useFoldersL2) sql += " AND (l.real_path LIKE ANY(@folderL2Patterns))";
+            if (usePartitions) sql += " AND p.\"partition\" = ANY(@partitions)";
+            if (useSections) sql += " AND p.\"section\" = ANY(@sections)";
             if (useExtensions) sql += " AND p.extension = ANY(@extensions)";
 
             sql += @"
@@ -327,16 +324,12 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         else
         {
             sql = "SELECT p.md5_hash FROM photo p";
-            if (useFoldersL1 || useFoldersL2)
-            {
-                sql += " JOIN image_location l ON p.md5_hash = l.md5_hash";
-            }
             sql += " WHERE 1=1";
             if (tags != null && tags.Length > 0) sql += " AND p.tags @> @tags";
             if (persons != null && persons.Length > 0) sql += " AND p.persons @> @persons";
             if (commerceRatings != null && commerceRatings.Length > 0) sql += " AND p.commerce_rate = ANY(@commerceRatings)";
-            if (useFoldersL1) sql += " AND (l.real_path LIKE ANY(@folderL1Patterns))";
-            if (useFoldersL2) sql += " AND (l.real_path LIKE ANY(@folderL2Patterns))";
+            if (usePartitions) sql += " AND p.\"partition\" = ANY(@partitions)";
+            if (useSections) sql += " AND p.\"section\" = ANY(@sections)";
             if (useExtensions) sql += " AND p.extension = ANY(@extensions)";
             sql += " ORDER BY p.created_at DESC LIMIT @lim OFFSET @off";
         }
@@ -344,7 +337,7 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("@lim", NpgsqlTypes.NpgsqlDbType.Integer, limit);
         cmd.Parameters.AddWithValue("@off", NpgsqlTypes.NpgsqlDbType.Integer, Math.Max(0, offset));
-        AddCommonParameters(cmd, tags, persons, commerceRatings, foldersL1, foldersL2, extensions);
+        AddCommonParameters(cmd, tags, persons, commerceRatings, partitions, sections, extensions);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
@@ -399,10 +392,9 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
         await conn.OpenAsync(ct);
         var folders = new List<string>();
         await using var cmd = new NpgsqlCommand(@"
-            SELECT DISTINCT (split_part(real_path, '/', i))
-            FROM image_location, 
-            LATERAL (SELECT generate_series(1, array_length(string_to_array(real_path, '/'), 1)) AS i) AS series
-            WHERE split_part(real_path, '/', i) <> ''", conn);
+            SELECT DISTINCT ""partition"" FROM photo WHERE ""partition"" <> ''
+            UNION
+            SELECT DISTINCT ""section"" FROM photo WHERE ""section"" <> ''", conn);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
@@ -413,6 +405,23 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
             }
         }
         return folders.Distinct().OrderBy(x => x).ToList();
+    }
+
+    public async Task<IDictionary<string, List<string>>> GetPartitionSectionHierarchyAsync(CancellationToken ct = default)
+    {
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(ct);
+        var hierarchy = new Dictionary<string, List<string>>();
+        await using var cmd = new NpgsqlCommand("SELECT DISTINCT \"partition\", \"section\" FROM photo WHERE \"partition\" <> '' ORDER BY \"partition\", \"section\"", conn);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            var p = reader.GetString(0);
+            var s = reader.GetString(1);
+            if (!hierarchy.ContainsKey(p)) hierarchy[p] = new List<string>();
+            if (!string.IsNullOrEmpty(s)) hierarchy[p].Add(s);
+        }
+        return hierarchy;
     }
 
     public async Task<IReadOnlyList<string>> GetAllDistinctExtensionsAsync(CancellationToken ct = default)
@@ -443,7 +452,9 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
             created_at,
             updated_at,
             commerce_rate,
-            group_name FROM photo WHERE md5_hash = ANY(@md5s)", conn);
+            group_name,
+            ""partition"",
+            ""section"" FROM photo WHERE md5_hash = ANY(@md5s)", conn);
         cmd.Parameters.AddWithValue("@md5s", NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text, md5s.ToArray());
 
         await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -458,7 +469,9 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
                 CreatedAt = reader.GetDateTime(4),
                 UpdatedAt = reader.GetDateTime(5),
                 CommerceRate = reader.GetInt32(6),
-                GroupName = reader.GetString(7)
+                GroupName = reader.GetString(7),
+                Partition = reader.GetString(8),
+                Section = reader.GetString(9)
             });
         }
         return list;
@@ -535,5 +548,7 @@ public sealed record Photo
     public DateTime UpdatedAt { get; set; }
     public int CommerceRate { get; set; }
     public string GroupName { get; set; }
+    public string Partition { get; init; }
+    public string Section { get; init; }
     public string[] PublishPlatforms { get; set; } = Array.Empty<string>();
 }
