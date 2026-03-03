@@ -20,7 +20,9 @@ public interface ISearchResultsRepository
     Task<int> GetPhotosCountAsync(string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, string[]? partitions = null, string[]? sections = null, string[]? extensions = null, bool groupByGroup = false, CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetRecentPhotoMd5Async(int offset, int limit, string[]? tags = null, string[]? persons = null, int[]? commerceRatings = null, string[]? partitions = null, string[]? sections = null, string[]? extensions = null, bool groupByGroup = false, CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetAllDistinctTagsAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<string>> GetTagsAsync(string? searchTerm, CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetAllDistinctPersonsAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<string>> GetPersonsAsync(string? searchTerm, CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetAllDistinctFoldersAsync(CancellationToken ct = default);
     Task<IDictionary<string, List<string>>> GetPartitionSectionHierarchyAsync(CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetAllDistinctExtensionsAsync(CancellationToken ct = default);
@@ -348,41 +350,79 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
 
     public async Task<IReadOnlyList<string>> GetAllDistinctTagsAsync(CancellationToken ct = default)
     {
+        return await GetTagsAsync(null, ct);
+    }
+
+    public async Task<IReadOnlyList<string>> GetTagsAsync(string? searchTerm, CancellationToken ct = default)
+    {
         await using var conn = CreateConnection();
         await conn.OpenAsync(ct);
         var tags = new List<string>();
-        await using var cmd = new NpgsqlCommand(@"
+        var sql = @"
             SELECT t AS tag
             FROM photo
             CROSS JOIN LATERAL unnest(tags) AS t
-            WHERE t IS NOT NULL AND length(trim(t)) > 0
+            WHERE t IS NOT NULL AND length(trim(t)) > 0";
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            sql += " AND t ILIKE @term";
+        }
+
+        sql += @"
             GROUP BY t
-            ORDER BY COUNT(*) DESC, t ASC LIMIT 100", conn);
+            ORDER BY COUNT(*) DESC, t ASC LIMIT 100";
+
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            cmd.Parameters.AddWithValue("@term", $"%{searchTerm}%");
+        }
+
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
             tags.Add(reader.GetString(0));
         }
+
         return tags.OrderBy(t => t).ToList();
     }
 
     public async Task<IReadOnlyList<string>> GetAllDistinctPersonsAsync(CancellationToken ct = default)
     {
+        return await GetPersonsAsync(null, ct);
+    }
+
+    public async Task<IReadOnlyList<string>> GetPersonsAsync(string? searchTerm, CancellationToken ct = default)
+    {
         await using var conn = CreateConnection();
         await conn.OpenAsync(ct);
         var persons = new List<string>();
-        await using var cmd = new NpgsqlCommand(@"
+        var sql = @"
             SELECT p_name AS person
             FROM photo
             CROSS JOIN LATERAL unnest(persons) AS p_name
-            WHERE p_name IS NOT NULL AND length(trim(p_name)) > 0
+            WHERE p_name IS NOT NULL AND length(trim(p_name)) > 0";
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            sql += " AND p_name ILIKE @term";
+        }
+
+        sql += @"
             GROUP BY p_name
-            ORDER BY COUNT(*) DESC, p_name ASC LIMIT 100", conn);
+            ORDER BY COUNT(*) DESC, p_name ASC LIMIT 100";
+
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            cmd.Parameters.AddWithValue("@term", $"%{searchTerm}%");
+        }
+
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
             persons.Add(reader.GetString(0));
         }
+
         return persons.OrderBy(p => p).ToList();
     }
 

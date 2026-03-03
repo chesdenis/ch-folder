@@ -560,6 +560,20 @@ public class HomeController(
     }
 
 
+    [HttpGet]
+    public async Task<IActionResult> Tags(string term)
+    {
+        var tags = await searchResultsRepo.GetTagsAsync(term, HttpContext.RequestAborted);
+        return Json(tags);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Persons(string term)
+    {
+        var persons = await searchResultsRepo.GetPersonsAsync(term, HttpContext.RequestAborted);
+        return Json(persons);
+    }
+
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public IActionResult Error()
     {

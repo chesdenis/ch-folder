@@ -100,7 +100,7 @@
                 <div class="toolbar-group" role="group" aria-label="Tags selector">
                     <span class="toolbar-label">Tags</span>
                     @await Component.InvokeAsync("TagsSelector", new {
-                        availableTags = (ViewBag.AvailableTags as IEnumerable<string> ?? Array.Empty<string>()).Take(10),
+                        availableTags = ViewBag.AvailableTags as IEnumerable<string>,
                         selectedTags = ViewBag.SelectedTags as IEnumerable<string>
                     })
                 </div>
@@ -452,7 +452,64 @@
         }
 
         function wireFilterButtons() {
-            // Tags
+            // Tags (Dynamic Input)
+            const tagInput = document.getElementById('tagInput');
+            if (tagInput) {
+                let tagTimeout = null;
+                tagInput.addEventListener('input', () => {
+                    clearTimeout(tagTimeout);
+                    const val = tagInput.value.trim();
+                    tagTimeout = setTimeout(() => {
+                        fetch(`/Home/Tags?term=${encodeURIComponent(val)}`)
+                            .then(r => r.json())
+                            .then(tags => {
+                                const datalist = document.getElementById('tagHints');
+                                if (!datalist) return;
+                                datalist.innerHTML = '';
+                                tags.forEach(t => {
+                                    const opt = document.createElement('option');
+                                    opt.value = t;
+                                    datalist.appendChild(opt);
+                                });
+                            });
+                    }, 300);
+                });
+
+                tagInput.addEventListener('change', () => {
+                    const tag = tagInput.value.trim();
+                    if (!tag) return;
+                    
+                    const url = new URL(window.location.href);
+                    let tags = url.searchParams.getAll('tags');
+                    if (!tags.includes(tag)) {
+                        tags.push(tag);
+                        url.searchParams.delete('tags');
+                        tags.forEach(t => url.searchParams.append('tags', t));
+                        url.searchParams.set('page', '1');
+                        window.location.href = url.toString();
+                    }
+                    tagInput.value = '';
+                });
+                tagInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') tagInput.dispatchEvent(new Event('change'));
+                });
+            }
+
+            document.querySelectorAll('.remove-tag-chip').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const chip = e.target.closest('.chip');
+                    const tag = chip.getAttribute('data-tag');
+                    const url = new URL(window.location.href);
+                    let tags = url.searchParams.getAll('tags');
+                    tags = tags.filter(t => t !== tag);
+                    url.searchParams.delete('tags');
+                    tags.forEach(t => url.searchParams.append('tags', t));
+                    url.searchParams.set('page', '1');
+                    window.location.href = url.toString();
+                });
+            });
+
+            // Tag Buttons
             document.querySelectorAll('.tag-btn[data-tag]').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const tag = btn.getAttribute('data-tag');

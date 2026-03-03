@@ -544,6 +544,26 @@
             // Tags (updated for chips)
             const tagInput = document.getElementById('tagInput');
             if (tagInput) {
+                let tagTimeout = null;
+                tagInput.addEventListener('input', () => {
+                    clearTimeout(tagTimeout);
+                    const val = tagInput.value.trim();
+                    tagTimeout = setTimeout(() => {
+                        fetch(`/Home/Tags?term=${encodeURIComponent(val)}`)
+                            .then(r => r.json())
+                            .then(tags => {
+                                const datalist = document.getElementById('tagHints');
+                                if (!datalist) return;
+                                datalist.innerHTML = '';
+                                tags.forEach(t => {
+                                    const opt = document.createElement('option');
+                                    opt.value = t;
+                                    datalist.appendChild(opt);
+                                });
+                            });
+                    }, 300);
+                });
+
                 tagInput.addEventListener('change', () => {
                     const tag = tagInput.value.trim();
                     if (!tag) return;
@@ -581,6 +601,26 @@
             // Persons (updated for chips)
             const personInput = document.getElementById('personInput');
             if (personInput) {
+                let personTimeout = null;
+                personInput.addEventListener('input', () => {
+                    clearTimeout(personTimeout);
+                    const val = personInput.value.trim();
+                    personTimeout = setTimeout(() => {
+                        fetch(`/Home/Persons?term=${encodeURIComponent(val)}`)
+                            .then(r => r.json())
+                            .then(persons => {
+                                const datalist = document.getElementById('personHints');
+                                if (!datalist) return;
+                                datalist.innerHTML = '';
+                                persons.forEach(p => {
+                                    const opt = document.createElement('option');
+                                    opt.value = p;
+                                    datalist.appendChild(opt);
+                                });
+                            });
+                    }, 300);
+                });
+
                 personInput.addEventListener('change', () => {
                     const person = personInput.value.trim();
                     if (!person) return;
