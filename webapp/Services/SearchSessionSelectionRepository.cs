@@ -29,14 +29,13 @@ public sealed class SearchSessionSelectionRepository(IContentProvider contentPro
         await conn.OpenAsync(ct);
 
         var list = new List<SelectedPhotoInfo>();
-        await using var cmd = new NpgsqlCommand(@"SELECT p.md5_hash, p.short_details, il.real_path, p.tags
+        await using var cmd = new NpgsqlCommand(@"SELECT p.md5_hash, p.short_details, p.tags
             FROM (
                 SELECT md5_hash, created_at FROM search_session_selected WHERE session_id = @sid
                 UNION ALL
                 SELECT md5_hash, created_at FROM selection_session_photo WHERE session_id = @sid
             ) s
             INNER JOIN photo p ON p.md5_hash = s.md5_hash
-            INNER JOIN image_location il on p.md5_hash = il.md5_hash
             ORDER BY s.created_at ASC", conn);
         cmd.Parameters.AddWithValue("@sid", NpgsqlTypes.NpgsqlDbType.Uuid, sessionId);
 
@@ -45,10 +44,9 @@ public sealed class SearchSessionSelectionRepository(IContentProvider contentPro
         {
             var md5 = reader.GetString(0);
             var shortDetails = reader.GetString(1);
-            var realPath = reader.GetString(2);
-            var largeDetails = await contentProvider.GetDqAnswer(realPath);
-            var commerceMark = await contentProvider.GetCommerceMarkAnswer(realPath);
-            var tags = reader.IsDBNull(3) ? Array.Empty<string>() : reader.GetFieldValue<string[]>(3);
+            var largeDetails = await contentProvider.GetDqAnswer(md5);
+            var commerceMark = await contentProvider.GetCommerceMarkAnswer(md5);
+            var tags = reader.IsDBNull(2) ? Array.Empty<string>() : reader.GetFieldValue<string[]>(2);
 
             // Fetch publish platforms for this photo
             var platforms = new List<string>();
