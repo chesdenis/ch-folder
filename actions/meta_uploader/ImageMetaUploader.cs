@@ -44,9 +44,9 @@ public class ImageMetaUploader
         }
     }
 
-    private async Task ProcessSingleFile(string filePointer)
+    private async Task ProcessSingleFile(string md5)
     {
-        var ext = await _contentProvider.GetExtension(filePointer);
+        var ext = await _contentProvider.GetExtension(md5);
         if (ext.IsVideo())
         {
             return;
@@ -55,12 +55,12 @@ public class ImageMetaUploader
         try
         {
             // skip if already in DB
-            if (_filePointersInDb.Contains(filePointer))
+            if (_filePointersInDb.Contains(md5))
             {
                 return;
             }
             
-            var metadata = await _contentProvider.GetMetadataByMd5(filePointer);
+            var metadata = await _contentProvider.GetMetadataByMd5(md5);
             if (metadata == null) return;
             
             if (string.IsNullOrEmpty(metadata.EmbAnswer)) return;
@@ -71,25 +71,29 @@ public class ImageMetaUploader
             
             // try read commerce rate explanation
             int commerceRate = 0;
-            var commerceData = await _contentProvider.GetCommerceMarkAnswerJson(filePointer);
+            var commerceData = await _contentProvider.GetCommerceMarkAnswerJson(md5);
             if (commerceData != null)
             {
                 // DB constraint currently allows 0..5
                 commerceRate = Math.Max(0, Math.Min(5, commerceData.Rate));
             }
 
-            var eng30TagsText = await _contentProvider.GetEng30Tags(filePointer);
-            var shortDetails = await _contentProvider.GetEngShortAnswer(filePointer);
-            var extension = await _contentProvider.GetExtension(filePointer);
-            var group = await _contentProvider.GetGroup(filePointer);
+            var eng30TagsText = await _contentProvider.GetEng30Tags(md5);
+            var shortDetails = await _contentProvider.GetEngShortAnswer(md5);
+            var extension = await _contentProvider.GetExtension(md5);
+            var group = await _contentProvider.GetGroup(md5);
+            var partition = await _contentProvider.GetPartition(md5);
+            var section = await _contentProvider.GetSection(md5);
             
             var record = new PhotoRecord(
-                md5_hash: filePointer,
+                md5_hash: md5,
                 extension: extension,
                 tags: eng30TagsText,
                 short_details:  shortDetails,
                 commerce_rate: commerceRate,
-                group_name: group);
+                group_name: group,
+                partition: partition,
+                section: section);
 
             _buffer.Add(record);
             if (_buffer.Count >= BatchSize)
@@ -102,7 +106,7 @@ public class ImageMetaUploader
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error processing file '{filePointer}': {ex.Message}");
+            Console.WriteLine($"Error processing file '{md5}': {ex.Message}");
         }
     }
 
@@ -136,6 +140,8 @@ public class ImageMetaUploader
             .Append("tags, ")
             .Append("short_details, ")
             .Append("commerce_rate, ")
+            .Append("partition, ")
+            .Append("section, ")
             .Append("group_name) VALUES ");
 
         var cmd = new NpgsqlCommand();
@@ -151,6 +157,8 @@ public class ImageMetaUploader
                       $"@tags_{i}, " +
                       $"@sd_{i}, " +
                       $"@cr_{i}, " +
+                      $"@p_{i}, " +
+                      $"@s_{i}, " +
                       $"@group_{i})");
 
             cmd.Parameters.AddWithValue($"@md5_{i}", NpgsqlDbType.Text, r.md5_hash);
@@ -159,6 +167,8 @@ public class ImageMetaUploader
             cmd.Parameters.Add(pTags);
             cmd.Parameters.AddWithValue($"@sd_{i}", NpgsqlDbType.Text, r.short_details);
             cmd.Parameters.AddWithValue($"@cr_{i}", NpgsqlDbType.Integer, r.commerce_rate);
+            cmd.Parameters.AddWithValue($"@p_{i}", NpgsqlDbType.Text, r.partition);
+            cmd.Parameters.AddWithValue($"@s_{i}", NpgsqlDbType.Text, r.section);
             cmd.Parameters.AddWithValue($"@group_{i}", NpgsqlDbType.Text, r.group_name);
         }
 
@@ -167,6 +177,8 @@ public class ImageMetaUploader
         sb.Append("tags = EXCLUDED.tags, ");
         sb.Append("short_details = EXCLUDED.short_details, ");
         sb.Append("commerce_rate = EXCLUDED.commerce_rate, ");
+        sb.Append("partition = EXCLUDED.partition, ");
+        sb.Append("section = EXCLUDED.section, ");
         sb.Append("group_name = EXCLUDED.group_name;");
 
         cmd.CommandText = sb.ToString();
@@ -180,6 +192,8 @@ public class ImageMetaUploader
         string[] tags,
         string short_details,
         int commerce_rate,
-        string group_name
+        string group_name,
+        string partition,
+        string section
     );
 }
