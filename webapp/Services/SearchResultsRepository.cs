@@ -23,9 +23,12 @@ public interface ISearchResultsRepository
     Task<IReadOnlyList<string>> GetTagsAsync(string? searchTerm, CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetAllDistinctPersonsAsync(CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetPersonsAsync(string? searchTerm, CancellationToken ct = default);
+    Task<IReadOnlyList<string>> GetPartitionsAsync(string? searchTerm, CancellationToken ct = default);
+    Task<IReadOnlyList<string>> GetSectionsAsync(string? searchTerm, CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetAllDistinctFoldersAsync(CancellationToken ct = default);
     Task<IDictionary<string, List<string>>> GetPartitionSectionHierarchyAsync(CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetAllDistinctExtensionsAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<string>> GetExtensionsAsync(string? searchTerm, CancellationToken ct = default);
     Task<IReadOnlyList<Photo>> GetPhotosByMd5sAsync(IReadOnlyList<string> md5s, CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetDistinctTagsForSessionAsync(Guid sessionId, CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetDistinctPersonsForSessionAsync(Guid sessionId, CancellationToken ct = default);
@@ -384,7 +387,7 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
             tags.Add(reader.GetString(0));
         }
 
-        return tags.OrderBy(t => t).ToList();
+        return tags;
     }
 
     public async Task<IReadOnlyList<string>> GetAllDistinctPersonsAsync(CancellationToken ct = default)
@@ -423,7 +426,59 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
             persons.Add(reader.GetString(0));
         }
 
-        return persons.OrderBy(p => p).ToList();
+        return persons;
+    }
+
+    public async Task<IReadOnlyList<string>> GetPartitionsAsync(string? searchTerm, CancellationToken ct = default)
+    {
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(ct);
+        var list = new List<string>();
+        var sql = "SELECT \"partition\" FROM photo WHERE \"partition\" <> ''";
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            sql += " AND \"partition\" ILIKE @term";
+        }
+        sql += " GROUP BY \"partition\" ORDER BY COUNT(*) DESC, \"partition\" LIMIT 10";
+
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            cmd.Parameters.AddWithValue("@term", $"%{searchTerm}%");
+        }
+
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            list.Add(reader.GetString(0));
+        }
+        return list;
+    }
+
+    public async Task<IReadOnlyList<string>> GetSectionsAsync(string? searchTerm, CancellationToken ct = default)
+    {
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(ct);
+        var list = new List<string>();
+        var sql = "SELECT \"section\" FROM photo WHERE \"section\" <> ''";
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            sql += " AND \"section\" ILIKE @term";
+        }
+        sql += " GROUP BY \"section\" ORDER BY COUNT(*) DESC, \"section\" LIMIT 10";
+
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            cmd.Parameters.AddWithValue("@term", $"%{searchTerm}%");
+        }
+
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            list.Add(reader.GetString(0));
+        }
+        return list;
     }
 
     public async Task<IReadOnlyList<string>> GetAllDistinctFoldersAsync(CancellationToken ct = default)
@@ -466,10 +521,27 @@ public sealed class SearchResultsRepository(IOptions<ConnectionStringOptions> co
 
     public async Task<IReadOnlyList<string>> GetAllDistinctExtensionsAsync(CancellationToken ct = default)
     {
+        return await GetExtensionsAsync(null, ct);
+    }
+
+    public async Task<IReadOnlyList<string>> GetExtensionsAsync(string? searchTerm, CancellationToken ct = default)
+    {
         await using var conn = CreateConnection();
         await conn.OpenAsync(ct);
         var list = new List<string>();
-        await using var cmd = new NpgsqlCommand("SELECT DISTINCT extension FROM photo ORDER BY extension", conn);
+        var sql = "SELECT extension FROM photo WHERE extension <> ''";
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            sql += " AND extension ILIKE @term";
+        }
+        sql += " GROUP BY extension ORDER BY COUNT(*) DESC, extension LIMIT 10";
+
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            cmd.Parameters.AddWithValue("@term", $"%{searchTerm}%");
+        }
+
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {

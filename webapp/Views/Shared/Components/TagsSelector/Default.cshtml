@@ -13,11 +13,11 @@
             </span>
         }
     </div>
-    <input type="text" id="tagInput" list="tagHints" class="tag-input" placeholder="Add tag..." autocomplete="off">
-    <datalist id="tagHints">
-        @foreach (var tag in available)
+    <input type="text" id="tagInput" class="tag-input" placeholder="Add tag..." autocomplete="off">
+    <div id="availableTagsChips" class="available-chips">
+        @foreach (var tag in available.Take(5))
         {
-            <option value="@tag"></option>
+            <span class="available-chip" data-tag="@tag">@tag</span>
         }
-    </datalist>
+    </div>
 </div>

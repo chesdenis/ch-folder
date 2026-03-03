@@ -574,6 +574,27 @@ public class HomeController(
         return Json(persons);
     }
 
+    [HttpGet]
+    public async Task<IActionResult> Partitions(string term)
+    {
+        var partitions = await searchResultsRepo.GetPartitionsAsync(term, HttpContext.RequestAborted);
+        return Json(partitions);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Sections(string term)
+    {
+        var sections = await searchResultsRepo.GetSectionsAsync(term, HttpContext.RequestAborted);
+        return Json(sections);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Extensions(string term)
+    {
+        var extensions = await searchResultsRepo.GetExtensionsAsync(term, HttpContext.RequestAborted);
+        return Json(extensions);
+    }
+
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public IActionResult Error()
     {

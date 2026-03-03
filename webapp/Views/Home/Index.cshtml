@@ -112,16 +112,16 @@
                                 }
                             }
                         </div>
-                        <input type="text" id="personInput" list="personHints" class="person-input" placeholder="Add person..." autocomplete="off">
-                        <datalist id="personHints">
+                        <input type="text" id="personInput" class="person-input" placeholder="Add person..." autocomplete="off">
+                        <div id="availablePersonsChips" class="available-chips">
                             @{
-                                var availablePersons = ViewBag.AvailablePersons as IEnumerable<string> ?? Array.Empty<string>();
+                                var availablePersons = (ViewBag.AvailablePersons as IEnumerable<string> ?? Array.Empty<string>()).Take(5);
                                 foreach (var person in availablePersons)
                                 {
-                                    <option value="@person"></option>
+                                    <span class="available-chip" data-person="@person">@person</span>
                                 }
                             }
-                        </datalist>
+                        </div>
                     </div>
                 </div>
 
@@ -152,30 +152,24 @@
                         </div>
                         <div class="folder-inputs">
                             <div class="l1-wrapper">
-                                <select id="partitionSelect" class="folder-input-l1">
-                                    <option value="">Partition...</option>
-                                    @{
-                                        var availablePartitions = ViewBag.AvailablePartitions as IEnumerable<string> ?? Enumerable.Empty<string>();
-                                        var currentSelectedPartitions = ViewBag.SelectedPartitions as IEnumerable<string> ?? Array.Empty<string>();
-                                        foreach (var partition in availablePartitions)
-                                        {
-                                            var isSelected = currentSelectedPartitions.Contains(partition);
-                                            <option value="@partition" selected="@(isSelected ? "selected" : null)">@partition</option>
-                                        }
-                                    }
-                                </select>
+                                <input type="text" id="partitionInput" class="folder-input-l1" placeholder="Partition..." autocomplete="off">
                                 <button type="button" id="addPartitionBtn" class="btn-add-l1" title="Add all from this partition">+</button>
                             </div>
-                            <input type="text" id="sectionInput" list="sectionHints" class="folder-input" placeholder="Add section..." autocomplete="off">
-                            <datalist id="sectionHints">
-                                @{
-                                    var availableSections = ViewBag.AvailableSections as IEnumerable<string> ?? Array.Empty<string>();
-                                    foreach (var sec in availableSections)
-                                    {
-                                        <option value="@sec"></option>
-                                    }
+                            <input type="text" id="sectionInput" class="folder-input" placeholder="Add section..." autocomplete="off">
+                        </div>
+                        <div id="availableStorageChips" class="available-chips">
+                            @{
+                                var availablePartitions = (ViewBag.AvailablePartitions as IEnumerable<string> ?? Enumerable.Empty<string>()).Take(5);
+                                foreach (var partition in availablePartitions)
+                                {
+                                    <span class="available-chip" data-folder="@partition" data-level="partition">@partition</span>
                                 }
-                            </datalist>
+                                var availableSections = (ViewBag.AvailableSections as IEnumerable<string> ?? Array.Empty<string>()).Take(5);
+                                foreach (var sec in availableSections)
+                                {
+                                    <span class="available-chip" data-folder="@sec" data-level="section">@sec</span>
+                                }
+                            }
                         </div>
                     </div>
                 </div>
@@ -196,16 +190,16 @@
                                 }
                             }
                         </div>
-                        <input type="text" id="extensionInput" list="extensionHints" class="extension-input" placeholder="Add ext..." autocomplete="off">
-                        <datalist id="extensionHints">
+                        <input type="text" id="extensionInput" class="extension-input" placeholder="Add ext..." autocomplete="off">
+                        <div id="availableExtensionsChips" class="available-chips">
                             @{
-                                var availableExtensions = ViewBag.AvailableExtensions as IEnumerable<string> ?? Array.Empty<string>();
+                                var availableExtensions = (ViewBag.AvailableExtensions as IEnumerable<string> ?? Array.Empty<string>()).Take(5);
                                 foreach (var ext in availableExtensions)
                                 {
-                                    <option value="@ext"></option>
+                                    <span class="available-chip" data-extension="@ext">@ext</span>
                                 }
                             }
-                        </datalist>
+                        </div>
                     </div>
                 </div>
 
@@ -268,8 +262,11 @@
             display: flex;
             gap: 2px;
             align-items: center;
+            flex: 1;
         }
         .folder-input-l1 {
+            flex: 1;
+            min-width: 0;
             padding: 0.25rem 0.5rem;
             border: 1px solid rgba(0,0,0,.1);
             border-radius: 6px 0 0 6px;
@@ -296,7 +293,8 @@
             border-color: rgba(0, 90, 255, .3);
         }
         .folder-input {
-            flex-grow: 1;
+            flex: 1;
+            min-width: 0;
         }
         .fluent-toolbar {
             display: flex;
@@ -375,6 +373,30 @@
             font-size: 0.95rem;
             padding: 0.25rem 0.5rem;
             width: 100%;
+            min-width: 0;
+        }
+        .available-chips {
+            display: flex;
+            gap: 0.25rem;
+            flex-wrap: wrap;
+            max-height: 150px;
+            overflow-y: auto;
+            margin-top: 0.5rem;
+        }
+        .available-chip {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(0,0,0,0.05);
+            color: #495057;
+            border: 1px solid rgba(0,0,0,.1);
+            border-radius: 6px;
+            padding: 0.1rem 0.4rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .available-chip:hover {
+            background: rgba(0,0,0,0.1);
         }
 
         /* Tags selector chips styling to match fluent toolbar */
@@ -431,6 +453,7 @@
             }
             return u.toString();
         }
+
         function wirePageSizeButtons() {
             const buttons = document.querySelectorAll('.page-size-btn');
             buttons.forEach(btn => {
@@ -541,27 +564,11 @@
         }
 
         function wireFilterButtons() {
-            // Tags (updated for chips)
+            // Tags (updated for custom chips with fetch)
             const tagInput = document.getElementById('tagInput');
             if (tagInput) {
-                let tagTimeout = null;
                 tagInput.addEventListener('input', () => {
-                    clearTimeout(tagTimeout);
-                    const val = tagInput.value.trim();
-                    tagTimeout = setTimeout(() => {
-                        fetch(`/Home/Tags?term=${encodeURIComponent(val)}`)
-                            .then(r => r.json())
-                            .then(tags => {
-                                const datalist = document.getElementById('tagHints');
-                                if (!datalist) return;
-                                datalist.innerHTML = '';
-                                tags.forEach(t => {
-                                    const opt = document.createElement('option');
-                                    opt.value = t;
-                                    datalist.appendChild(opt);
-                                });
-                            });
-                    }, 300);
+                    window.updateAvailableChips('tagInput', 'availableTagsChips', '/Home/Tags', 'tag');
                 });
 
                 tagInput.addEventListener('change', () => {
@@ -582,6 +589,18 @@
                 tagInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') tagInput.dispatchEvent(new Event('change'));
                 });
+
+                // Initial chips limit to 5
+                const availableTags = document.querySelectorAll('#availableTagsChips .available-chip');
+                availableTags.forEach((chip, idx) => {
+                    if (idx >= 5) chip.remove();
+                    else {
+                        chip.addEventListener('click', () => {
+                            tagInput.value = chip.getAttribute('data-tag');
+                            tagInput.dispatchEvent(new Event('change'));
+                        });
+                    }
+                });
             }
 
             document.querySelectorAll('.remove-tag-chip').forEach(btn => {
@@ -598,27 +617,11 @@
                 });
             });
 
-            // Persons (updated for chips)
+            // Persons (updated for custom chips with fetch)
             const personInput = document.getElementById('personInput');
             if (personInput) {
-                let personTimeout = null;
                 personInput.addEventListener('input', () => {
-                    clearTimeout(personTimeout);
-                    const val = personInput.value.trim();
-                    personTimeout = setTimeout(() => {
-                        fetch(`/Home/Persons?term=${encodeURIComponent(val)}`)
-                            .then(r => r.json())
-                            .then(persons => {
-                                const datalist = document.getElementById('personHints');
-                                if (!datalist) return;
-                                datalist.innerHTML = '';
-                                persons.forEach(p => {
-                                    const opt = document.createElement('option');
-                                    opt.value = p;
-                                    datalist.appendChild(opt);
-                                });
-                            });
-                    }, 300);
+                    window.updateAvailableChips('personInput', 'availablePersonsChips', '/Home/Persons', 'person');
                 });
 
                 personInput.addEventListener('change', () => {
@@ -639,6 +642,18 @@
                 personInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') personInput.dispatchEvent(new Event('change'));
                 });
+
+                // Initial chips limit to 5
+                const availablePersons = document.querySelectorAll('#availablePersonsChips .available-chip');
+                availablePersons.forEach((chip, idx) => {
+                    if (idx >= 5) chip.remove();
+                    else {
+                        chip.addEventListener('click', () => {
+                            personInput.value = chip.getAttribute('data-person');
+                            personInput.dispatchEvent(new Event('change'));
+                        });
+                    }
+                });
             }
 
             document.querySelectorAll('.remove-person-chip').forEach(btn => {
@@ -655,90 +670,48 @@
                 });
             });
 
-            // Storage (updated logic for removal button class)
+            // Storage (updated for custom chips with fetch)
             const sectionInput = document.getElementById('sectionInput');
-            const partitionSelect = document.getElementById('partitionSelect');
-            const sectionHints = document.getElementById('sectionHints');
-            const partitionsHierarchy = @Html.Raw(Json.Serialize(ViewBag.AvailablePartitionsSections));
+            const partitionInput = document.getElementById('partitionInput');
 
-            if (partitionSelect && sectionHints) {
-                const updateSectionHints = () => {
-                    const selectedPartition = partitionSelect.value;
-                    let availableSections = [];
-                    
-                    if (selectedPartition && partitionsHierarchy[selectedPartition]) {
-                        availableSections = partitionsHierarchy[selectedPartition];
-                    } else {
-                        // If no partition selected in dropdown, check if any partitions are in selected chips
-                        const activePartitions = [];
-                        const selectedChips = document.querySelectorAll('#selectedStorageChips .chip[data-level="partition"]');
-                        selectedChips.forEach(chip => {
-                            const folder = chip.getAttribute('data-folder');
-                            if (partitionsHierarchy[folder]) {
-                                activePartitions.push(folder);
-                            }
-                        });
-
-                        if (activePartitions.length > 0) {
-                            const sectionSet = new Set();
-                            activePartitions.forEach(p => {
-                                if (partitionsHierarchy[p]) {
-                                    partitionsHierarchy[p].forEach(s => sectionSet.add(s));
-                                }
-                            });
-                            availableSections = Array.from(sectionSet).sort();
-                        } else {
-                            // If no partition selected at all, show all unique sections
-                            const allSections = new Set();
-                            for (const p in partitionsHierarchy) {
-                                partitionsHierarchy[p].forEach(s => allSections.add(s));
-                            }
-                            availableSections = Array.from(allSections).sort();
-                        }
+            if (partitionInput) {
+                partitionInput.addEventListener('input', () => {
+                    window.updateAvailableChips('partitionInput', 'availableStorageChips', '/Home/Partitions', 'folder', 'partition');
+                });
+                
+                partitionInput.addEventListener('change', () => {
+                    const val = partitionInput.value.trim();
+                    if (!val) return;
+                    const url = new URL(window.location.href);
+                    let partitions = url.searchParams.getAll('partitions');
+                    if (!partitions.includes(val)) {
+                        url.searchParams.append('partitions', val);
+                        url.searchParams.set('page', '1');
+                        window.location.href = url.toString();
                     }
-
-                    sectionHints.innerHTML = '';
-                    availableSections.forEach(s => {
-                        const option = document.createElement('option');
-                        option.value = s;
-                        sectionHints.appendChild(option);
-                    });
-                };
-
-                partitionSelect.addEventListener('change', () => {
-                    updateSectionHints();
-                    sectionInput.value = '';
+                    partitionInput.value = '';
+                });
+                partitionInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') partitionInput.dispatchEvent(new Event('change'));
                 });
 
-                const addPartitionBtn = document.getElementById('addPartitionBtn');
-                if (addPartitionBtn) {
-                    addPartitionBtn.addEventListener('click', () => {
-                        const selectedPartition = partitionSelect.value;
-                        if (selectedPartition) {
-                            const url = new URL(window.location.href);
-                            let partitions = url.searchParams.getAll('partitions');
-                            if (!partitions.includes(selectedPartition)) {
-                                url.searchParams.append('partitions', selectedPartition);
-                                url.searchParams.set('page', '1');
-                                window.location.href = url.toString();
-                            }
-                        }
-                    });
-                }
-
-                // Initial hints
-                updateSectionHints();
+                document.getElementById('addPartitionBtn')?.addEventListener('click', () => {
+                    partitionInput.dispatchEvent(new Event('change'));
+                });
             }
 
             if (sectionInput) {
+                sectionInput.addEventListener('input', () => {
+                    window.updateAvailableChips('sectionInput', 'availableStorageChips', '/Home/Sections', 'folder', 'section');
+                });
+                
                 sectionInput.addEventListener('change', () => {
-                    const section = sectionInput.value.trim();
-                    if (!section) return;
-                    
+                    const val = sectionInput.value.trim();
+                    if (!val) return;
                     const url = new URL(window.location.href);
                     let sections = url.searchParams.getAll('sections');
-                    if (!sections.includes(section)) {
-                        sections.push(section);
+                    if (!sections.includes(val)) {
+                        sections.push(val);
                         url.searchParams.delete('sections');
                         sections.forEach(s => url.searchParams.append('sections', s));
                         url.searchParams.set('page', '1');
@@ -746,14 +719,27 @@
                     }
                     sectionInput.value = '';
                 });
-
-                // Support Enter key if change event doesn't trigger as expected
                 sectionInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') {
-                        sectionInput.dispatchEvent(new Event('change'));
-                    }
+                    if (e.key === 'Enter') sectionInput.dispatchEvent(new Event('change'));
                 });
             }
+
+            // Initial chips limit to 5
+            const availableStorage = document.querySelectorAll('#availableStorageChips .available-chip');
+            availableStorage.forEach((chip, idx) => {
+                if (idx >= 5) chip.remove();
+                else {
+                    chip.addEventListener('click', () => {
+                        if (chip.getAttribute('data-level') === 'partition') {
+                            partitionInput.value = chip.getAttribute('data-folder');
+                            partitionInput.dispatchEvent(new Event('change'));
+                        } else {
+                            sectionInput.value = chip.getAttribute('data-folder');
+                            sectionInput.dispatchEvent(new Event('change'));
+                        }
+                    });
+                }
+            });
 
             document.querySelectorAll('.remove-folder-chip').forEach(btn => {
                 btn.addEventListener('click', (e) => {
@@ -772,9 +758,13 @@
                 });
             });
 
-            // Extensions
+            // Extensions (updated for custom chips with fetch)
             const extensionInput = document.getElementById('extensionInput');
             if (extensionInput) {
+                extensionInput.addEventListener('input', () => {
+                    window.updateAvailableChips('extensionInput', 'availableExtensionsChips', '/Home/Extensions', 'extension');
+                });
+
                 extensionInput.addEventListener('change', () => {
                     const ext = extensionInput.value.trim();
                     if (!ext) return;
@@ -794,6 +784,18 @@
                 extensionInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') {
                         extensionInput.dispatchEvent(new Event('change'));
+                    }
+                });
+
+                // Initial chips limit to 5
+                const availableExtensions = document.querySelectorAll('#availableExtensionsChips .available-chip');
+                availableExtensions.forEach((chip, idx) => {
+                    if (idx >= 5) chip.remove();
+                    else {
+                        chip.addEventListener('click', () => {
+                            extensionInput.value = chip.getAttribute('data-extension');
+                            extensionInput.dispatchEvent(new Event('change'));
+                        });
                     }
                 });
             }

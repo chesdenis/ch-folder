@@ -284,6 +284,76 @@
         .btn.touch, .seg-btn { border-radius: 10px; }
 
         /* Tags selector chips styling to match fluent toolbar */
+        .tag-input-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            border: 1px solid rgba(0,0,0,.1);
+            border-radius: 10px;
+            padding: 0.5rem;
+            background: rgba(0,0,0,0.02);
+            min-height: 2.5rem;
+            max-width: 400px;
+        }
+        .selected-chips {
+            display: flex;
+            gap: 0.25rem;
+            flex-wrap: wrap;
+        }
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(0, 90, 255, .12);
+            color: rgb(0, 82, 204);
+            border: 1px solid rgba(0, 90, 255, .3);
+            border-radius: 6px;
+            padding: 0.1rem 0.4rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .remove-chip {
+            background: transparent;
+            border: none;
+            color: rgb(0, 82, 204);
+            margin-left: 0.25rem;
+            padding: 0;
+            cursor: pointer;
+            font-size: 1.1rem;
+            line-height: 1;
+        }
+        .tag-input {
+            border: 1px solid rgba(0,0,0,.1);
+            border-radius: 6px;
+            background: #fff;
+            outline: none;
+            font-size: 0.95rem;
+            padding: 0.25rem 0.5rem;
+            width: 100%;
+        }
+        .available-chips {
+            display: flex;
+            gap: 0.25rem;
+            flex-wrap: wrap;
+            max-height: 150px;
+            overflow-y: auto;
+            margin-top: 0.5rem;
+        }
+        .available-chip {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(0,0,0,0.05);
+            color: #495057;
+            border: 1px solid rgba(0,0,0,.1);
+            border-radius: 6px;
+            padding: 0.1rem 0.4rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .available-chip:hover {
+            background: rgba(0,0,0,0.1);
+        }
         .tags-selector { display: inline-flex; flex-wrap: wrap; gap: .5rem; }
         .tag-btn {
             display: inline-flex;
@@ -452,27 +522,11 @@
         }
 
         function wireFilterButtons() {
-            // Tags (Dynamic Input)
+            // Tags (updated for custom chips with fetch)
             const tagInput = document.getElementById('tagInput');
             if (tagInput) {
-                let tagTimeout = null;
                 tagInput.addEventListener('input', () => {
-                    clearTimeout(tagTimeout);
-                    const val = tagInput.value.trim();
-                    tagTimeout = setTimeout(() => {
-                        fetch(`/Home/Tags?term=${encodeURIComponent(val)}`)
-                            .then(r => r.json())
-                            .then(tags => {
-                                const datalist = document.getElementById('tagHints');
-                                if (!datalist) return;
-                                datalist.innerHTML = '';
-                                tags.forEach(t => {
-                                    const opt = document.createElement('option');
-                                    opt.value = t;
-                                    datalist.appendChild(opt);
-                                });
-                            });
-                    }, 300);
+                    window.updateAvailableChips('tagInput', 'availableTagsChips', '/Home/Tags', 'tag');
                 });
 
                 tagInput.addEventListener('change', () => {
@@ -492,6 +546,18 @@
                 });
                 tagInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') tagInput.dispatchEvent(new Event('change'));
+                });
+
+                // Initial chips limit to 5
+                const availableTags = document.querySelectorAll('#availableTagsChips .available-chip');
+                availableTags.forEach((chip, idx) => {
+                    if (idx >= 5) chip.remove();
+                    else {
+                        chip.addEventListener('click', () => {
+                            tagInput.value = chip.getAttribute('data-tag');
+                            tagInput.dispatchEvent(new Event('change'));
+                        });
+                    }
                 });
             }
 
