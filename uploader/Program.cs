@@ -5,6 +5,7 @@ namespace uploader;
 
 class Program
 {
+    private static readonly HttpClient http = new HttpClient();
     static async Task Main(string[] args)
     {
         Console.WriteLine("Starting Hash Storage Builder...");
@@ -26,39 +27,59 @@ class Program
         Console.WriteLine($"Target Path: {targetPath}");
 
         // 3. Load Processed Hashes
-        string processedHashesPath = Path.Combine(targetPath, "processed_hashes.json");
         Directory.CreateDirectory(targetPath);
-        if (!File.Exists(processedHashesPath))
-        {
-            File.WriteAllText(processedHashesPath, "[]");
-        }
-
-        var hashesJson = File.ReadAllText(processedHashesPath);
-        HashSet<string> processedHashes = JsonSerializer.Deserialize<HashSet<string>>(hashesJson) ?? new();
-        Console.WriteLine($"Loaded {processedHashes.Count} processed hashes.");
 
         // 4. Processing Loop
         var folders = StorageFolderExtensions.GetStorageFolders(sourcePath).ToList();
         Console.WriteLine($"Found {folders.Count} folders to process.");
 
         int count = 0;
-        int skipped = 0;
         int errors = 0;
 
         foreach (var filePath in StorageFolderExtensions.GetFilesInFolder(sourcePath, folders))
         {
+            if (filePath.IndexOf("System Volume Information") > 0)
+            {
+                continue;
+            }
+
+            if (filePath.EndsWith(".DS_Store"))
+            {
+                continue;
+            }
+            
             try
             {
-                // a. Calculate MD5
-                var md5 = await filePath.CalculateMd5Async();
+                if (!File.Exists(filePath)) { continue; }
                 
-                // b. Skip if already processed
-                if (processedHashes.Contains(md5))
+                // a. Calculate MD5
+                var md5 = await filePath.CalculateMd5Async(force:true);
+                
+                var existsRemote = await UploaderExtensions.RemoteExistsAsync(http, contentApi, md5).ConfigureAwait(false);
+                if (existsRemote is null)
                 {
-                    skipped++;
+                    // safest: skip if API is down (don’t delete/move!)
+                    Console.WriteLine($"[skip] API error for {filePath}");
                     continue;
                 }
+                if (existsRemote.Value)
+                {
+                    var dupesDir = Path.Combine(targetPath, "_dupes");
+                    Directory.CreateDirectory(dupesDir);
 
+                    var dest = Path.Combine(dupesDir, md5);
+
+                    // if duplicate already stored → discard
+                    if (File.Exists(dest))
+                    {
+                        Console.WriteLine($"Moving {filePath} -> {filePath + ".processed"}");
+                        File.Move(filePath, filePath + ".processed");
+                        return;
+                    }
+                    Console.WriteLine($"Moving {filePath} -> {dest}");
+                    File.Move(filePath, dest);
+                }
+                
                 // d. Collect Metadata
                 var metadata = await UploaderExtensions.CollectMetadataAsync(filePath, sourcePath);
                 metadata["md5"] = md5;
@@ -68,31 +89,28 @@ class Program
                 string targetDir = targetPath.GetTargetPartitionDir(md5);
                 if (!Directory.Exists(targetDir))
                 {
+                    Console.WriteLine($"CreateDirectory {targetDir}");
                     Directory.CreateDirectory(targetDir);
                 }
 
                 string targetFilePath = Path.Combine(targetDir, md5);
                 string targetMetaPath = Path.Combine(targetDir, md5 + ".json");
 
-                // g. Copy File Atomically
-                string tempFilePath = targetFilePath + ".tmp";
-                File.Copy(filePath, tempFilePath, true);
-                if (File.Exists(targetFilePath)) File.Delete(targetFilePath);
-                File.Move(tempFilePath, targetFilePath);
+                // g. Rename file atomically
+                Console.WriteLine($"Moving {filePath} -> {targetFilePath}");
+                File.Move(filePath, targetFilePath);
 
                 // h. Write Metadata
                 var jsonOptions = new JsonSerializerOptions { WriteIndented = true };
                 var metaJson = JsonSerializer.Serialize(metadata, jsonOptions);
+                Console.WriteLine($"Writing {targetMetaPath} -> {metaJson.Length}");
                 await File.WriteAllTextAsync(targetMetaPath, metaJson);
 
-                // i. Update Processed Hashes
-                processedHashes.Add(md5);
                 count++;
 
                 if (count % 10 == 0)
                 {
-                    Console.WriteLine($"Processed {count} files... (Skipped: {skipped}, Errors: {errors})");
-                    await File.WriteAllTextAsync(processedHashesPath, JsonSerializer.Serialize(processedHashes));
+                    Console.WriteLine($"Processed {count} files... (Errors: {errors})");
                 }
             }
             catch (Exception ex)
@@ -103,7 +121,6 @@ class Program
         }
 
         // 5. Finalize
-        await File.WriteAllTextAsync(processedHashesPath, JsonSerializer.Serialize(processedHashes));
-        Console.WriteLine($"Finished. Processed: {count}, Skipped: {skipped}, Errors: {errors}.");
+        Console.WriteLine($"Finished. Processed: {count}, Errors: {errors}.");
     }
 }

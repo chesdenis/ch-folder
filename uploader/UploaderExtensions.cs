@@ -1,4 +1,6 @@
+using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json;
 using shared_csharp.Abstractions;
 using shared_csharp.Extensions;
 
@@ -6,6 +8,29 @@ namespace uploader;
 
 public static class UploaderExtensions
 {
+    private static readonly JsonSerializerOptions JsonPretty = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions JsonWeb = new(JsonSerializerDefaults.Web);
+
+    private sealed class ExistsResponse
+    {
+        public bool Exists { get; set; }
+    }
+    
+    public static async Task<bool?> RemoteExistsAsync(HttpClient http, string baseUrl, string md5)
+    {
+        try
+        {
+            baseUrl = baseUrl.TrimEnd('/');
+            var url = $"{baseUrl}/exists/{md5}";
+            var resp = await http.GetFromJsonAsync<ExistsResponse>(url, JsonWeb).ConfigureAwait(false);
+            return resp?.Exists;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+    
     public static string ToBase64(this string text) => Convert.ToBase64String(Encoding.UTF8.GetBytes(text));
     public static string ToBase64(this byte[] bytes) => Convert.ToBase64String(bytes);
 
@@ -106,13 +131,16 @@ public static class UploaderExtensions
             metadata["description"] = (await GetDqAnswer(filePath)).ToBase64();
         }
 
-        var tags =(await GetEng30TagsAnswer(filePath)).Split(',').Select(s => s.Trim()).ToArray();
-        
-        if (tags != null && tags.Length > 0)
+        if (File.Exists(PathExtensions.ResolveEng30TagsAnswerPath(filePath)))
         {
-            metadata["tags"] = tags.Select(t => t.ToBase64()).ToArray();
+            var tags =(await GetEng30TagsAnswer(filePath)).Split(',').Select(s => s.Trim()).ToArray();
+        
+            if (tags != null && tags.Length > 0)
+            {
+                metadata["tags"] = tags.Select(t => t.ToBase64()).ToArray();
+            }
         }
-
+        
         // Previews
         var previews = new Dictionary<string, string>();
         foreach (var size in ImageProcessingExtensions.AllowedSizes)
