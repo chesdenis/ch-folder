@@ -183,3 +183,19 @@ CREATE TABLE IF NOT EXISTS photo_publish_tracker (
 );
 
 CREATE INDEX IF NOT EXISTS ix_photo_publish_tracker_md5 ON photo_publish_tracker (md5_hash);
+
+-- =============================================================
+-- Files metadata table (used by FileMetaUploader)
+-- Stores md5 hash, partition, section and extension
+-- =============================================================
+
+CREATE TABLE IF NOT EXISTS files (
+    md5_hash text PRIMARY KEY,
+    "partition" text NOT NULL DEFAULT '',
+    "section" text NOT NULL DEFAULT '',
+    extension text NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS ix_files_partition ON files ("partition");
+CREATE INDEX IF NOT EXISTS ix_files_section ON files ("section");
+CREATE INDEX IF NOT EXISTS ix_files_extension ON files (extension);
