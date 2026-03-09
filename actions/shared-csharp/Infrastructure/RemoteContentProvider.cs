@@ -52,7 +52,7 @@ public class RemoteContentProvider : IContentProvider
             {
                 if (existing.Item2 > now)
                 {
-                    return existing.Item1.First(); // cached hit (may still be in-flight)
+                    return existing.Item1.FirstOrDefault(); // cached hit (may still be in-flight)
                 }
               
 
@@ -94,18 +94,18 @@ public class RemoteContentProvider : IContentProvider
             now = DateTime.UtcNow;
             var nowPlusTTl = now.AddSeconds(30);
             if (_cache.TryAdd(key, new Tuple<FileMetadata[], DateTime>(results, nowPlusTTl)))
-                return results.First();
+                return results?.FirstOrDefault();
         }
     }
 
     public async Task<string> GetGroup(string md5) => (await GetMetadataByMd5(md5))?.Group;
     public async Task<string> GetAverageHash(string md5) => (await GetMetadataByMd5(md5))?.AverageHash;
 
-    public async Task<string> GetColorHash(string md5) => (await GetMetadataByMd5(md5))?.Description;
+    public async Task<string> GetColorHash(string md5) => (await GetMetadataByMd5(md5))?.ColorHash;
 
     public async Task<string> GetDescription(string md5) => Decode((await GetMetadataByMd5(md5))?.Description);
 
-    public async Task<string[]> GetTags(string md5) => (await GetMetadataByMd5(md5))?.Tags.ToArray();
+    public async Task<string[]> GetTags(string md5) => (await GetMetadataByMd5(md5))?.Tags?.ToArray() ?? Array.Empty<string>();
 
     public async Task<string> GetEmbAnswer(string md5) => Decode((await GetMetadataByMd5(md5))?.EmbAnswer);
     public async Task<string> GetEmbConversation(string md5) => Decode((await GetMetadataByMd5(md5))?.EmbConversation);
@@ -122,7 +122,7 @@ public class RemoteContentProvider : IContentProvider
 
     public async Task<string> GetEng30TagsAnswer(string md5) => Decode((await GetMetadataByMd5(md5))?.Eng30TagsAnswer);
 
-    public async Task<string> GetEng30TagsConversation(string md5) => Decode((await GetMetadataByMd5(md5))?.EngShortConversation);
+    public async Task<string> GetEng30TagsConversation(string md5) => Decode((await GetMetadataByMd5(md5))?.Eng30TagsConversation);
 
     public async Task<string> GetEngShortQuestion(string md5) => Decode((await GetMetadataByMd5(md5))?.EngShortQuestion);
 
@@ -154,7 +154,7 @@ public class RemoteContentProvider : IContentProvider
     {
         var response = await _client.GetAsync($"/previews/{md5}");
         var responseContent = await response.Content.ReadAsStringAsync();
-        return (JsonConvert.DeserializeObject<FileMetadata[]>(responseContent) ?? throw new InvalidOperationException()).First();
+        return JsonConvert.DeserializeObject<FileMetadata[]>(responseContent)?.FirstOrDefault();
     }
 
     public async Task<byte[]> GetReal(string md5)
