@@ -16,6 +16,13 @@ namespace shared_csharp_tests
             Assert.DoesNotMatch(CalculationExtensions.Md5PrefixRegex, "g41d8cd98f00b204e9800998ecf8427e"); // non-hex
             Assert.DoesNotMatch(CalculationExtensions.Md5PrefixRegex, "d41d8cd98f00b204e9800998ecf8427ex"); // extra char
         }
-          
+
+        [Fact]
+        public void AsMd5_Should_Produce_Correct_Md5_Hash()
+        {
+            Assert.Equal("d41d8cd98f00b204e9800998ecf8427e", "".AsMd5()); 
+            Assert.Equal("5d41402abc4b2a76b9719d911017c592", "hello".AsMd5());
+            Assert.Equal(string.Empty, ((string)null!).AsMd5());
+        }
     }
 }

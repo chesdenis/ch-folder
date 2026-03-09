@@ -199,3 +199,15 @@ CREATE TABLE IF NOT EXISTS files (
 CREATE INDEX IF NOT EXISTS ix_files_partition ON files ("partition");
 CREATE INDEX IF NOT EXISTS ix_files_section ON files ("section");
 CREATE INDEX IF NOT EXISTS ix_files_extension ON files (extension);
+
+-- =============================================================
+-- Registered objects table (used by RegisteredObjectUploader)
+-- Stores md5 hash and object_type
+-- =============================================================
+
+CREATE TABLE IF NOT EXISTS registered_objects (
+    md5_hash text PRIMARY KEY,
+    object_type text NOT NULL -- 'primary', 'preview', 'emb_answer', etc.
+);
+
+CREATE INDEX IF NOT EXISTS ix_registered_objects_type ON registered_objects (object_type);

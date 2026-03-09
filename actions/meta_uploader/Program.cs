@@ -10,14 +10,19 @@ services.AddSingleton<IContentProvider, RemoteContentProvider>(
         Environment.GetEnvironmentVariable("RCP_ENDPOINT")) );
 services.AddSingleton<ImageMetaUploader>();
 services.AddSingleton<FileMetaUploader>();
+services.AddSingleton<RegisteredObjectUploader>();
 services.AddSingleton<ImageEmbeddingUploader>();
 services.AddHttpClient();
 
 var provider = services.BuildServiceProvider();
 
+Console.WriteLine("Got these args: " + string.Join(",",args));
+
 await provider.GetRequiredService<ImageMetaUploader>().RunAsync(args);
 Console.WriteLine("Done image meta uploader");
 await provider.GetRequiredService<FileMetaUploader>().RunAsync(args);
 Console.WriteLine("Done file meta uploader");
+await provider.GetRequiredService<RegisteredObjectUploader>().RunAsync(args);
+Console.WriteLine("Done registered object uploader");
 await provider.GetRequiredService<ImageEmbeddingUploader>().RunAsync(args);
 Console.WriteLine("Done embedding uploader");
