@@ -72,6 +72,95 @@ public class RegisteredObjectUploader
 
         AddCollector(async md5 =>
         {
+            var result = await _contentProvider.GetEng30TagsAnswer(md5);
+            return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "eng_30_tags_answer") };
+        });
+
+        // Questions
+        AddCollector(async md5 =>
+        {
+            var result = await _contentProvider.GetDqQuestion(md5);
+            return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "dq_question") };
+        });
+
+        AddCollector(async md5 =>
+        {
+            var result = await _contentProvider.GetCommerceMarkQuestion(md5);
+            return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "commerce_mark_question") };
+        });
+
+        AddCollector(async md5 =>
+        {
+            var result = await _contentProvider.GetEng30TagsQuestion(md5);
+            return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "eng_30_tags_question") };
+        });
+
+        AddCollector(async md5 =>
+        {
+            var result = await _contentProvider.GetEngShortQuestion(md5);
+            return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "eng_short_question") };
+        });
+
+        // Conversations
+        AddCollector(async md5 =>
+        {
+            var result = await _contentProvider.GetEmbConversation(md5);
+            return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "emb_conversation") };
+        });
+
+        AddCollector(async md5 =>
+        {
+            var result = await _contentProvider.GetDqConversation(md5);
+            return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "dq_conversation") };
+        });
+
+        AddCollector(async md5 =>
+        {
+            var result = await _contentProvider.GetCommerceMarkConversation(md5);
+            return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "commerce_mark_conversation") };
+        });
+
+        AddCollector(async md5 =>
+        {
+            var result = await _contentProvider.GetEng30TagsConversation(md5);
+            return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "eng_30_tags_conversation") };
+        });
+
+        AddCollector(async md5 =>
+        {
+            var result = await _contentProvider.GetEngShortConversation(md5);
+            return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "eng_short_conversation") };
+        });
+
+        // Other metadata
+        AddCollector(async md5 =>
+        {
+            var result = await _contentProvider.GetDescription(md5);
+            return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "description") };
+        });
+
+        AddCollector(async md5 =>
+        {
+            var tags = await _contentProvider.GetTags(md5);
+            if (tags == null || tags.Length == 0) return Array.Empty<ObjectRecord>();
+            var result = string.Join(", ", tags);
+            return new[] { new ObjectRecord(result.AsMd5(), "tags") };
+        });
+
+        AddCollector(async md5 =>
+        {
+            var result = await _contentProvider.GetAverageHash(md5);
+            return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "average_hash") };
+        });
+
+        AddCollector(async md5 =>
+        {
+            var result = await _contentProvider.GetColorHash(md5);
+            return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "color_hash") };
+        });
+
+        AddCollector(async md5 =>
+        {
             var tags = await _contentProvider.GetEng30Tags(md5);
             if (tags == null || tags.Length == 0) return Array.Empty<ObjectRecord>();
             var result = string.Join(", ", tags);
