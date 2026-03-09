@@ -2,6 +2,7 @@ using Npgsql;
 using NpgsqlTypes;
 using shared_csharp.Abstractions;
 using shared_csharp.Extensions;
+using System.Runtime.CompilerServices;
 
 namespace meta_uploader;
 
@@ -12,7 +13,7 @@ public class RegisteredObjectUploader
     private const int BatchSize = 200;
     private readonly List<ObjectRecord> _buffer = new();
     private readonly HashSet<string> _objectsInDb = new(StringComparer.OrdinalIgnoreCase);
-    private readonly List<Func<string, Task<IEnumerable<ObjectRecord>>>> _collectors = new();
+    private readonly List<(string Name, Func<string, Task<IEnumerable<ObjectRecord>>> Func)> _collectors = new();
 
     public RegisteredObjectUploader(IContentProvider contentProvider)
     {
@@ -36,108 +37,108 @@ public class RegisteredObjectUploader
     private void InitializeCollectors()
     {
         // Primary
-        AddCollector(async md5 => new[] { new ObjectRecord(EnsureMd5(md5), "primary") });
+        AddCollector(async md5 => new[] { new ObjectRecord(EnsureMd5(md5), "primary") }, "primary");
 
         // Previews
         AddCollector(async md5 =>
         {
             var metadata = await _contentProvider.GetMetadataWithPreviews(md5);
             return metadata?.Previews?.Select(p => new ObjectRecord(EnsureMd5(p.Value), "preview")) ?? Array.Empty<ObjectRecord>();
-        });
+        }, "previews");
 
         // Answers
         AddCollector(async md5 =>
         {
             var result = await _contentProvider.GetEmbAnswer(md5);
             return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "emb_answer") };
-        });
+        }, "emb_answer");
 
         AddCollector(async md5 =>
         {
             var result = await _contentProvider.GetDqAnswer(md5);
             return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "dq_answer") };
-        });
+        }, "dq_answer");
 
         AddCollector(async md5 =>
         {
             var result = await _contentProvider.GetCommerceMarkAnswer(md5);
             return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "commerce_mark_answer") };
-        });
+        }, "commerce_mark_answer");
 
         AddCollector(async md5 =>
         {
             var result = await _contentProvider.GetEngShortAnswer(md5);
             return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "eng_short_answer") };
-        });
+        }, "eng_short_answer");
 
         AddCollector(async md5 =>
         {
             var result = await _contentProvider.GetEng30TagsAnswer(md5);
             return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "eng_30_tags_answer") };
-        });
+        }, "eng_30_tags_answer");
 
         // Questions
         AddCollector(async md5 =>
         {
             var result = await _contentProvider.GetDqQuestion(md5);
             return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "dq_question") };
-        });
+        }, "dq_question");
 
         AddCollector(async md5 =>
         {
             var result = await _contentProvider.GetCommerceMarkQuestion(md5);
             return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "commerce_mark_question") };
-        });
+        }, "commerce_mark_question");
 
         AddCollector(async md5 =>
         {
             var result = await _contentProvider.GetEng30TagsQuestion(md5);
             return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "eng_30_tags_question") };
-        });
+        }, "eng_30_tags_question");
 
         AddCollector(async md5 =>
         {
             var result = await _contentProvider.GetEngShortQuestion(md5);
             return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "eng_short_question") };
-        });
+        }, "eng_short_question");
 
         // Conversations
         AddCollector(async md5 =>
         {
             var result = await _contentProvider.GetEmbConversation(md5);
             return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "emb_conversation") };
-        });
+        }, "emb_conversation");
 
         AddCollector(async md5 =>
         {
             var result = await _contentProvider.GetDqConversation(md5);
             return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "dq_conversation") };
-        });
+        }, "dq_conversation");
 
         AddCollector(async md5 =>
         {
             var result = await _contentProvider.GetCommerceMarkConversation(md5);
             return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "commerce_mark_conversation") };
-        });
+        }, "commerce_mark_conversation");
 
         AddCollector(async md5 =>
         {
             var result = await _contentProvider.GetEng30TagsConversation(md5);
             return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "eng_30_tags_conversation") };
-        });
+        }, "eng_30_tags_conversation");
 
         AddCollector(async md5 =>
         {
             var result = await _contentProvider.GetEngShortConversation(md5);
             return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "eng_short_conversation") };
-        });
+        }, "eng_short_conversation");
 
         // Other metadata
         AddCollector(async md5 =>
         {
             var result = await _contentProvider.GetDescription(md5);
             return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "description") };
-        });
+        }, "description");
 
         AddCollector(async md5 =>
         {
@@ -145,19 +146,19 @@ public class RegisteredObjectUploader
             if (tags == null || tags.Length == 0) return Array.Empty<ObjectRecord>();
             var result = string.Join(", ", tags);
             return new[] { new ObjectRecord(result.AsMd5(), "tags") };
-        });
+        }, "tags");
 
         AddCollector(async md5 =>
         {
             var result = await _contentProvider.GetAverageHash(md5);
             return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "average_hash") };
-        });
+        }, "average_hash");
 
         AddCollector(async md5 =>
         {
             var result = await _contentProvider.GetColorHash(md5);
             return string.IsNullOrEmpty(result) ? Array.Empty<ObjectRecord>() : new[] { new ObjectRecord(result.AsMd5(), "color_hash") };
-        });
+        }, "color_hash");
 
         AddCollector(async md5 =>
         {
@@ -165,7 +166,7 @@ public class RegisteredObjectUploader
             if (tags == null || tags.Length == 0) return Array.Empty<ObjectRecord>();
             var result = string.Join(", ", tags);
             return new[] { new ObjectRecord(result.AsMd5(), "eng_30_tags") };
-        });
+        }, "eng_30_tags");
 
         AddCollector(async md5 =>
         {
@@ -173,12 +174,12 @@ public class RegisteredObjectUploader
             if (commerceJson == null) return Array.Empty<ObjectRecord>();
             var result = Newtonsoft.Json.JsonConvert.SerializeObject(commerceJson);
             return new[] { new ObjectRecord(result.AsMd5(), "commerce_mark_answer_json") };
-        });
+        }, "commerce_mark_answer_json");
     }
 
-    public void AddCollector(Func<string, Task<IEnumerable<ObjectRecord>>> collector)
+    public void AddCollector(Func<string, Task<IEnumerable<ObjectRecord>>> collector, [CallerArgumentExpression("collector")] string name = "")
     {
-        _collectors.Add(collector);
+        _collectors.Add((name, collector));
     }
 
     public async Task RunAsync(string[] args)
@@ -228,15 +229,15 @@ public class RegisteredObjectUploader
     public async Task<List<ObjectRecord>> CollectRecords(string md5)
     {
         var results = new List<ObjectRecord>();
-        foreach (var collector in _collectors)
+        foreach (var (name, func) in _collectors)
         {
             try
             {
-                results.AddRange(await collector(md5));
+                results.AddRange(await func(md5));
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Collector error for {md5}: {ex.Message}");
+                Console.WriteLine($"Collector error for {md5} (Name: {name}): {ex.Message}");
             }
         }
         return results;
