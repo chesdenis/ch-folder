@@ -20,6 +20,8 @@ public class RemoteContentProvider : IContentProvider
         _client.Timeout = TimeSpan.FromMinutes(5);
     }
 
+    public async Task<string> GetEngShortConversation(string md5) =>  Decode((await GetMetadataByMd5(md5))?.EngShortConversation);
+
     public async Task<string[]> GetFilePointers(uint partition)
     {
         var fields = new HashSet<string>
@@ -61,16 +63,29 @@ public class RemoteContentProvider : IContentProvider
 
             var fields = new HashSet<string>
             {
-                "md5",
-                "group",
-                "embAnswer",
-                "dqAnswer",
-                "commerceMarkAnswer",
-                "eng30TagsAnswer",
-                "engShortAnswer",
-                "ext",
                 "partition",
-                "section"
+                "section",
+                "group",
+                "averageHash",
+                "colorHash",
+                "description",
+                "tags",
+                "embAnswer",
+                "embConversation",
+                "dqQuestion",
+                "dqAnswer",
+                "dqConversation",
+                "commerceMarkQuestion",
+                "commerceMarkAnswer",
+                "commerceMarkConversation",
+                "eng30TagsQuestion",
+                "eng30TagsAnswer",
+                "eng30TagsConversation",
+                "engShortQuestion",
+                "engShortAnswer",
+                "engShortConversation",
+                "ext",
+                "md5"
             };
 
             var response = await _client.GetAsync($"/meta/{md5}?{string.Join("&", fields.Select(s => $"fields={s}"))}");
@@ -84,9 +99,33 @@ public class RemoteContentProvider : IContentProvider
     }
 
     public async Task<string> GetGroup(string md5) => (await GetMetadataByMd5(md5))?.Group;
+    public async Task<string> GetAverageHash(string md5) => (await GetMetadataByMd5(md5))?.AverageHash;
+
+    public async Task<string> GetColorHash(string md5) => (await GetMetadataByMd5(md5))?.Description;
+
+    public async Task<string> GetDescription(string md5) => Decode((await GetMetadataByMd5(md5))?.Description);
+
+    public async Task<string[]> GetTags(string md5) => (await GetMetadataByMd5(md5))?.Tags.ToArray();
+
     public async Task<string> GetEmbAnswer(string md5) => Decode((await GetMetadataByMd5(md5))?.EmbAnswer);
+    public async Task<string> GetEmbConversation(string md5) => Decode((await GetMetadataByMd5(md5))?.EmbConversation);
+
     public async Task<string> GetDqAnswer(string md5) => Decode((await GetMetadataByMd5(md5))?.DqAnswer);
+    public async Task<string> GetDqQuestion(string md5) => Decode((await GetMetadataByMd5(md5))?.DqQuestion);
+    public async Task<string> GetDqConversation(string md5) => Decode((await GetMetadataByMd5(md5))?.DqConversation);
+    public async Task<string> GetCommerceMarkQuestion(string md5) => Decode((await GetMetadataByMd5(md5))?.CommerceMarkQuestion);
+
     public async Task<string> GetCommerceMarkAnswer(string md5) => Decode((await GetMetadataByMd5(md5))?.CommerceMarkAnswer);
+    public async Task<string> GetCommerceMarkConversation(string md5) => Decode((await GetMetadataByMd5(md5))?.CommerceMarkConversation);
+
+    public async Task<string> GetEng30TagsQuestion(string md5) => Decode((await GetMetadataByMd5(md5))?.Eng30TagsQuestion);
+
+    public async Task<string> GetEng30TagsAnswer(string md5) => Decode((await GetMetadataByMd5(md5))?.Eng30TagsAnswer);
+
+    public async Task<string> GetEng30TagsConversation(string md5) => Decode((await GetMetadataByMd5(md5))?.EngShortConversation);
+
+    public async Task<string> GetEngShortQuestion(string md5) => Decode((await GetMetadataByMd5(md5))?.EngShortQuestion);
+
     public async Task<string> GetEngShortAnswer(string md5) => Decode((await GetMetadataByMd5(md5))?.EngShortAnswer);
 
     public async Task<string[]> GetEng30Tags(string md5)
