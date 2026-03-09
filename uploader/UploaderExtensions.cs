@@ -182,4 +182,11 @@ public static class UploaderExtensions
         string cd = md5.Substring(2, 2);
         return Path.Combine(targetPath, ab, cd);
     }
+
+    public static string GetTargetPartitionDirDup(this string targetPath, string md5)
+    {
+        string ab = md5.Substring(0, 2);
+        string cd = md5.Substring(2, 2);
+        return Path.Combine(targetPath, "_dupes", ab, cd);   
+    }
 }

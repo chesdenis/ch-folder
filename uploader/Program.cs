@@ -64,7 +64,7 @@ class Program
                 }
                 if (existsRemote.Value)
                 {
-                    var dupesDir = Path.Combine(targetPath, "_dupes");
+                    var dupesDir = targetPath.GetTargetPartitionDirDup(md5);
                     Directory.CreateDirectory(dupesDir);
 
                     var dest = Path.Combine(dupesDir, md5);
@@ -74,16 +74,18 @@ class Program
                     {
                         Console.WriteLine($"Moving {filePath} -> {filePath + ".processed"}");
                         File.Move(filePath, filePath + ".processed");
-                        return;
+                        continue;
                     }
                     Console.WriteLine($"Moving {filePath} -> {dest}");
                     File.Move(filePath, dest);
+                    continue;
                 }
                 
                 // d. Collect Metadata
                 var metadata = await UploaderExtensions.CollectMetadataAsync(filePath, sourcePath);
                 metadata["md5"] = md5;
                 metadata["ext"] = Path.GetExtension(filePath);
+                metadata["original_name"] = Path.GetFileNameWithoutExtension(filePath);
 
                 // e. Prepare Target Path (/ab/cd/md5)
                 string targetDir = targetPath.GetTargetPartitionDir(md5);
@@ -98,6 +100,21 @@ class Program
 
                 // g. Rename file atomically
                 Console.WriteLine($"Moving {filePath} -> {targetFilePath}");
+                if (File.Exists(targetFilePath))
+                {
+                    var existedMd5 = await targetFilePath.CalculateMd5Async(force:true);
+                    var candidateMd5 = await filePath.CalculateMd5Async(force:true);
+
+                    if (!existedMd5.Equals(candidateMd5, StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new Exception($"File already exists with different MD5: {filePath} -> {targetFilePath}");
+                    }
+
+                    // dont need to move - just delete
+                    File.Delete(filePath);
+                    continue;
+                }
+
                 File.Move(filePath, targetFilePath);
 
                 // h. Write Metadata
